@@ -3,28 +3,31 @@ package com.example.simplechat.service;
 import org.springframework.stereotype.Service; 
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import java.util.Scanner;
 import jakarta.annotation.PreDestroy;
 
 import com.example.simplechat.model.ChatMessage;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor // final 필드에 대한 생성자를 자동 생성
 @EnableScheduling
 public class SimplechatService {
-	private List<ChatMessage> chats;
-	private String text;
-	private int flag;
-	private Scanner sc;
+	// 필드 선언 및 선언 시 초기화 (final이 아닌 필드도 가능)
+    private final List<ChatMessage> chats = new ArrayList<>(); // final로 선언하고 바로 초기화
+    private String text = "initialized";
+    private int flag = 1;
+    private int sended = -1;
+    private final Scanner sc = new Scanner(System.in); // final로 선언하고 바로 초기화
 	
-	public SimplechatService() {
-		chats = new ArrayList<>();
-		text = "initialized";
-		flag = 1;
-		sc = new Scanner(System.in);
-	}
+	// SimpMessagingTemplate 주입 (웹소켓 메시지를 발행하는 데 사용)
+    private final SimpMessagingTemplate messagingTemplate;
 	
 	@Scheduled(fixedRate = 1000)
 	public void serverChat() {
@@ -32,23 +35,61 @@ public class SimplechatService {
 		flag = 0;
 		
 		text = sc.nextLine();
-		ChatMessage msg = new ChatMessage();
-		msg.setId("server");
-		msg.setChat(text);
-		chats.add(msg);
 		
-		flag = 1;
+		Mono.just(text).map(input -> {
+			ChatMessage msg = new ChatMessage();
+            msg.setId("server");
+            msg.setChat(input);
+            synchronized (chats) { // 리스트 동기화
+                msg.setMessageNum(chats.size());
+                chats.add(msg);
+            }
+            return msg;
+		}).subscribe(
+            chatMessage -> { // 메시지가 준비되면 웹소켓으로 전송
+                messagingTemplate.convertAndSend("/topic/public", chatMessage);
+                System.out.println("서버 메시지 전송 완료: " + chatMessage.getChat());
+            },
+            error -> { // 오류 처리
+                System.err.println("메시지 전송 중 오류 발생: " + error.getMessage());
+                error.printStackTrace();
+            },
+            () -> { // 스트림 완료 (여기서는 한 번의 입력 후 완료)
+                flag = 1; // 입력 대기 플래그 다시 설정
+            }
+        );
 	}
 	
 	public String getText() { return this.text;	}
 	public void setText(String str) { this.text = str; }
-	public void addChat(String id, String str) {
-		ChatMessage msg = new ChatMessage();
-		msg.setId(id);
-		msg.setChat(str);
-		chats.add(msg);
+	public Mono<Void> addChat(Mono<ChatMessage> msgmono) {
+		return msgmono.map(msg -> {
+			ChatMessage temp = new ChatMessage();
+			temp.setId(msg.getId());
+			temp.setChat(msg.getChat());
+			temp.setMessageNum(msg.getMessageNum());
+			chats.add(temp);
+			return msg;
+		}).doOnSuccess(savedMessage -> {
+            // 메시지가 성공적으로 저장된 후, 웹소켓 토픽으로 발행
+            System.out.println("서비스: 메시지 저장 성공, 웹소켓 발행 시작: " + savedMessage);
+            messagingTemplate.convertAndSend("/topic/public", savedMessage); // 핵심 라인!
+        }).then();
 	}
-	public List<ChatMessage> getChat(){ return this.chats; }
+	public Flux<ChatMessage> getChat(){ 
+		List<ChatMessage> sending = null;
+		if( sended == -1 ) {
+			sending = chats;
+		} else {	// from sended to chats.size()
+			sending = chats.subList(sended, chats.size());
+		}
+		sended = chats.size();
+		return Flux.fromIterable(sending);
+	}
+	public Flux<ChatMessage> getAllChat(){
+		return Flux.fromIterable(chats);
+	}
+	public int getChatSize() { return chats.size(); }
 	
 	@PreDestroy
 	public void closeScanner() { sc.close(); }

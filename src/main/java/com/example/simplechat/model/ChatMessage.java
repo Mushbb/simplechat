@@ -9,5 +9,4 @@ public class ChatMessage {
 	private String id;
 	private String chat;
 	private int messageNum;
-	
 }

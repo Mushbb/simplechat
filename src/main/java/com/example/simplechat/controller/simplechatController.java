@@ -10,12 +10,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.util.List;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class simplechatController {
 	// 1. 서비스 객체를 참조할 필드 선언 (불변성을 위해 final로 선언)
 	private final SimplechatService serv;
@@ -26,15 +26,30 @@ public class simplechatController {
 		this.serv = serv;
 	}
 	
-	@GetMapping("/**")
-	public List<ChatMessage> catchAllGetRequests(HttpServletRequest request) {
+	@GetMapping("/")
+	public Flux<ChatMessage> catchGetRequests(HttpServletRequest request) {
         //String requestURI = request.getRequestURI();
         
         return serv.getChat();
     }
+	@GetMapping("/init")
+	public Flux<ChatMessage> catchAllGetRequests(HttpServletRequest request) {
+        //String requestURI = request.getRequestURI();
+        
+        return serv.getAllChat();
+    }
 	
 	@PostMapping("/")
-	public void recvMessage(@RequestParam("message") String request) {
-		serv.addChat("client", request);
+	public Mono<Void> recvMessage(@RequestParam("message") String request) {
+		ChatMessage temp = new ChatMessage();
+		temp.setId("client");
+		temp.setChat(request);
+		temp.setMessageNum(serv.getChatSize());
+		
+		Mono<ChatMessage> msgmono = Mono.just(temp);
+		
+		return serv.addChat(msgmono).then();
 	}
+	
+	
 }
