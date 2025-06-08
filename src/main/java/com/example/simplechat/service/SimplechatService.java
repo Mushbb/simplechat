@@ -25,6 +25,7 @@ public class SimplechatService {
     private int flag = 1;
     private int sended = -1;
     private final Scanner sc = new Scanner(System.in); // final로 선언하고 바로 초기화
+    private int MAX_ALLCHAT = 200;
 	
 	// SimpMessagingTemplate 주입 (웹소켓 메시지를 발행하는 데 사용)
     private final SimpMessagingTemplate messagingTemplate;
@@ -87,7 +88,8 @@ public class SimplechatService {
 		return Flux.fromIterable(sending);
 	}
 	public Flux<ChatMessage> getAllChat(){
-		return Flux.fromIterable(chats);
+		int size = chats.size();
+		return Flux.fromIterable(chats.subList(size>=MAX_ALLCHAT?size-MAX_ALLCHAT:0, size));
 	}
 	public int getChatSize() { return chats.size(); }
 	
