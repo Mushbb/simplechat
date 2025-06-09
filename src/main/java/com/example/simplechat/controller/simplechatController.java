@@ -25,31 +25,35 @@ public class simplechatController {
 	public simplechatController(SimplechatService serv) {
 		this.serv = serv;
 	}
-	
-	@GetMapping("/")
+	/*
+	@GetMapping("/")	// 한번도 호출되고있지 않은거?
 	public Flux<ChatMessage> catchGetRequests(HttpServletRequest request) {
         //String requestURI = request.getRequestURI();
-        
+        System.out.println("호출되고 있다구!");
         return serv.getChat();
-    }
-	@GetMapping("/init")
+    }*/
+	
+	@PostMapping("/init")		
 	public Flux<ChatMessage> catchAllGetRequests(HttpServletRequest request) {
         //String requestURI = request.getRequestURI();
         
         return serv.getAllChat();
     }
 	
-	@PostMapping("/")
-	public Mono<Void> recvMessage(@RequestParam("message") String request) {
+	@PostMapping("/chat")
+	public Mono<Void> recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId) {
 		ChatMessage temp = new ChatMessage();
-		temp.setId("client");
+		temp.setId(newId);
 		temp.setChat(request);
 		temp.setMessageNum(serv.getChatSize());
 		
 		Mono<ChatMessage> msgmono = Mono.just(temp);
-		
 		return serv.addChat(msgmono).then();
 	}
 	
-	
+	@PostMapping("/chat/nick")
+	public Mono<Void> recvNick(@RequestParam("nick") String newId, @RequestParam("oldnick") String oldId) {
+		Mono<String> flagmono = Mono.just(newId);
+		return serv.checkNick(flagmono, oldId).then();
+	}
 }
