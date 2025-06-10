@@ -52,8 +52,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.js"></script>
 <script>
+  let server = "10.50.131.25:8080";
+
   // 기존 스크립트 시작 부분에 변수 선언 추가
-  var stompClient = null;
+  let stompClient = null;
   let username = ""; // 사용자 이름을 고정하거나 입력받도록 조정
 
   // ... 기존 p, chatLogElement, box, button 변수들 ...
@@ -71,7 +73,7 @@
     // username = document.getElementById('usernameInput').value.trim(); // 사용자 입력 시 활성화
 
     console.log("WebSocket 연결 시도...");
-    var socket = new SockJS('http://localhost:8080/ws');
+    var socket = new SockJS('http://'+server+'/ws');
     stompClient = Stomp.over(socket);
 
     // STOMP 클라이언트 연결
@@ -93,7 +95,7 @@
     // stompClient.send("/app/chat.addUser", {}, JSON.stringify({ sender: username }));
 
     // 초기 채팅 내역은 기존 getChat() 함수 (fetch)를 통해 가져옵니다.
-    getChat("http://localhost:8080/init");
+    getChat("http://"+server+"/init");
   }
 
   // STOMP 연결 실패 시 호출되는 콜백 함수
@@ -156,7 +158,7 @@
   //           })
   //           .catch(error => console.error('Error fetching initial chat history:', error));
   // }
-  function getChat(url = "http://localhost:8080/init") {
+  function getChat(url = "http://"+server+"/init") {
     // POST 요청에 보낼 데이터를 객체로 정의합니다.
     // 이 예시에서는 빈 객체를 보냅니다.
     // 실제 서버 로직에 따라 필요한 데이터를 추가할 수 있습니다.
@@ -197,7 +199,7 @@
 
   // --- 기존 send 함수는 그대로 유지 (HTTP POST로 메시지 전송) ---
   function send(){
-    const response = fetch('http://localhost:8080/chat', {    // chat = 방 이름
+    const response = fetch('http://'+server+'/chat', {    // chat = 방 이름
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -212,7 +214,7 @@
   }
 
   function nick(){
-    const response = fetch('http://localhost:8080/chat/nick', {    // chat = 방 이름
+    const response = fetch('http://'+server+'/chat/nick', {    // chat = 방 이름
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'

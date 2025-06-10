@@ -1,7 +1,7 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
-import com.example.simplechat.model.ChatMessage;
+import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거해주기
 
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import java.util.List;
 
 //import org.springframework.web.bind.annotation.CrossOrigin;
 
@@ -34,7 +35,7 @@ public class simplechatController {
     }*/
 	
 	@PostMapping("/init")		
-	public Flux<ChatMessage> catchAllGetRequests(HttpServletRequest request) {
+	public Mono<List<ChatMessage>> catchAllGetRequests(HttpServletRequest request) {
         //String requestURI = request.getRequestURI();
         
         return serv.getAllChat();
@@ -42,13 +43,7 @@ public class simplechatController {
 	
 	@PostMapping("/chat")
 	public Mono<Void> recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId) {
-		ChatMessage temp = new ChatMessage();
-		temp.setId(newId);
-		temp.setChat(request);
-		temp.setMessageNum(serv.getChatSize());
-		
-		Mono<ChatMessage> msgmono = Mono.just(temp);
-		return serv.addChat(msgmono).then();
+		return serv.addChat(newId, request).then();
 	}
 	
 	@PostMapping("/chat/nick")

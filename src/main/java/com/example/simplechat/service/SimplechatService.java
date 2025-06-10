@@ -14,6 +14,7 @@ import jakarta.annotation.PreDestroy;
 
 import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.model.UserInfo;
+import com.example.simplechat.model.ChatRoom;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -23,6 +24,8 @@ public class SimplechatService {
 	// 필드 선언 및 선언 시 초기화 (final이 아닌 필드도 가능)
     private final List<ChatMessage> chats = new ArrayList<>(); // final로 선언하고 바로 초기화
     private final List<UserInfo> users = new ArrayList<>();
+    
+    private final List<ChatRoom> rooms = new ArrayList<>();
     private String text = "initialized";
     private int flag = 1;
     private int pops = 0;		// 방에 몇명인지 (나중에 chatroom class)
@@ -34,6 +37,10 @@ public class SimplechatService {
 	
 	@Scheduled(fixedRate = 1000)
 	public void serverChat() {
+		// temporary
+		if( rooms.size() == 0 )
+			rooms.add(new ChatRoom("chat"));
+		
 		if( flag == 0 ) return;	// already scanning
 		flag = 0;
 		
@@ -65,12 +72,15 @@ public class SimplechatService {
 	
 	public String getText() { return this.text;	}
 	public void setText(String str) { this.text = str; }
-	public Mono<Void> addChat(Mono<ChatMessage> msgmono) {
+	public Mono<Void> addChat(String idstr, String msgstr) {
+		ChatMessage temp = new ChatMessage();
+		temp.setId(idstr);
+		temp.setChat(msgstr);
+		temp.setMessageNum(chats.size());
+		
+		Mono<ChatMessage> msgmono = Mono.just(temp);
+		
 		return msgmono.map(msg -> {
-			ChatMessage temp = new ChatMessage();
-			temp.setId(msg.getId());
-			temp.setChat(msg.getChat());
-			temp.setMessageNum(msg.getMessageNum());
 			chats.add(temp);
 			return msg;
 		}).doOnSuccess(savedMessage -> {
@@ -90,12 +100,12 @@ public class SimplechatService {
 		sended = chats.size();
 		return Flux.fromIterable(sending);
 	}*/
-	public Flux<ChatMessage> getAllChat(){
-		List<ChatMessage> temp = new ArrayList<>(chats);
+	public Mono<List<ChatMessage>> getAllChat(){
+		List<ChatMessage> temp = new ArrayList<>(rooms.get(0).getChats());
 		users.add(new UserInfo("익명"+(users.size()+1)));
 		temp.add(new ChatMessage("Anonymous",users.getLast().getUsername(),-1));
-		int size = chats.size()+1;	// with invisible variable
-		return Flux.fromIterable(temp.subList(size>=MAX_ALLCHAT?size-MAX_ALLCHAT:0, size));
+		
+		return Mono.just(temp);
 	}
 	public int getChatSize() { return chats.size(); }
 	
