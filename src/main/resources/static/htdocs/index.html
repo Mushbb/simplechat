@@ -6,15 +6,15 @@
 </head>
 <style>
   #chat-con{
+    border: 1px solid #ccc;
     width: 520px;
     height: 500px;
     overflow: hidden;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
   }
   #chat-log{
-    border: 1px solid #ccc;
-    padding: 10px;
+    padding: 10px 10px 0 10px;
     list-style: none;
     overflow-y: auto;
     scroll-behavior: smooth;
@@ -57,6 +57,7 @@
   // 기존 스크립트 시작 부분에 변수 선언 추가
   let stompClient = null;
   let username = ""; // 사용자 이름을 고정하거나 입력받도록 조정
+  let id = "";  // 내부적으로, 통신할때만 사용
 
   // ... 기존 p, chatLogElement, box, button 변수들 ...
   const messageInput = document.getElementById('box'); // 기존 id "box" 사용
@@ -87,8 +88,7 @@
     document.getElementById("output").textContent = "서버 응답: WebSocket 연결됨"; // 상태 표시 업데이트
 
     // 1. 공용 채팅 토픽 구독: 서버가 /topic/public으로 보내는 모든 새 메시지를 수신
-    stompClient.subscribe('/topic/public', onMessageReceived);
-    stompClient.subscribe('/topic/nick/', onNickChanged);
+    stompClient.subscribe('/topic/chat/public', onMessageReceived);
 
     // (선택 사항) 서버에 사용자 등록 메시지 전송 (세션에 사용자 이름 저장용)
     // 백엔드 ChatStompController의 @MessageMapping("/chat.addUser")를 사용한다면
@@ -185,9 +185,10 @@
         // 예를 들어, const chatLogElement = document.getElementById('chat-log');
         chatLogElement.innerHTML = ''; // 기존 메시지들 비우고 다시 로드
         data.forEach(message => {
-          if( message.id === "Anonymous" ) {
+          if( message.messageNum === -1 ) {
             nameboxInput.value = message.chat;
             username = message.chat;
+            id = message.id;
           }
           else
             displayMessage(message); // 받은 메시지를 화면에 표시 (displayMessage 함수는 별도로 정의되어 있어야 함)
@@ -205,7 +206,7 @@
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        id: nameboxInput.value,
+        id: id,
         message: document.getElementById('box').value // "message"는 서버 컨트롤러의 @RequestParam 이름과 일치
       })
     });
@@ -220,7 +221,7 @@
         'Content-Type': 'application/x-www-form-urlencoded'
       },
       body: new URLSearchParams({
-        oldnick: username,
+        id: id,
         nick: nameboxInput.value // "nick"는 서버 컨트롤러의 @RequestParam 이름과 일치
       })
     });

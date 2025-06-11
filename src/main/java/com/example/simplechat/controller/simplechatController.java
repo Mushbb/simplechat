@@ -4,13 +4,11 @@ import com.example.simplechat.service.SimplechatService;
 import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거해주기
 
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 //import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import jakarta.servlet.http.HttpServletRequest;
 
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.util.List;
 
@@ -47,8 +45,7 @@ public class simplechatController {
 	}
 	
 	@PostMapping("/chat/nick")
-	public Mono<Void> recvNick(@RequestParam("nick") String newId, @RequestParam("oldnick") String oldId) {
-		Mono<String> flagmono = Mono.just(newId);
-		return serv.checkNick(flagmono, oldId).then();
+	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id) {
+		serv.checkNick(newNick, Id);
 	}
 }

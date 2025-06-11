@@ -7,19 +7,32 @@ import java.util.HashMap;
 
 import lombok.Getter;
 import lombok.Setter;
-import reactor.core.publisher.Mono;
 
 @Setter
 @Getter
 public class ChatRoom {
 	private String name;
 	private String id;	// for controller
-	private int pops;	// population
 	
-    private final List<ChatMessage> chats = new ArrayList<>(); // final로 선언하고 바로 초기화
+    private final List<ChatMessage> chats = new ArrayList<>();
     private final Map<Integer, UserInfo> users = new HashMap<>();
     
     public ChatRoom(String newName) { name = newName; }
     
+    public void addChat(ChatMessage chat) { chats.add(chat); }
+    public void addChat(String id, String str) { chats.add(new ChatMessage(id, str)); }
+    public void addChat(Integer id, String str) { chats.add(new ChatMessage(id, str)); }
     
+    public int addUser(UserInfo user) { 
+    	users.put(user.getId(), user);
+    	return users.size(); 
+	}
+    public int getPopsCount() { return users.size(); }
+    public ChatMessage getLastChat() { return chats.getLast(); }
+    public UserInfo getPop(Integer key) { return users.get(key); }
+    public UserInfo getPop(String key) { return users.get(Integer.parseInt(key)); }
+    
+    public void ChangeNick(String id, String nick) { 
+    	users.get(Integer.parseInt(id)).setUsername(nick);
+    }
 }
