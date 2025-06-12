@@ -15,12 +15,13 @@
   }
   #chat-log{
     padding: 10px 10px 0 10px;
+    margin-bottom: 5px;
     list-style: none;
     overflow-y: auto;
     scroll-behavior: smooth;
   }
   li {
-    margin-bottom: 8px;
+    margin-bottom: 2px;
     padding: 5px;
     border: 1px solid #eee;
   }
@@ -108,6 +109,7 @@
   function onMessageReceived(payload) {
     const message = JSON.parse(payload.body);
     console.log("웹소켓으로 새 메시지 수신:", message);
+
     displayMessage(message); // 받은 메시지를 화면에 표시
   }
 
