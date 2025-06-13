@@ -59,6 +59,7 @@
   let stompClient = null;
   let username = ""; // 사용자 이름을 고정하거나 입력받도록 조정
   let id = "";  // 내부적으로, 통신할때만 사용
+  let roomname = "chat";    // 기본값
 
   // ... 기존 p, chatLogElement, box, button 변수들 ...
   const messageInput = document.getElementById('box'); // 기존 id "box" 사용
@@ -89,7 +90,7 @@
     document.getElementById("output").textContent = "서버 응답: WebSocket 연결됨"; // 상태 표시 업데이트
 
     // 1. 공용 채팅 토픽 구독: 서버가 /topic/public으로 보내는 모든 새 메시지를 수신
-    stompClient.subscribe('/topic/chat/public', onMessageReceived);
+    stompClient.subscribe('/topic/'+roomname+'/public', onMessageReceived);
 
     // (선택 사항) 서버에 사용자 등록 메시지 전송 (세션에 사용자 이름 저장용)
     // 백엔드 ChatStompController의 @MessageMapping("/chat.addUser")를 사용한다면
@@ -160,7 +161,7 @@
   //           })
   //           .catch(error => console.error('Error fetching initial chat history:', error));
   // }
-  function getChat(url = "http://"+server+"/init") {
+  function getChat(url = "http://"+server+"/"+roomname) {
     // POST 요청에 보낼 데이터를 객체로 정의합니다.
     // 이 예시에서는 빈 객체를 보냅니다.
     // 실제 서버 로직에 따라 필요한 데이터를 추가할 수 있습니다.
@@ -202,7 +203,7 @@
 
   // --- 기존 send 함수는 그대로 유지 (HTTP POST로 메시지 전송) ---
   function send(){
-    const response = fetch('http://'+server+'/chat', {    // chat = 방 이름
+    const response = fetch('http://'+server+'/'+roomname, {    // chat = 방 이름
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -217,7 +218,7 @@
   }
 
   function nick(){
-    const response = fetch('http://'+server+'/chat/nick', {    // chat = 방 이름
+    const response = fetch('http://'+server+'/'+roomname+'/nick', {    // chat = 방 이름
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
