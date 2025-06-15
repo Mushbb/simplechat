@@ -51,19 +51,17 @@ public class SimplechatService {
 			} else if( text.startsWith("/users") ) {
 				System.out.println("-1: "+rooms.get(serv_room).getUsers().get(-1).getUsername()); 
 				for(int i=1;i<rooms.get(serv_room).getPopsCount();i++)
-					System.out.println(""+i+": "+rooms.get(serv_room).getUsers().get(i).getUsername()); 
+					System.out.println(""+i+": "+roomNow().getUsers().get(i).getUsername()); 
 			}
 			return;
 		}
 		
 		Mono.just(text).map(input -> {
-			rooms.get(serv_room).addChat(-1, input);
+			rooms.get(serv_room).addChat(-1, roomNow().getPop(-1).getUsername(), input);
             return rooms.get(serv_room).getChats().getLast();
 		}).subscribe(
             chatMessage -> { // 메시지가 준비되면 웹소켓으로 전송
-            	ChatMessage temp = new ChatMessage(rooms.get(serv_room).getPop(-1).getUsername(), chatMessage.getChat(), false );
-            	
-                messagingTemplate.convertAndSend("/topic/"+rooms.get(serv_room).getName()+"/public", temp);
+                messagingTemplate.convertAndSend("/topic/"+roomNow().getName()+"/public", chatMessage);
                 System.out.println("서버 메시지 전송 완료: " + chatMessage.getChat());
             },
             error -> { // 오류 처리
@@ -77,17 +75,17 @@ public class SimplechatService {
 	}
 
 	public Mono<Void> addChat(String idstr, String msgstr) {
-		Mono<ChatMessage> msgmono = Mono.just(new ChatMessage(idstr, msgstr, false));
+		Mono<ChatMessage> msgmono = Mono.just(new ChatMessage(idstr, roomNow().getPop(idstr).getUsername(), msgstr));
 		
 		return msgmono.map(msg -> {
-			rooms.get(serv_room).addChat(msg);
+			roomNow().addChat(msg);
 			return msg;
 		}).doOnSuccess(savedMessage -> {
-			ChatMessage temp = new ChatMessage(rooms.get(serv_room).getPop(Integer.parseInt(idstr)).getUsername(), msgstr, false );
+			//ChatMessage temp = new ChatMessage(roomNow().getPop(Integer.parseInt(idstr)).getUsername(), msgstr, false );
 			
             // 메시지가 성공적으로 저장된 후, 웹소켓 토픽으로 발행
-            System.out.println("서비스: 메시지 저장 성공, 웹소켓 발행 시작: " + temp);
-            messagingTemplate.convertAndSend("/topic/"+rooms.get(serv_room).getName()+"/public", temp); // 핵심 라인!
+            System.out.println("서비스: 메시지 저장 성공, 웹소켓 발행 시작: "+savedMessage.getId() +", "+savedMessage.getName()+", "+ savedMessage.getChat());
+            messagingTemplate.convertAndSend("/topic/"+roomNow().getName()+"/public", savedMessage); // 핵심 라인!
         }).then();
 	}
 	
@@ -111,17 +109,21 @@ public class SimplechatService {
 		cr.addUser(new UserInfo(name));
 		
 		List<ChatMessage> temp1 = temp.stream()
-			.map(msg -> new ChatMessage(cr.getPop( msg.getId() ).getUsername(), msg.getChat(), false))
+			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
 			.collect(Collectors.toList());
 
-		temp1.add(new ChatMessage(id, name, -1));
+		temp1.add(new ChatMessage(""+id, name, name, -1));
 		return Mono.just(temp1);
 	}
 	
 	public void checkNick(String newNick, String Id){
 		ChatRoom cr = rooms.get(serv_room);
 		cr.ChangeNick(Id, newNick);
+		System.out.println("닉네임 변경 완료:"+Id+" -> "+newNick);
 	}
+	
+	private int strtoint(String input) { return Integer.parseInt(input); }
+	private ChatRoom roomNow() { return rooms.get(serv_room); }
 
 	@PreDestroy
 	public void closeScanner() { sc.close(); }

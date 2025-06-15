@@ -20,8 +20,10 @@ public class ChatRoom {
     public ChatRoom(String newName) { name = newName; }
     
     public void addChat(ChatMessage chat) { chats.add(chat); }
-    public void addChat(String id, String str) { chats.add(new ChatMessage(id, str)); }
-    public void addChat(Integer id, String str) { chats.add(new ChatMessage(id, str)); }
+    public void addChat(String id, String nick, String str) { chats.add(new ChatMessage(id, nick, str)); }
+    public void addChat(Integer id, String nick, String str) { 
+    	chats.add(new ChatMessage(""+id, nick, str)); 
+    	}
     
     public int addUser(UserInfo user) { 
     	users.put(user.getId(), user);
