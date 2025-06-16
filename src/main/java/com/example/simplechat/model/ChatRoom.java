@@ -16,6 +16,7 @@ public class ChatRoom {
 	
     private final List<ChatMessage> chats = new ArrayList<>();
     private final Map<Integer, UserInfo> users = new HashMap<>();
+    private final UserInfo admin = new UserInfo(-1, "Server" );
     
     public ChatRoom(String newName) { name = newName; }
     

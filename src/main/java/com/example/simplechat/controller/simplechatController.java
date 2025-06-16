@@ -5,6 +5,7 @@ import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거�
 
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 //import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,20 +33,20 @@ public class simplechatController {
         return serv.getChat();
     }*/
 	
-	@PostMapping("/init")		
-	public Mono<List<ChatMessage>> catchAllGetRequests(HttpServletRequest request) {
-        //String requestURI = request.getRequestURI();
-        
-        return serv.getAllChat();
+	@PostMapping("/{roomName}")
+	public Mono<List<ChatMessage>> catchAllGetRequests(@PathVariable("roomName") String path) {
+		System.out.println("All"+path);
+        return serv.createRoom(path);
     }
 	
-	@PostMapping("/chat")
-	public Mono<Void> recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId) {
-		return serv.addChat(newId, request).then();
+	@PostMapping("/{roomName}/chat")
+	public Mono<Void> recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
+		System.out.println(path);
+		return serv.addChat(newId, request, path).then();
 	}
 	
-	@PostMapping("/chat/nick")
-	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id) {
-		serv.checkNick(newNick, Id);
+	@PostMapping("/{roomName}/nick")
+	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id, @PathVariable("roomName") String path) {
+		serv.checkNick(newNick, Id, path);
 	}
 }
