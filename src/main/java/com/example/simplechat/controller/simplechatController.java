@@ -2,6 +2,7 @@ package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
 import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거해주기
+import com.example.simplechat.model.ChatRoom;
 
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -12,6 +13,8 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import reactor.core.publisher.Mono;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 //import org.springframework.web.bind.annotation.CrossOrigin;
 
@@ -33,6 +36,21 @@ public class simplechatController {
         return serv.getChat();
     }*/
 	
+	@PostMapping("/lobby")
+	public Mono<List<String[]>> getRoomList(){
+		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
+        return Mono.just(serv.getAllRoom().entrySet().stream()
+            .map(entry -> {
+                String roomName = entry.getKey();
+                ChatRoom room = entry.getValue();
+                // 여기에 필요한 다른 정보(예: 사용자 수)를 추가할 수 있습니다.
+                // 임시로 [방 이름, 방 이름] 형태로 반환 (ID와 Name 개념으로)
+                // 만약 room.getId()와 같은 필드가 있다면 활용 가능
+                return new String[]{roomName, roomName, ""+room.getPopsCount()}; // [ID, Name, Pop] 형태로 가정
+            })
+            .collect(Collectors.toList()));
+	}
+	
 	@PostMapping("/{roomName}")
 	public Mono<List<ChatMessage>> catchAllGetRequests(@PathVariable("roomName") String path) {
 		System.out.println("All"+path);
@@ -40,9 +58,10 @@ public class simplechatController {
     }
 	
 	@PostMapping("/{roomName}/chat")
-	public Mono<Void> recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
+	public void recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
 		System.out.println(path);
-		return serv.addChat(newId, request, path).then();
+		/*return */
+		serv.addChat(newId, request, path);
 	}
 	
 	@PostMapping("/{roomName}/nick")

@@ -2,12 +2,14 @@ package com.example.simplechat;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableAsync; // 비동기 활성화 어노테이션
 
 import org.springframework.context.annotation.Bean; // 이 임포트 추가
 import org.springframework.web.servlet.config.annotation.CorsRegistry; // 이 임포트 추가
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer; // 이 임포트 추가
 
 @SpringBootApplication
+@EnableAsync // <-- 이 어노테이션을 추가하여 @Async를 활성화합니다.
 public class SimplechatApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(SimplechatApplication.class, args);

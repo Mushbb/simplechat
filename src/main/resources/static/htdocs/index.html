@@ -1,254 +1,201 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>Simple Chat</title>
-</head>
-<style>
-  #chat-con{
-    border: 1px solid #ccc;
-    width: 520px;
-    height: 500px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column-reverse;
-  }
-  #chat-log{
-    padding: 10px 10px 0 10px;
-    margin-bottom: 5px;
-    list-style: none;
-    overflow-y: auto;
-    scroll-behavior: smooth;
-  }
-  li {
-    margin-bottom: 2px;
-    padding: 5px;
-    border: 1px solid #eee;
-  }
-  #box {
-    margin-top: 5px;
-    height: 20px;
-    font: 16px Consolas bold;
-  }
-  #namebox{
-    margin-top: 5px;
-    height: 20px;
-    font: 16px Consolas bold;
-  }
-
-  #button {
-    padding-top: 5px;
-  }
-</style>
-</html>
-<body>
-  <p id="output">여기에 응답 표시</p>
-  <div id="chat-con">
-    <ul id="chat-log"></ul>
-  </div>
-  <input type="text" size=2 id="namebox" name="namebox">
-  <input type="text" size=40 id="box" name="box" placeholder="메시지 입력">
-  <button id="button" onclick=send()>보내기</button>
-</body>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.js"></script>
-<script>
-  let server = "10.50.131.25:8080";
-
-  // 기존 스크립트 시작 부분에 변수 선언 추가
-  let stompClient = null;
-  let username = ""; // 사용자 이름을 고정하거나 입력받도록 조정
-  let id = "";  // 내부적으로, 통신할때만 사용
-  let roomname = "chat2";    // 기본값
-
-  // ... 기존 p, chatLogElement, box, button 변수들 ...
-  const messageInput = document.getElementById('box'); // 기존 id "box" 사용
-  const sendButton = document.getElementById('button'); // 기존 id "button" 사용
-  const chatLogElement = document.getElementById('chat-log'); // 기존 id "chat-log" 사용
-  const nameboxInput = document.getElementById('namebox');
-
-
-  // --- WebSocket/STOMP 관련 함수 추가 시작 ---
-
-  // 웹소켓 연결 시작 (페이지 로드 또는 특정 버튼 클릭 시 호출)
-  function connect() {
-    // 이 예제에서는 사용자 이름을 "client"로 고정했지만, 실제로는 입력받아 사용
-    // username = document.getElementById('usernameInput').value.trim(); // 사용자 입력 시 활성화
-
-    console.log("WebSocket 연결 시도...");
-    var socket = new SockJS('http://'+server+'/ws');
-    stompClient = Stomp.over(socket);
-
-    // STOMP 클라이언트 연결
-    // 연결 성공 시 onConnected 호출, 실패 시 onError 호출
-    stompClient.connect({}, onConnected, onError);
-  }
-
-  // STOMP 연결 성공 시 호출되는 콜백 함수
-  function onConnected() {
-    console.log("WebSocket 연결 성공!");
-    document.getElementById("output").textContent = "서버 응답: WebSocket 연결됨"; // 상태 표시 업데이트
-
-    // 1. 공용 채팅 토픽 구독: 서버가 /topic/public으로 보내는 모든 새 메시지를 수신
-    stompClient.subscribe('/topic/'+roomname+'/public', onMessageReceived);
-
-    // (선택 사항) 서버에 사용자 등록 메시지 전송 (세션에 사용자 이름 저장용)
-    // 백엔드 ChatStompController의 @MessageMapping("/chat.addUser")를 사용한다면
-    // stompClient.send("/app/chat.addUser", {}, JSON.stringify({ sender: username }));
-
-    // 초기 채팅 내역은 기존 getChat() 함수 (fetch)를 통해 가져옵니다.
-    getChat("http://"+server+"/"+roomname);
-    document.getElementById("output").textContent += ", "+roomname
-  }
-
-  // STOMP 연결 실패 시 호출되는 콜백 함수
-  function onError(error) {
-    console.error("WebSocket 연결 실패:", error);
-    document.getElementById("output").textContent = "서버 응답: WebSocket 연결 실패. " + error;
-  }
-
-  // 웹소켓을 통해 새 메시지를 받았을 때 호출되는 함수
-  function onMessageReceived(payload) {
-    const message = JSON.parse(payload.body);
-    console.log("웹소켓으로 새 메시지 수신:", message);
-
-    displayMessage(message); // 받은 메시지를 화면에 표시
-  }
-
-  function onNickChanged(payload){
-    const flag = payload.body;
-    console.log("웹소켓으로 새 메시지 수신:", flag);
-    if( flag.includes(username) ) {
-      if (flag.split('/')[1] === "1") {
-        nameboxInput.value = username;
-        alert("중복닉네임 입니다.");
-      } else
-        username = nameboxInput.value;
-    }
-  }
-
-  // 화면에 메시지를 표시하는 범용 함수
-  // 기존 getChat의 forEach 루프와 onMessageReceived에서 모두 사용하도록 함수 분리
-  function displayMessage(message) {
-    const listItem = document.createElement('li'); // 새로운 <li> 요소 생성
-    const formattedChat = message.chat.replace(/\n/g, '<br>');
-
-    // 메시지 형식 (sender가 있는 경우)
-    if (message.sender) {
-      listItem.innerHTML = `<strong>${message.sender}:</strong> ${formattedChat}`;
-    } else { // sender 정보가 없는 경우 (기존 코드의 `id`가 sender 역할이었을 수 있음)
-      listItem.innerHTML = `<strong>${message.name || '알 수 없음'}:</strong> ${formattedChat}`;
-    }
-
-    chatLogElement.appendChild(listItem); // ul에 li 추가
-    chatLogElement.scrollTop = chatLogElement.scrollHeight; // 스크롤을 항상 최하단으로 내립니다.
-  }
-  // --- WebSocket/STOMP 관련 함수 추가 끝 ---
-
-
-  // --- 기존 getChat 함수 수정 ---
-  // 이제 이 함수는 초기 메시지 로딩 시 한 번만 호출됩니다.
-  // 기존의 `p.textContent = "서버 응답: " + data;` 부분은 웹소켓 연결 상태를 표시하는 것으로 대체될 수 있습니다.
-  // function getChat(url="http://localhost:8080/init"){ // URL을 /init으로 고정
-  //   fetch(url)
-  //           .then(response => response.json()) // JSON 응답을 기대
-  //           .then(data => {
-  //             // p.textContent = "서버 응답: " + data.length + "개 초기 메시지"; // 상태창은 웹소켓이 관리
-  //             // 기존 메시지들 비우고 다시 로드 (선택 사항: 아니면 새로고침 없이 계속 쌓이도록)
-  //             chatLogElement.innerHTML = '';
-  //             data.forEach(message => {
-  //               displayMessage(message); // 받은 메시지를 화면에 표시
-  //             });
-  //           })
-  //           .catch(error => console.error('Error fetching initial chat history:', error));
-  // }
-  function getChat(url = "http://"+server+"/"+roomname) {
-    // POST 요청에 보낼 데이터를 객체로 정의합니다.
-    // 이 예시에서는 빈 객체를 보냅니다.
-    // 실제 서버 로직에 따라 필요한 데이터를 추가할 수 있습니다.
-    const requestBody = {};
-
-    fetch(url, {
-      method: 'POST', // HTTP 요청 메서드를 POST로 지정합니다.
-      headers: {
-        'Content-Type': 'application/json' // 서버에 JSON 데이터를 보낼 것임을 알립니다.
-        // 필요하다면 다른 헤더 (예: 'Authorization')를 추가할 수 있습니다.
-      },
-      body: JSON.stringify(requestBody) // JavaScript 객체를 JSON 문자열로 변환하여 요청 본문에 담습니다.
-    })
-      .then(response => {
-        // 응답이 성공적인지 확인합니다 (HTTP 상태 코드 200-299).
-        if (!response.ok) {
-          // 응답이 실패하면 에러를 던져 .catch 블록으로 넘깁니다.
-          throw new Error(`HTTP error! status: ${response.status}`);
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>채팅 로비</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 50px;
+            background-color: #f0f2f5;
         }
-        return response.json(); // JSON 응답을 기대
-      })
-      .then(data => {
-        // chatLogElement는 HTML에 존재하는 채팅 로그를 표시할 요소여야 합니다.
-        // 예를 들어, const chatLogElement = document.getElementById('chat-log');
-        chatLogElement.innerHTML = ''; // 기존 메시지들 비우고 다시 로드
-        data.forEach(message => {
-          if( message.messageNum === -1 ) {
-            nameboxInput.value = message.chat;
-            username = message.chat;
-            id = message.id;
-          }
-          else
-            displayMessage(message); // 받은 메시지를 화면에 표시 (displayMessage 함수는 별도로 정의되어 있어야 함)
+        #lobby-container {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 80%;
+            max-width: 600px;
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #room-list {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            text-align: left;
+        }
+        #room-list ul {
+            list-style: none;
+            padding: 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #room-list li {
+            background-color: #e9ebee;
+            margin-bottom: 10px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #room-list li a {
+            text-decoration: none;
+            color: #007bff;
+            font-weight: bold;
+            font-size: 1.1em;
+            flex-grow: 1; /* 링크가 공간을 다 차지하도록 */
+            text-align: left;
+        }
+        #room-list li a:hover {
+            text-decoration: underline;
+        }
+        .room-count {
+            font-size: 0.9em;
+            color: #666;
+        }
+        #create-room-button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 20px;
+        }
+        #create-room-button:hover {
+            background-color: #218838;
+        }
+        .no-rooms {
+            color: #888;
+            font-style: italic;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div id="lobby-container">
+    <h1>채팅 로비</h1>
+    <button id="create-room-button">새 채팅방 만들기</button>
+    <div id="room-list">
+        <h2>개설된 채팅방</h2>
+        <ul id="rooms">
+            <li class="no-rooms">현재 개설된 채팅방이 없습니다.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+    const roomsUl = document.getElementById('rooms');
+    const createRoomButton = document.getElementById('create-room-button');
+    // existingRooms를 Map<String, boolean> 또는 Set<String>으로 변경하여 중복 체크에 용이하게
+    let existingRoomNames = new Set(); // 방 이름만 저장하는 Set
+
+    const SERVER_BASE_URL = 'http://10.50.131.25:8080'; // <-- 서버 주소 확인!
+
+    // 1. 방 목록 불러오기
+    function fetchRooms() {
+		fetch(`${SERVER_BASE_URL}/lobby`, {method:'POST'})
+		.then(response => {
+		if (!response.ok) {
+		throw new Error(`네트워크 응답 오류: ${response.status} ${response.statusText}`);
+	}
+		return response.json(); // List<String[]>을 기대
+	})
+		.then(data => {
+		// 받아온 List<String[]> 데이터를 처리
+		existingRoomNames.clear(); // 기존 Set 초기화
+		data.forEach(roomArray => {
+		// roomArray는 [ID, Name] 형태의 String[] (예: ["chat1", "chat1", "1"])
+		const roomName = roomArray[1]; // Name 부분을 사용
+		existingRoomNames.add(roomName); // Set에 방 이름 추가
+	});
+		renderRooms(data); // 렌더링 함수에 List<String[]> 전달
+	})
+		.catch(error => {
+		console.error('방 목록을 가져오는 중 오류 발생:', error);
+		roomsUl.innerHTML = '<li style="color: red;">방 목록을 불러오는 데 실패했습니다. 서버가 실행 중인지 확인하세요.</li>';
+	});
+	}
+
+		// 2. 방 목록 렌더링
+		// renderRooms 함수가 List<String[]>을 받도록 수정
+    function renderRooms(roomsList) {
+        roomsUl.innerHTML = ''; // 기존 목록 비우기
+
+        if (roomsList.length === 0) {
+            roomsUl.innerHTML = '<li class="no-rooms">현재 개설된 채팅방이 없습니다.</li>';
+             return;
+        }
+
+        roomsList.forEach(roomArray => {
+        const roomId = roomArray[0]; // 배열의 첫 번째 요소 (ID)
+        const roomName = roomArray[1]; // 배열의 두 번째 요소 (Name)
+        const roomPop = roomArray[2];
+
+        const li = document.createElement('li');
+        // 사용자 수는 이 데이터에 포함되지 않으므로 표시하지 않거나 '?' 등으로 처리
+        li.innerHTML = `
+                        <a href="chat.html?room=${encodeURIComponent(roomName)}">${roomName}</a>
+                        <span class="room-count">(${roomPop})</span> `;
+            roomsUl.appendChild(li);
         });
-      })
-      .catch(error => console.error('Error fetching initial chat history:', error));
-  }
+	}
 
+    // 3. 새 채팅방 만들기 버튼 클릭 이벤트
+    createRoomButton.addEventListener('click', function() {
+		let roomName = prompt("새 채팅방 이름을 입력하세요:");
 
-  // --- 기존 send 함수는 그대로 유지 (HTTP POST로 메시지 전송) ---
-  function send(){
-    const response = fetch('http://'+server+'/'+roomname+'/chat', {    // chat = 방 이름
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        id: id,
-        message: document.getElementById('box').value // "message"는 서버 컨트롤러의 @RequestParam 이름과 일치
-      })
-    });
+		if (roomName === null || roomName.trim() === "") {
+			alert("채팅방 이름이 입력되지 않았습니다.");
+			return;
+		}
 
-    document.getElementById("box").value = "";
-  }
+		roomName = roomName.trim();
 
-  function nick(){
-    const response = fetch('http://'+server+'/'+roomname+'/nick', {    // chat = 방 이름
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        id: id,
-        nick: nameboxInput.value // "nick"는 서버 컨트롤러의 @RequestParam 이름과 일치
-      })
-    });
-  }
+		// 클라이언트 측 중복 체크 (Set 사용)
+		if (existingRoomNames.has(roomName)) { // Set의 has 메서드 사용
+			alert(`'${roomName}' 방은 이미 존재합니다. 다른 이름을 사용해주세요.`);
 
-  // --- 이벤트 리스너 및 초기 호출 ---
-  document.getElementById('box').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter')
-      send();
-  });
+			// 	// 서버에 방 생성 요청 (이전과 동일)
+			// 	fetch(`${SERVER_BASE_URL}/${encodeURIComponent(roomName)}`, {
+			// 	method: 'POST',
+			// 	headers: {
+			// 	'Content-Type': 'application/json'
+			// }
+			//})
+			// 	.then(response => {
+			// 	if (!response.ok) {
+			// 	return response.json().then(err => { throw new Error(err.message || '방 생성 실패'); });
+			// }
+			// 	return response.json();
+			// })
+			// 	.then(data => {
+			// 	alert(`'${roomName}' 방이 생성되었습니다. 채팅방으로 이동합니다.`);
+			// 	window.location.href = `chat.html?room=${encodeURIComponent(roomName)}`;
+			// })
+			// 	.catch(error => {
+			// 	console.error('방 생성 중 오류 발생:', error);
+			// 	alert('방 생성에 실패했습니다: ' + error.message);
+			// });
+			//});
+		}
 
-  document.getElementById('namebox').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.keyCode === 13) {
-      document.getElementById('namebox').blur();
-    }
-  });
-
-  document.getElementById('namebox').addEventListener('change', (event) => {
-      // /chat/nick 보내기
-      nick();
-  });
-
-  // 페이지 로드 시 웹소켓 연결 시작
-  document.addEventListener('DOMContentLoaded', connect); // 이제 페이지 로드 시 바로 연결 시작
-  // setInterval(getChat, 1000); // 숏폴링은 이제 사용하지 않음
+		window.location.href = `chat.html?room=${encodeURIComponent(roomName)}`;
+	});
+		// 초기 로딩 시 방 목록 불러오기
+		fetchRooms();
+	});
 </script>
+</body>
+</html>

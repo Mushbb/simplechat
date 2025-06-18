@@ -1,5 +1,6 @@
 package com.example.simplechat.service;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service; 
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,13 +26,14 @@ import lombok.RequiredArgsConstructor;
 @EnableScheduling
 public class SimplechatService {
     private final Map<String, ChatRoom> rooms = new HashMap<>();
-    private String serv_room = "chat2";
+    private String serv_room = "chat";
     
     private int flag = 1;
     private final Scanner sc = new Scanner(System.in);
 	
 	// SimpMessagingTemplate 주입 (웹소켓 메시지를 발행하는 데 사용)
-    private final SimpMessagingTemplate messagingTemplate;
+//    private final SimpMessagingTemplate messagingTemplate;
+    private final ApplicationEventPublisher eventPublisher; // Spring의 ApplicationEventPublisher 주입
 	
 	@Scheduled(fixedRate = 1000)
 	public void serverChat() {
@@ -39,22 +41,26 @@ public class SimplechatService {
 //		if( rooms.size() == 0 ) {
 //			rooms.put(serv_room, new ChatRoom(serv_room));
 //			rooms.get(serv_room).addUser(new UserInfo(-1, "Server"));
-//		}
-		
-		if( flag == 0 )
-			return;	// already scanning
-		flag = 0;
-		String text = sc.nextLine();
-		flag = 1;
+////		}
+//		
+//		if( flag == 0 )
+//			return;	// already scanning
 		if( !checkRoom(serv_room) ) {
 			System.out.println("there is no room: "+serv_room);
-			createRoom(serv_room);
+			createRoomInternal(serv_room);
 			return;
 		}
-
+		String text = sc.nextLine();
+		
 		if( text.startsWith("/") ) {
 			if( text.startsWith("/enter") ) {
 				serv_room = text.split(" ")[1];
+				System.out.println(serv_room+"으로 이동");
+				if( !checkRoom(serv_room) ) {
+					System.out.println("there is no room: "+serv_room);
+					createRoomInternal(serv_room);
+					return;
+				}
 			} else if( text.startsWith("/users") ) {
 				
 				System.out.println("-1: "+roomNow().getAdmin().getUsername()); 
@@ -66,39 +72,47 @@ public class SimplechatService {
 			
 			return;
 		}
-
-		Mono.just(text).map(input -> {
-			roomNow().addChat(roomNow().getAdmin().getId(), roomNow().getAdmin().getUsername(), input);
-            return roomNow().getChats().getLast();
-		}).subscribe(
-            chatMessage -> { // 메시지가 준비되면 웹소켓으로 전송
-                messagingTemplate.convertAndSend("/topic/"+roomNow().getName()+"/public", chatMessage);
-                System.out.println("서버 메시지 전송 완료: " + chatMessage.getChat());
-            },
-            error -> { // 오류 처리
-                System.err.println("메시지 전송 중 오류 발생: " + error.getMessage());
-                error.printStackTrace();
-            },
-            () -> { // 스트림 완료 (여기서는 한 번의 입력 후 완료)
-                //flag = 1; // 입력 대기 플래그 다시 설정
-            }
-        );
+		
+		roomNow().addChat(roomNow().getAdmin().getId(), roomNow().getAdmin().getUsername(), text);
+		
+//      return roomNow().getChats().getLast();
+		
+//		flag = 0;
+//		
+//		flag = 1;
+//		Mono.just(text).map(input -> {
+//			roomNow().addChat(roomNow().getAdmin().getId(), roomNow().getAdmin().getUsername(), input);
+//            return roomNow().getChats().getLast();
+//		}).subscribe(
+//            chatMessage -> { // 메시지가 준비되면 웹소켓으로 전송
+//                messagingTemplate.convertAndSend("/topic/"+roomNow().getName()+"/public", chatMessage);
+//                System.out.println("서버 메시지 전송 완료: " + chatMessage.getChat());
+//            },
+//            error -> { // 오류 처리
+//                System.err.println("메시지 전송 중 오류 발생: " + error.getMessage());
+//                error.printStackTrace();
+//            },
+//            () -> { // 스트림 완료 (여기서는 한 번의 입력 후 완료)
+//                //flag = 1; // 입력 대기 플래그 다시 설정
+//            }
+//        );
 	}
 
-	public Mono<Void> addChat(String idstr, String msgstr, String roomName) {
+	public void addChat(String idstr, String msgstr, String roomName) {
 		ChatRoom cr = rooms.get(roomName);
-		Mono<ChatMessage> msgmono = Mono.just(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
-		
-		return msgmono.map(msg -> {
-			cr.addChat(msg);
-			return msg;
-		}).doOnSuccess(savedMessage -> {
-			//ChatMessage temp = new ChatMessage(roomNow().getPop(Integer.parseInt(idstr)).getUsername(), msgstr, false );
-			
-            // 메시지가 성공적으로 저장된 후, 웹소켓 토픽으로 발행
-            System.out.println("서비스: 메시지 저장 성공, 웹소켓 발행 시작: "+savedMessage.getId() +", "+savedMessage.getName()+", "+ savedMessage.getChat());
-            messagingTemplate.convertAndSend("/topic/"+cr.getName()+"/public", savedMessage); // 핵심 라인!
-        }).then();
+		cr.addChat(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
+//		Mono<ChatMessage> msgmono = Mono.just(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
+//		
+//		return msgmono.map(msg -> {
+//			cr.addChat(msg);
+//			return msg;
+//		}).doOnSuccess(savedMessage -> {
+//			//ChatMessage temp = new ChatMessage(roomNow().getPop(Integer.parseInt(idstr)).getUsername(), msgstr, false );
+//			
+//            // 메시지가 성공적으로 저장된 후, 웹소켓 토픽으로 발행
+//            System.out.println("서비스: 메시지 저장 성공, 웹소켓 발행 시작: "+savedMessage.getId() +", "+savedMessage.getName()+", "+ savedMessage.getChat());
+//            messagingTemplate.convertAndSend("/topic/"+cr.getName()+"/public", savedMessage); // 핵심 라인!
+//        }).then();
 	}
 	
 	/*
@@ -117,8 +131,10 @@ public class SimplechatService {
 		ChatRoom cr = rooms.get(roomName);
 		List<ChatMessage> temp = new ArrayList<>(cr.getChats());
 		String name = "익명"+(cr.getPopsCount()+1);
-		int id = cr.getPopsCount()+1;
-		cr.addUser(new UserInfo(name));
+		
+		UserInfo ui = new UserInfo(name);
+		int id = ui.getId();
+		cr.addUser(ui);
 		
 		List<ChatMessage> temp1 = temp.stream()
 			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
@@ -129,11 +145,27 @@ public class SimplechatService {
 	}
 	
 	public boolean checkRoom(String name) { return rooms.containsKey(name); }
-	public Mono<List<ChatMessage>> createRoom(String name) { 
-		if( !checkRoom(name) )
-			rooms.put(name, new ChatRoom(name)); 
-		return getAllChat(name);
-	}
+    // ChatRoom 인스턴스에 ApplicationEventPublisher를 주입하는 헬퍼 메소드
+    private ChatRoom createRoomInternal(String name) {
+        ChatRoom newRoom = new ChatRoom(name);
+        newRoom.setEventPublisher(eventPublisher); // <-- 여기에서 publisher 주입!
+        rooms.put(name, newRoom);
+        System.out.println("ChatRoom created: " + name);
+        return newRoom;
+    }
+
+    // 기존 createRoom 메소드 반영 및 수정
+    public Mono<List<ChatMessage>> createRoom(String name) {
+        // 이미 방이 존재하지 않는 경우에만 새로운 방을 생성하고 publisher 주입
+        if (!checkRoom(name)) {
+            createRoomInternal(name); // 새로운 방 생성 및 publisher 주입
+        }
+        return getAllChat(name);
+    }
+    
+    public Map<String, ChatRoom> getAllRoom(){
+    	return rooms;
+    }
 	
 	public void checkNick(String newNick, String Id, String roomName){
 		ChatRoom cr = rooms.get(roomName);
