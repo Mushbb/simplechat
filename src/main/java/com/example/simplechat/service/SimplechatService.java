@@ -45,11 +45,11 @@ public class SimplechatService {
 //		
 //		if( flag == 0 )
 //			return;	// already scanning
-		if( !checkRoom(serv_room) ) {
-			System.out.println("there is no room: "+serv_room);
-			createRoomInternal(serv_room);
-			return;
-		}
+//		if( !checkRoom(serv_room) ) {
+//			System.out.println("there is no room: "+serv_room);
+//			createRoomInternal(serv_room);
+//			return;
+//		}
 		String text = sc.nextLine();
 		
 		if( text.startsWith("/") ) {
@@ -62,12 +62,18 @@ public class SimplechatService {
 					return;
 				}
 			} else if( text.startsWith("/users") ) {
-				
 				System.out.println("-1: "+roomNow().getAdmin().getUsername()); 
 				for(Integer key : roomNow().getUsers().keySet() ) {
 					System.out.println(""+key+": "+roomNow().getUsers().get(key).getUsername()); 
 				}
 					
+			} else if( text.startsWith("/clear") ) {
+				if( !checkRoom(serv_room) )
+					System.out.println(serv_room+"는 없는 방입니다.");
+				else {
+					System.out.println("send /clear");
+					roomNow().addChat(new ChatMessage("-1", "Server", "/clear", -1));	// -1: message from server
+				}
 			}
 			
 			return;

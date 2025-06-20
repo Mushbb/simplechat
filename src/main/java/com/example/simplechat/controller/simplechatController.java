@@ -60,7 +60,6 @@ public class simplechatController {
 	@PostMapping("/{roomName}/chat")
 	public void recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
 		System.out.println(path);
-		/*return */
 		serv.addChat(newId, request, path);
 	}
 	
