@@ -133,20 +133,16 @@ public class SimplechatService {
 		return Flux.fromIterable(sending);
 	}*/
 	
-	public Mono<List<ChatMessage>> getAllChat(String roomName){
+	public Mono<List<ChatMessage>> getAllChat(String roomName, Integer Id){
 		ChatRoom cr = rooms.get(roomName);
 		List<ChatMessage> temp = new ArrayList<>(cr.getChats());
 		String name = "익명"+(cr.getPopsCount()+1);
-		
-		UserInfo ui = new UserInfo(name);
-		int id = ui.getId();
-		cr.addUser(ui);
 		
 		List<ChatMessage> temp1 = temp.stream()
 			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
 			.collect(Collectors.toList());
 
-		temp1.add(new ChatMessage(""+id, name, name, -1));
+		temp1.add(new ChatMessage("-1", name, name, -1));
 		return Mono.just(temp1);
 	}
 	
@@ -161,12 +157,22 @@ public class SimplechatService {
     }
 
     // 기존 createRoom 메소드 반영 및 수정
-    public Mono<List<ChatMessage>> createRoom(String name) {
+    public Mono<List<ChatMessage>> createRoom(String name, String Id) {
+    	int id;
         // 이미 방이 존재하지 않는 경우에만 새로운 방을 생성하고 publisher 주입
         if (!checkRoom(name)) {
             createRoomInternal(name); // 새로운 방 생성 및 publisher 주입
         }
-        return getAllChat(name);
+        if( Id.equals("-1") ) {
+        	// createUser
+        	System.out.println("new User "+Id);
+    		UserInfo ui = new UserInfo("익명"+(rooms.get(name).getPopsCount()));
+    		id = ui.getId();
+    		rooms.get(name).addUser(ui);
+        } else {
+        	id = Integer.parseInt(Id);
+        }
+        return getAllChat(name, id);
     }
     
     public Map<String, ChatRoom> getAllRoom(){

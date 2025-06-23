@@ -52,9 +52,9 @@ public class simplechatController {
 	}
 	
 	@PostMapping("/{roomName}")
-	public Mono<List<ChatMessage>> catchAllGetRequests(@PathVariable("roomName") String path) {
-		System.out.println("All"+path);
-        return serv.createRoom(path);
+	public Mono<List<ChatMessage>> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
+		System.out.println("All"+path+", "+Id);
+        return serv.createRoom(path, Id);
     }
 	
 	@PostMapping("/{roomName}/chat")

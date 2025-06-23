@@ -146,7 +146,7 @@
         const li = document.createElement('li');
         // 사용자 수는 이 데이터에 포함되지 않으므로 표시하지 않거나 '?' 등으로 처리
         li.innerHTML = `
-                        <a href="chat.html?room=${encodeURIComponent(roomName)}">${roomName}</a>
+                        <a href="chat.html?room=${encodeURIComponent(roomName)}" target="_blank">${roomName}</a>
                         <span class="room-count">(${roomPop})</span> `;
             roomsUl.appendChild(li);
         });
