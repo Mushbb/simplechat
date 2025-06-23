@@ -106,6 +106,7 @@ public class SimplechatService {
 
 	public void addChat(String idstr, String msgstr, String roomName) {
 		ChatRoom cr = rooms.get(roomName);
+		System.out.println(idstr);
 		cr.addChat(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
 //		Mono<ChatMessage> msgmono = Mono.just(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
 //		
@@ -133,17 +134,16 @@ public class SimplechatService {
 		return Flux.fromIterable(sending);
 	}*/
 	
-	public Mono<List<ChatMessage>> getAllChat(String roomName, Integer Id){
+	public Mono<List<ChatMessage>> getAllChat(String roomName, Integer Id, String name){
 		ChatRoom cr = rooms.get(roomName);
 		List<ChatMessage> temp = new ArrayList<>(cr.getChats());
-		String name = "익명"+(cr.getPopsCount()+1);
 		
-		List<ChatMessage> temp1 = temp.stream()
-			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
-			.collect(Collectors.toList());
+//		List<ChatMessage> temp1 = temp.stream()
+//			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
+//			.collect(Collectors.toList());
 
-		temp1.add(new ChatMessage("-1", name, name, -1));
-		return Mono.just(temp1);
+		temp.add(new ChatMessage(""+Id, name, name, -1));
+		return Mono.just(temp);
 	}
 	
 	public boolean checkRoom(String name) { return rooms.containsKey(name); }
@@ -159,20 +159,26 @@ public class SimplechatService {
     // 기존 createRoom 메소드 반영 및 수정
     public Mono<List<ChatMessage>> createRoom(String name, String Id) {
     	int id;
+    	String username;
+    	
         // 이미 방이 존재하지 않는 경우에만 새로운 방을 생성하고 publisher 주입
         if (!checkRoom(name)) {
             createRoomInternal(name); // 새로운 방 생성 및 publisher 주입
         }
-        if( Id.equals("-1") ) {
+        ChatRoom cr = rooms.get(name);
+        
+        if( Id.equals("-1") || cr.getPop(Id) == null ) {			// id가 없으면 새로 부여하면서 생성
         	// createUser
+        	username = "익명"+(cr.getPopsCount()+1);
         	System.out.println("new User "+Id);
-    		UserInfo ui = new UserInfo("익명"+(rooms.get(name).getPopsCount()));
+    		UserInfo ui = new UserInfo(username);
     		id = ui.getId();
-    		rooms.get(name).addUser(ui);
+    		cr.addUser(ui);
         } else {
         	id = Integer.parseInt(Id);
+        	username = cr.getPop(id).getUsername();
         }
-        return getAllChat(name, id);
+        return getAllChat(name, id, username);
     }
     
     public Map<String, ChatRoom> getAllRoom(){
@@ -181,8 +187,9 @@ public class SimplechatService {
 	
 	public void checkNick(String newNick, String Id, String roomName){
 		ChatRoom cr = rooms.get(roomName);
+		String oldNick = cr.getPop(Id).getUsername();
 		cr.ChangeNick(Id, newNick);
-		System.out.println("닉네임 변경 완료:"+Id+" -> "+newNick);
+		System.out.println("닉네임 변경 완료: "+Id+", "+oldNick+" -> "+newNick);
 	}
 	
 	private int strtoint(String input) { return Integer.parseInt(input); }

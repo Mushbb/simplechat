@@ -38,6 +38,7 @@ public class simplechatController {
 	
 	@PostMapping("/lobby")
 	public Mono<List<String[]>> getRoomList(){
+		// System.out.println("lobbylist");
 		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
         return Mono.just(serv.getAllRoom().entrySet().stream()
             .map(entry -> {
@@ -53,7 +54,7 @@ public class simplechatController {
 	
 	@PostMapping("/{roomName}")
 	public Mono<List<ChatMessage>> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
-		System.out.println("All"+path+", "+Id);
+//		System.out.println("new User in "+path+", "+Id);
         return serv.createRoom(path, Id);
     }
 	

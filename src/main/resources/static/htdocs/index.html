@@ -101,7 +101,7 @@
     // existingRooms를 Map<String, boolean> 또는 Set<String>으로 변경하여 중복 체크에 용이하게
     let existingRoomNames = new Set(); // 방 이름만 저장하는 Set
 
-    const SERVER_BASE_URL = 'http://10.50.131.25:8080'; // <-- 서버 주소 확인!
+    const SERVER_BASE_URL = 'http://localhost:8080'// 'http://10.50.131.25:8080'; // <-- 서버 주소 확인!
 
     // 1. 방 목록 불러오기
     function fetchRooms() {
