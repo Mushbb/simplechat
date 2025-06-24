@@ -4,7 +4,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service; 
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,7 +13,6 @@ import reactor.core.publisher.Mono;
 
 import java.util.Scanner;
 import jakarta.annotation.PreDestroy;
-import java.util.stream.Collectors;
 
 import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.model.UserInfo;
@@ -142,7 +140,12 @@ public class SimplechatService {
 //			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
 //			.collect(Collectors.toList());
 
-		temp.add(new ChatMessage(""+Id, name, name, -1));
+		temp.add(new ChatMessage(""+Id, name, name, -1));	// 할당된 id 보내기
+		// 방에 있는 유저정보
+		cr.getUsers().keySet().forEach(key -> {
+			temp.add(new ChatMessage(""+key, cr.getPop(key).getUsername(), cr.getPop(key).getUsername(), -2));
+		});
+		
 		return Mono.just(temp);
 	}
 	
@@ -170,9 +173,10 @@ public class SimplechatService {
         if( Id.equals("-1") || cr.getPop(Id) == null ) {			// id가 없으면 새로 부여하면서 생성
         	// createUser
         	username = "익명"+(cr.getPopsCount()+1);
-        	System.out.println("new User "+Id);
+        	
     		UserInfo ui = new UserInfo(username);
     		id = ui.getId();
+    		System.out.println("new User "+id);
     		cr.addUser(ui);
         } else {
         	id = Integer.parseInt(Id);

@@ -22,7 +22,7 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("http://10.50.131.*:8000", "http://10.50.131.*:8080", "http://localhost:8000", "http://localhost:8080") // 8000 포트 허용
+                .setAllowedOriginPatterns("http://10.50.*.*:8000", "http://10.50.*.*:8080", "http://localhost:8000", "http://localhost:8080") // 8000 포트 허용
                 .withSockJS();
     }
 }

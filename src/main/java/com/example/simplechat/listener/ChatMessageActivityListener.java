@@ -2,8 +2,9 @@ package com.example.simplechat.listener;
 
 import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 처리할 이벤트 import
-
-import reactor.core.publisher.Mono;
+import com.example.simplechat.model.UserInfo;
+import com.example.simplechat.event.UserEnteredRoomEvent;
+import com.example.simplechat.event.UserExitedRoomEvent;
 
 import org.springframework.context.event.EventListener; // Spring의 이벤트 리스너 어노테이션 import
 import org.springframework.messaging.simp.SimpMessagingTemplate; // 웹소켓 전송 템플릿 import
@@ -56,7 +57,37 @@ public class ChatMessageActivityListener {
         // System.out.println("--- 리스너: ChatMessageAddedToRoomEvent 처리 완료 ---");
     }
 
-    // 다른 이벤트들을 처리하는 메소드도 여기에 추가할 수 있습니다.
-    // @EventListener
-    // public void handleUserEnteredRoom(UserEnterEvent event) { ... }
+    @Async
+    @EventListener
+    public void handleUserEnteredRoom(UserEnteredRoomEvent event) {
+    	UserInfo userinfo = event.getUserInfo();
+    	String roomName = event.getRoomName();
+    	
+        // 1. 웹소켓으로 메시지 브로드캐스트
+        try {
+            // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
+            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", userinfo);
+            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userinfo.getUsername());
+        } catch (Exception e) {
+            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    @Async
+    @EventListener
+    public void handleUserExitedRoom(UserExitedRoomEvent event) {
+    	UserInfo userinfo = event.getUserInfo();
+    	String roomName = event.getRoomName();
+    	
+        // 1. 웹소켓으로 메시지 브로드캐스트
+        try {
+            // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
+            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", userinfo);
+            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userinfo.getUsername());
+        } catch (Exception e) {
+            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
 }

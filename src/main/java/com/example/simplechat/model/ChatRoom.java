@@ -1,6 +1,8 @@
 package com.example.simplechat.model;
 
 import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 새로 정의한 이벤트 import
+import com.example.simplechat.event.UserEnteredRoomEvent;
+import com.example.simplechat.event.UserExitedRoomEvent;
 import org.springframework.context.ApplicationEventPublisher; // 이벤트 발행자 import
 
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -54,8 +56,34 @@ public class ChatRoom {
     
     public int addUser(UserInfo user) { 
     	users.put(user.getId(), user);
+    	
+    	// 메시지가 성공적으로 추가된 후 이벤트 발행
+        if (eventPublisher != null) {
+            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
+            eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, name));
+            System.out.println("ChatRoom[" + name + "]: UserEnteredRoomEvent 발행됨.");
+        } else {
+            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
+        }
+    	
     	return users.size(); 
 	}
+    
+    public int subUser(Integer key) {
+    	users.remove(key);
+    	
+    	// 메시지가 성공적으로 추가된 후 이벤트 발행
+        if (eventPublisher != null) {
+            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
+            eventPublisher.publishEvent(new UserExitedRoomEvent(this, users.get(key), name));
+            System.out.println("ChatRoom[" + name + "]: UserExitedRoomEvent 발행됨.");
+        } else {
+            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
+        }
+    	
+    	return users.size();
+    }
+    
     public int getPopsCount() { return users.size(); }
     public ChatMessage getLastChat() { return chats.getLast(); }
     public UserInfo getPop(Integer key) { return users.get(key); }
