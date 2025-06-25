@@ -91,5 +91,15 @@ public class ChatRoom {
     
     public void ChangeNick(String id, String nick) { 
     	users.get(Integer.parseInt(id)).setUsername(nick);
+    	
+    	// 메시지가 성공적으로 추가된 후 이벤트 발행
+        if (eventPublisher != null) {
+            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
+            eventPublisher.publishEvent(new UserExitedRoomEvent(this, users.get(Integer.parseInt(id)), name));
+            System.out.println("ChatRoom[" + name + "]: UserExitedRoomEvent 발행됨.");
+        } else {
+            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
+        }
+    	
     }
 }

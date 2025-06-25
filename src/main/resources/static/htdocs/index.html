@@ -101,7 +101,7 @@
     // existingRooms를 Map<String, boolean> 또는 Set<String>으로 변경하여 중복 체크에 용이하게
     let existingRoomNames = new Set(); // 방 이름만 저장하는 Set
 
-    const SERVER_BASE_URL = 'http://localhost:8080'// 'http://10.50.131.25:8080'; // <-- 서버 주소 확인!
+    const SERVER_BASE_URL = 'http://10.50.131.25:8080'; // <-- 서버 주소 확인!
 
     // 1. 방 목록 불러오기
     function fetchRooms() {
@@ -145,9 +145,8 @@
 
         const li = document.createElement('li');
         // 사용자 수는 이 데이터에 포함되지 않으므로 표시하지 않거나 '?' 등으로 처리
-        li.innerHTML = `
-                        <a href="chat.html?room=${encodeURIComponent(roomName)}" target="_blank">${roomName}</a>
-                        <span class="room-count">(${roomPop})</span> `;
+			li.innerHTML = `<a href="javascript:void(0);" onclick="openChatWindow('chat.html?room=${encodeURIComponent(roomName)}')">${roomName}</a>
+                <span class="room-count">(${roomPop})</span> `;
             roomsUl.appendChild(li);
         });
 	}
@@ -191,11 +190,26 @@
 			//});
 		}
 
-		window.location.href = `chat.html?room=${encodeURIComponent(roomName)}`;
+		openChatWindow(`chat.html?room=${encodeURIComponent(roomName)}`);
+		setTimeout(function(){location.reload();}, 1000);
 	});
 		// 초기 로딩 시 방 목록 불러오기
 		fetchRooms();
-	});
+    });
+	function openChatWindow(url) {
+		const chatPageURL = 'chat.html';
+		const windowName = 'chatWindow';
+		// 원하는 창 속성들을 여기에 설정
+		const windowFeatures = 'width=700,height=750,scrollbars=no,status=no,menubar=no,toolbar=no,location=no';
+		const chatWindow = window.open(url, windowName, windowFeatures);
+
+		if (chatWindow) {
+			chatWindow.focus();
+		} else {
+			alert('팝업이 차단되었습니다. 브라우저 설정에서 팝업을 허용해주세요.');
+		}
+	}
+
 </script>
 </body>
 </html>

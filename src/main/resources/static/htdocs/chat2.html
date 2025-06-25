@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Chat</title>
+    <style>
+        body {
+            display: flex; /* Flexbox 레이아웃으로 전체 바디 구성 */
+            margin: 0;
+            padding: 10px; /* 전체적인 여백 */
+            font-family: Consolas, monospace;
+            height: calc(100vh - 20px); /* 뷰포트 높이에서 패딩 제외 */
+            box-sizing: border-box; /* 패딩을 너비/높이에 포함 */
+        }
+        #main-chat-area {
+            flex-grow: 1; /* 채팅 영역이 남은 공간을 차지 */
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #ccc;
+            margin-right: 10px; /* 유저 리스트와의 간격 */
+            width: 520px; /* 기존 채팅 영역 너비 유지 */
+            min-width: 520px; /* 최소 너비 지정 */
+        }
+        #chat-con {
+            flex-grow: 1; /* 채팅 로그가 남은 공간을 채움 */
+            display: flex;
+            flex-direction: column-reverse; /* 최신 메시지가 아래로 오도록 */
+            overflow: hidden; /* 자식 요소의 스크롤은 개별적으로 관리 */
+        }
+        #chat-log {
+            padding: 10px 10px 0 10px;
+            margin-bottom: 5px;
+            list-style: none;
+            overflow-y: auto; /* 채팅 로그에만 스크롤바 부여 */
+            scroll-behavior: smooth;
+            flex-grow: 1;
+        }
+        li {
+            margin-bottom: 2px;
+            padding: 5px;
+            border: 1px solid #eee;
+            font-size: 14px;
+        }
+        #input-area {
+            display: flex;
+            padding: 5px 10px;
+            border-top: 1px solid #eee; /* 입력창 위에 구분선 */
+        }
+        #namebox {
+            width: 80px; /* 이름 입력창 너비 고정 */
+            margin-right: 5px;
+            font-size: 16px;
+        }
+        #box {
+            flex-grow: 1; /* 메시지 입력창이 남은 공간을 차지 */
+            font-size: 16px;
+            margin-right: 5px;
+        }
+        #button {
+            padding: 5px 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        /* --- 유저 리스트 스타일 --- */
+        #user-list-area {
+            width: 200px; /* 유저 리스트 너비 고정 */
+            border: 1px solid #ccc;
+            display: flex;
+            flex-direction: column;
+        }
+        #user-list-area h3 {
+            margin: 0;
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ccc;
+            font-size: 16px;
+        }
+        #user-list {
+            list-style: none;
+            padding: 10px;
+            margin: 0;
+            overflow-y: auto; /* 유저 목록에 스크롤바 부여 */
+            flex-grow: 1;
+        }
+        #user-list li {
+            padding: 5px;
+            border: none;
+            margin-bottom: 0;
+            cursor: pointer; /* 선택 가능 표시 */
+            background-color: transparent;
+        }
+        #user-list li:hover {
+            background-color: #e0e0e0; /* 호버 효과 */
+        }
+    </style>
+</head>
+<body>
+
+<div id="main-chat-area">
+    <p id="output">여기에 응답 표시</p>
+    <a href="index.html">로비로 돌아가기</a>
+    <div id="chat-con">
+        <ul id="chat-log"></ul>
+    </div>
+    <div id="input-area">
+        <input type="text" id="namebox" name="namebox">
+        <input type="text" id="box" name="box" placeholder="메시지 입력">
+        <button id="button" onclick="send()">보내기</button>
+    </div>
+</div>
+
+<div id="user-list-area">
+    <h3>현재 접속자 (<span id="user-count">0</span>)</h3>
+    <ul id="user-list">
+    </ul>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.js"></script>
+<script>
+	let server = 'localhost:8080';//"10.50.131.25:8080";
+
+	let stompClient = null;
+	let username = sessionStorage.getItem("nick"); // 사용자 이름을 고정하거나 입력받도록 조정
+	let id = sessionStorage.getItem("id");  // 내부적으로, 통신할때만 사용
+	let users = [];     // 채팅방 유저들 배열
+
+	const urlParams = new URLSearchParams(window.location.search);
+	let roomname = urlParams.get('room'); // 'room' 쿼리 파라미터 값 가져오기
+
+	const messageInput = document.getElementById('box');
+	const sendButton = document.getElementById('button');
+	const chatLogElement = document.getElementById('chat-log');
+	const nameboxInput = document.getElementById('namebox');
+	const userListElement = document.getElementById('user-list'); // 유저 리스트 UL 요소
+	const userCountElement = document.getElementById('user-count'); // 유저 수 표시 SPAN 요소
+
+	// 웹소켓 연결 시작 (페이지 로드 또는 특정 버튼 클릭 시 호출)
+	function connect() {
+		console.log("WebSocket 연결 시도...");
+		var socket = new SockJS('http://'+server+'/ws');
+		stompClient = Stomp.over(socket);
+
+		stompClient.connect({}, onConnected, onError);
+	}
+
+	// STOMP 연결 성공 시 호출되는 콜백 함수
+	function onConnected() {
+		console.log("WebSocket 연결 성공!");
+		document.getElementById("output").textContent = "서버 응답: WebSocket 연결됨";
+
+		stompClient.subscribe('/topic/'+roomname+'/public', onMessageReceived);
+		stompClient.subscribe('/topic/'+roomname+'/users', onUserInfoReceived); // 유저 정보 업데이트 채널
+		stompClient.subscribe('/user/queue/nick-change-status', onNickChanged); // 닉네임 변경 결과 개별 수신
+
+		// 초기 채팅 내역과 유저 목록을 가져오기 위해 POST 요청
+		getChat("http://"+server+"/"+roomname);
+		document.getElementById("output").textContent = "방 제목: "+roomname;
+	}
+
+	// STOMP 연결 실패 시 호출되는 콜백 함수
+	function onError(error) {
+		console.error("WebSocket 연결 실패:", error);
+		document.getElementById("output").textContent = "서버 응답: WebSocket 연결 실패. " + error;
+	}
+
+	// 웹소켓을 통해 새 메시지를 받았을 때 호출되는 함수
+	function onMessageReceived(payload) {
+		const message = JSON.parse(payload.body);
+		console.log("웹소켓으로 새 메시지 수신:", message);
+		displayMessage(message); // 받은 메시지를 화면에 표시
+	}
+
+	// 웹소켓을 통해 유저 정보 업데이트를 받았을 때 호출되는 함수
+	function onUserInfoReceived(payload) {
+		const message = JSON.parse(payload.body);
+		console.log("유저 정보 수신:", message);
+
+		// 'users' 메시지가 전체 유저 목록을 담고 있다고 가정
+		// 서버에서 유저가 추가/제거될 때마다 전체 목록을 보내주는 것이 일반적입니다.
+		users = message; // 수신된 전체 유저 목록으로 교체
+		updateUserList(); // 유저 목록 UI 업데이트
+	}
+
+	function onNickChanged(payload){
+		const response = JSON.parse(payload.body);
+		if (response.success) {
+			username = nameboxInput.value; // 변경 성공 시 로컬 username 업데이트
+			sessionStorage.setItem("nick", username);
+			displayMessage({id: "-1", name: "system", chat: `닉네임이 '${username}'(으)로 변경되었습니다.`, timestamp: ""});
+		} else {
+			nameboxInput.value = username; // 변경 실패 시 이전 닉네임으로 되돌림
+			alert("닉네임 변경 실패: " + response.message);
+			displayMessage({id: "-1", name: "system", chat: `닉네임 변경 실패: ${response.message}`, timestamp: ""});
+		}
+	}
+
+
+	// 화면에 메시지를 표시하는 범용 함수
+	function displayMessage(message) {
+		const listItem = document.createElement('li');
+		const formattedChat = message.chat.replace(/\n/g, '<br>');
+
+		if( message.id === "-1" ){    // message from server (시스템 메시지)
+			listItem.style.color = 'blue'; // 시스템 메시지 색상 변경
+		}
+
+		listItem.innerHTML = message.timestamp ? `[${message.timestamp.split(' ')[1]}] ` : "";
+		listItem.innerHTML += `<strong>${message.name}</strong>`;
+		listItem.innerHTML += message.id ? `(${message.id})` : "";
+		listItem.innerHTML += `: ${formattedChat}`;
+		chatLogElement.appendChild(listItem);
+		chatLogElement.scrollTop = chatLogElement.scrollHeight;
+	}
+
+	// --- 유저 목록 UI 업데이트 함수 ---
+	function updateUserList() {
+		userListElement.innerHTML = ''; // 기존 목록 비우기
+		users.forEach(user => {
+			const listItem = document.createElement('li');
+			listItem.textContent = user.name; // 유저 객체에 'name' 필드가 있다고 가정
+			userListElement.appendChild(listItem);
+		});
+		userCountElement.textContent = users.length; // 유저 수 업데이트
+	}
+
+
+	// 초기 채팅 내역 및 유저 정보 로딩
+	function getChat(url) {
+		const requestBody = {};
+		fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			},
+			body: new URLSearchParams({
+				id: id === null ? "-1" : id // sessionStorage에 들어있던 id, 없으면 -1
+			})
+		})
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				return response.json();
+			})
+			.then(data => {
+				chatLogElement.innerHTML = ''; // 기존 메시지들 비우고 다시 로드
+				data.forEach(message => {
+					if( message.messageNum === -1 ) { // 사용자 본인 정보
+						nameboxInput.value = message.chat; // 닉네임 설정
+						username = message.chat;
+						id = parseInt(message.id);
+						sessionStorage.setItem("id", id);
+						sessionStorage.setItem("nick", username);
+					} else if (message.messageNum === -2) { // 유저 리스트 정보
+						users.push({id: message.id, name: message.chat});
+					}
+					else { // 일반 메시지
+						displayMessage(message);
+					}
+				});
+				updateUserList(); // 초기 로드 후 유저 목록 업데이트
+			})
+			.catch(error => console.error('Error fetching initial chat history:', error));
+	}
+
+
+	function send(){
+		let chat = document.getElementById('box').value;
+		document.getElementById('box').value = "";
+
+		if( chat.startsWith('/') ){   // 슬래시 명령어 실행
+			let sp = chat.split(' ');
+			const command = sp[0];
+
+			if (command === "/clear") {
+				clear();
+			} else if (command === "/nick") {
+				nick(sp[1]);
+			} else {
+				// 알 수 없는 명령어 처리
+				displayMessage({id: "-1", name: "system", chat: `알 수 없는 명령어: ${command}`, timestamp: ""});
+			}
+			return; // 명령어 처리 후 메시지 전송 로직 건너뛰기
+		}
+
+		// STOMP를 통해 메시지 전송
+		if (stompClient && stompClient.connected) {
+			const chatMessage = {
+				id: id,
+				name: username, // 닉네임 사용
+				chat: chat
+			};
+			stompClient.send(`/app/chat/${roomname}.sendMessage`, {}, JSON.stringify(chatMessage));
+		} else {
+			displayMessage({id: "-1", name: "system", chat: "서버 연결이 끊어졌습니다. 메시지를 보낼 수 없습니다.", timestamp: ""});
+		}
+	}
+
+	function nick(newNick){
+		if( getByteLength(newNick) === 0 ){
+			displayMessage({id: "-1", name: "system", chat: "닉네임이 너무 짧아요.", timestamp: ""});
+		} else if ( getByteLength(newNick) > 22 ){
+			displayMessage({id: "-1", name: "system", chat: "닉네임이 너무 길어요.", timestamp: ""});
+		} else {
+			// STOMP를 통해 닉네임 변경 요청
+			if (stompClient && stompClient.connected) {
+				const nickChangeMessage = {
+					id: id,
+					oldNick: username, // 현재 닉네임
+					newNick: newNick   // 변경할 닉네임
+				};
+				stompClient.send(`/app/chat/${roomname}.changeNick`, {}, JSON.stringify(nickChangeMessage));
+			} else {
+				displayMessage({id: "-1", name: "system", chat: "서버 연결이 끊어져 닉네임을 변경할 수 없습니다.", timestamp: ""});
+			}
+		}
+		// 닉네임 변경 결과는 onNickChanged 콜백에서 처리되므로, 여기서는 nameboxInput.value를 바로 변경하지 않습니다.
+	}
+
+	function clear(){
+		document.getElementById("chat-log").innerHTML = '';
+	}
+
+	// --- 이벤트 리스너 및 초기 호출 ---
+	document.getElementById('box').addEventListener('keydown', (event) => {
+		if (event.key === 'Enter')
+			send();
+	});
+
+	document.getElementById('namebox').addEventListener('keydown', (event) => {
+		if (event.key === 'Enter' || event.keyCode === 13) {
+			document.getElementById('namebox').blur();
+		}
+	});
+
+	document.getElementById('namebox').addEventListener('change', (event) => {
+		nick(nameboxInput.value);
+	});
+
+	// 페이지 로드 시 웹소켓 연결 시작
+	document.addEventListener('DOMContentLoaded', connect);
+
+	function getByteLength(str) {
+		return new TextEncoder().encode(str).length;
+	}
+</script>
+</body>
+</html>

@@ -5,12 +5,39 @@
     <title>Simple Chat</title>
 </head>
 <style>
+    body {
+        display: flex; /* Flexbox 레이아웃으로 채팅 영역과 유저 리스트 나란히 배치 */
+        flex-direction: row; /* 채팅창과 유저리스트를 가로로 나열 */
+        margin: 0;
+        padding: 10px; /* 전체적인 여백 */
+        height: calc(100vh - 20px); /* 뷰포트 높이에서 패딩 제외 */
+        box-sizing: border-box; /* 패딩을 너비/높이에 포함 */
+    }
+
+    /* 기존 요소들 (p#output, a)은 채팅창 영역 밖으로 뺍니다 */
+    #top-info-area {
+        position: absolute; /* 절대 위치로 기존 정보 표시 영역 분리 */
+        flex-direction: row; /* 채팅창과 유저리스트를 가로로 나열 */
+        top: 10px;
+        left: 10px;
+        z-index: 10;
+    }
+
+    #chat-main-container {
+        display: flex; /* 채팅 컨테이너와 유저 리스트를 나란히 */
+        flex-grow: 1; /* 남은 공간을 채움 */
+        height: 100%; /* 부모(body)의 높이에 맞춤 */
+        width: 100%;
+    }
+
     #chat-con{
+        margin-top: 100px;
         border: 1px solid #ccc;
-        width: 520px;
-        height: 500px;
+        width: 100%;
+        height: auto;
         overflow: hidden;
         display: flex;
+        margin-right: 10px; /* 유저 리스트와의 간격 */
         flex-direction: column-reverse;
     }
     #chat-log{
@@ -19,6 +46,7 @@
         list-style: none;
         overflow-y: auto;
         scroll-behavior: smooth;
+        order: 2; /* flex-direction: column; 일 때 아래쪽에 배치 */
     }
     li {
         margin-bottom: 2px;
@@ -26,41 +54,109 @@
         border: 1px solid #eee;
         font: 14px Consolas bold;
     }
+
+    #input-area {
+        display: flex; /* 입력창과 버튼을 가로로 나란히 */
+        padding: 5px 10px;
+        border-top: 1px solid #eee;
+        align-items: center; /* 세로 중앙 정렬 */
+        order: 1; /* flex-direction: column; 일 때 맨 아래쪽에 배치 */
+        flex-shrink: 0; /* 크기가 줄어들지 않도록 고정 */
+        background-color: white; /* 배경색으로 스크롤바 위로 올라오지 않도록 방지 */
+    }
+
     #box {
+        flex-grow: 1;
         margin-top: 5px;
+        margin-right: 5px;
         height: 20px;
+        width: auto;
         font: 16px Consolas bold;
     }
+
     #namebox{
         margin-top: 5px;
+        margin-right: 5px;
         height: 20px;
+        width: 80px;
         font: 16px Consolas bold;
     }
 
     #button {
-        padding-top: 5px;
+        margin-top: 5px;
+        height: 25px;
+        width: 60px;
+    }
+
+    /* --- 유저 리스트 추가 스타일 --- */
+    #user-list-area {
+        margin-top: 100px;
+        width: 150px; /* 유저 리스트 너비 고정 */
+        border: 1px solid #ccc;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0; /* 유저 리스트 크기가 줄어들지 않도록 고정 */
+    }
+    #user-list-area h3 {
+        margin: 0;
+        padding: 10px;
+        background-color: #f0f0f0;
+        border-bottom: 1px solid #ccc;
+        font-size: 16px;
+    }
+    #user-list {
+        list-style: none;
+        padding: 10px;
+        margin: 0;
+        overflow-y: auto; /* 유저 목록에 스크롤바 부여 */
+        flex-grow: 1; /* 남은 공간을 채우도록 */
+    }
+    #user-list li {
+        padding: 5px;
+        border: none; /* 유저 리스트 li는 테두리 없음 */
+        margin-bottom: 0;
+        cursor: default; /* 클릭 가능한 요소 아니므로 */
+        background-color: transparent;
+        font: 14px Consolas bold; /* 채팅 로그 li와 동일 폰트 */
     }
 </style>
 </html>
 <body>
-<p id="output">여기에 응답 표시</p>
-<a href="index.html">로비로 돌아가기</a>
-<div id="chat-con">
-    <ul id="chat-log"></ul>
+
+
+<div id="chat-main-container">
+    <div id="top-info-area">
+        <p id="output">여기에 응답 표시</p>
+        <a href="index.html">로비로 돌아가기</a>
+    </div>
+
+    <div id="chat-con">
+        <ul id="chat-log"></ul>
+
+        <div id="input-area">
+            <input type="text" id="namebox" name="namebox">
+            <input type="text" id="box" name="box" placeholder="메시지 입력">
+            <button id="button" onclick="send()">보내기</button>
+        </div>
+    </div>
+
+    <div id="user-list-area">
+        <h3>현재 접속자 (<span id="user-count">0</span>)</h3>
+        <ul id="user-list">
+        </ul>
+    </div>
 </div>
-<input type="text" size=2 id="namebox" name="namebox">
-<input type="text" size=40 id="box" name="box" placeholder="메시지 입력">
-<button id="button" onclick=send()>보내기</button>
+
 </body>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.js"></script>
 <script>
-	let server = 'localhost:8080';//"10.50.131.25:8080";
+	let server = "10.50.131.25:8080";
 
 	// 기존 스크립트 시작 부분에 변수 선언 추가
 	let stompClient = null;
-	let username = localStorage.getItem("nick"); // 사용자 이름을 고정하거나 입력받도록 조정
-	let id = localStorage.getItem("id");  // 내부적으로, 통신할때만 사용
+	let username = sessionStorage.getItem("nick"); // 사용자 이름을 고정하거나 입력받도록 조정
+	let id = sessionStorage.getItem("id");  // 내부적으로, 통신할때만 사용
     let users = [];     // 채팅방 유저들
 
 	const urlParams = new URLSearchParams(window.location.search);
@@ -71,7 +167,8 @@
 	const sendButton = document.getElementById('button'); // 기존 id "button" 사용
 	const chatLogElement = document.getElementById('chat-log'); // 기존 id "chat-log" 사용
 	const nameboxInput = document.getElementById('namebox');
-
+	const userListElement = document.getElementById('user-list'); // 새로 추가: 유저 리스트 UL 요소
+	const userCountElement = document.getElementById('user-count'); // 새로 추가: 유저 수 표시 SPAN 요소
 
 	// --- WebSocket/STOMP 관련 함수 추가 시작 ---
 
@@ -125,22 +222,40 @@
 	// 웹소켓을 통해 새 유저정보를 받았을 때 호출되는 함수
 	function onUserInfoReceived(payload) {
 		const message = JSON.parse(payload.body);
-        const UserIdx = users.findIndex(user => user.id === message.id );
+        const UserIdx = users.findIndex(user => parseInt(user.id) === message.id );
+
 		if( UserIdx !== -1 ){
-			users.splice(UserIdx, 1);
-		} else
-            users.push({id: message.id, name: message.username});
+			if( users[UserIdx].name.localeCompare(message.username) === 0 )
+			    users.splice(UserIdx, 1);
+			else
+				users[UserIdx].name = message.username;
+		} else {
+			users.push({id: message.id, name: message.username});
+		}
+		updateUserList(); // 유저 목록 UI 업데이트 함수 호출
     }
 
+	// 새로 추가: 유저 목록 UI를 업데이트하는 함수
+	function updateUserList() {
+		userListElement.innerHTML = ''; // 기존 목록 비우기
+		users.forEach(user => {
+			const listItem = document.createElement('li');
+			listItem.textContent = user.name; // 유저 객체에 'name' 필드가 있다고 가정
+			userListElement.appendChild(listItem);
+		});
+		userCountElement.textContent = users.length; // 유저 수 업데이트
+	}
+
 	function onNickChanged(payload){
-		const flag = payload.body;
-		console.log("웹소켓으로 새 메시지 수신:", flag);
-		if( flag.includes(username) ) {
-			if (flag.split('/')[1] === "1") {
-				nameboxInput.value = username;
-				alert("중복닉네임 입니다.");
-			} else
-				username = nameboxInput.value;
+		const response = JSON.parse(payload.body);
+		if (response.success) {
+			username = nameboxInput.value;
+			sessionStorage.setItem("nick", username);
+			displayMessage({id: "-1", name: "system", chat: `닉네임이 '${username}'(으)로 변경되었습니다.`, timestamp: ""});
+		} else {
+			nameboxInput.value = username;
+			alert("닉네임 변경 실패: " + response.message);
+			displayMessage({id: "-1", name: "system", chat: `닉네임 변경 실패: ${response.message}`, timestamp: ""});
 		}
 	}
 
@@ -159,13 +274,20 @@
 		}
 
 // 메시지 형식 (sender가 있는 경우)
-        listItem.innerHTML = message.timestamp?`[${message.timestamp.split(' ')[1]}]`:"";
+
+        listItem.innerHTML = message.timestamp?`[${message.timestamp.split(' ')[1]}] `:"";
 		listItem.innerHTML += `<strong>${message.name}</strong>`;
         listItem.innerHTML += message.id?`(${message.id})`:"";
-        listItem.innerHTML += `: ${formattedChat}`;
+		if( isValidUrl(formattedChat) )
+		    listItem.innerHTML += `: <a href="${formattedChat}" target="_blank">${formattedChat}</a>`;
+		else
+			listItem.innerHTML += `: ${formattedChat}`;
         chatLogElement.appendChild(listItem); // ul에 li 추가
 		chatLogElement.scrollTop = chatLogElement.scrollHeight; // 스크롤을 항상 최하단으로 내립니다.
 	}
+
+
+
 	// --- WebSocket/STOMP 관련 함수 추가 끝 ---
 
 
@@ -197,36 +319,36 @@
 				'Content-Type': 'application/x-www-form-urlencoded'  // 서버에 JSON 데이터를 보낼 것임을 알립니다.
 			},
             body: new URLSearchParams({
-				id: id===null?"-1":id      // localStorage에 들어있던 id, 없으면 -1
+				id: id===null?"-1":id      // sessionStorage에 들어있던 id, 없으면 -1
 		    })
-		})
-			.then(response => {
-				// 응답이 성공적인지 확인합니다 (HTTP 상태 코드 200-299).
-				if (!response.ok) {
-					// 응답이 실패하면 에러를 던져 .catch 블록으로 넘깁니다.
-					throw new Error(`HTTP error! status: ${response.status}`);
-				}
-				return response.json(); // JSON 응답을 기대
-			})
-			.then(data => {
-				// chatLogElement는 HTML에 존재하는 채팅 로그를 표시할 요소여야 합니다.
-				// 예를 들어, const chatLogElement = document.getElementById('chat-log');
-				chatLogElement.innerHTML = ''; // 기존 메시지들 비우고 다시 로드
-				data.forEach(message => {
-					if( message.messageNum === -1 ) {
-						nameboxInput.value = message.chat;
-						username = message.chat;
-						id = parseInt(message.id);
-						localStorage.setItem("id", id);
-                        localStorage.setItem("nick", username);
-					} else if (message.messageNum === -2) {
-						users.push({id: message.id, name: message.chat});
-                    }
-					else
-						displayMessage(message); // 받은 메시지를 화면에 표시 (displayMessage 함수는 별도로 정의되어 있어야 함)
-				});
-			})
-			.catch(error => console.error('Error fetching initial chat history:', error));
+		}).then(response => {
+            // 응답이 성공적인지 확인합니다 (HTTP 상태 코드 200-299).
+            if (!response.ok) {
+                // 응답이 실패하면 에러를 던져 .catch 블록으로 넘깁니다.
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json(); // JSON 응답을 기대
+        }).then(data => {
+            // chatLogElement는 HTML에 존재하는 채팅 로그를 표시할 요소여야 합니다.
+            // 예를 들어, const chatLogElement = document.getElementById('chat-log');
+            chatLogElement.innerHTML = ''; // 기존 메시지들 비우고 다시 로드
+            users = []; // 기존 유저목록을 비우고 다시 로드
+            data.forEach(message => {
+                if( message.messageNum === -1 ) {
+                    nameboxInput.value = message.chat;
+                    username = message.chat;
+                    id = parseInt(message.id);
+                    sessionStorage.setItem("id", id);
+                    sessionStorage.setItem("nick", username);
+                } else if (message.messageNum === -2) {
+                    users.push({id: message.id, name: message.chat});
+                }
+                else
+                    displayMessage(message); // 받은 메시지를 화면에 표시 (displayMessage 함수는 별도로 정의되어 있어야 함)
+            });
+            updateUserList(); // 초기 로드 후 유저 목록 업데이트
+        })
+        .catch(error => console.error('Error fetching initial chat history:', error));
 	}
 
 
@@ -278,7 +400,7 @@
                     nick: username // "nick"는 서버 컨트롤러의 @RequestParam 이름과 일치
                 })
             });
-            localStorage.setItem("nick", username);
+            sessionStorage.setItem("nick", username);
         }
         nameboxInput.value = username;
 	}
@@ -311,4 +433,17 @@
     function getByteLength(str) {
         return new TextEncoder().encode(str).length;
     }
+
+	function isValidUrl(str) {
+		const urlRegex = new RegExp(
+			'^(https?:\\/\\/)?' + // protocol
+			'((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|' + // domain name
+			'((\\d{1,3}\\.){3}\\d{1,3}))' + // OR ip (v4) address
+			'(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*' + // port and path
+			'(\\?[;&a-z\\d%_.~+=-]*)?' + // query string
+			'(\\#[-a-z\\d_]*)?$', // fragment locator
+			'i'
+		);
+		return urlRegex.test(str);
+	}
 </script>
