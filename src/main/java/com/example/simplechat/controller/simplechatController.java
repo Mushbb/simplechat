@@ -7,13 +7,9 @@ import com.example.simplechat.model.ChatRoom;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-//import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
-import jakarta.servlet.http.HttpServletRequest;
 
-import reactor.core.publisher.Mono;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 //import org.springframework.web.bind.annotation.CrossOrigin;
@@ -37,10 +33,10 @@ public class simplechatController {
     }*/
 	
 	@PostMapping("/lobby")
-	public Mono<List<String[]>> getRoomList(){
+	public List<String[]> getRoomList(){
 		// System.out.println("lobbylist");
 		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
-        return Mono.just(serv.getAllRoom().entrySet().stream()
+        return serv.getAllRoom().entrySet().stream()
             .map(entry -> {
                 String roomName = entry.getKey();
                 ChatRoom room = entry.getValue();
@@ -49,11 +45,11 @@ public class simplechatController {
                 // 만약 room.getId()와 같은 필드가 있다면 활용 가능
                 return new String[]{roomName, roomName, ""+room.getPopsCount()}; // [ID, Name, Pop] 형태로 가정
             })
-            .collect(Collectors.toList()));
+            .collect(Collectors.toList());
 	}
 	
 	@PostMapping("/{roomName}")
-	public Mono<List<ChatMessage>> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
+	public List<ChatMessage> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
 //		System.out.println("new User in "+path+", "+Id);
         return serv.createRoom(path, Id);
     }

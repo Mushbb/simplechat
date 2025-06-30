@@ -9,7 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
-import reactor.core.publisher.Mono;
 
 import java.util.Scanner;
 import jakarta.annotation.PreDestroy;
@@ -132,7 +131,7 @@ public class SimplechatService {
 		return Flux.fromIterable(sending);
 	}*/
 	
-	public Mono<List<ChatMessage>> getAllChat(String roomName, Integer Id, String name){
+	public List<ChatMessage> getAllChat(String roomName, Integer Id, String name){
 		ChatRoom cr = rooms.get(roomName);
 		List<ChatMessage> temp = new ArrayList<>(cr.getChats());
 		
@@ -146,7 +145,7 @@ public class SimplechatService {
 			temp.add(new ChatMessage(""+key, cr.getPop(key).getUsername(), cr.getPop(key).getUsername(), -2));
 		});
 		
-		return Mono.just(temp);
+		return temp;
 	}
 	
 	public boolean checkRoom(String name) { return rooms.containsKey(name); }
@@ -160,7 +159,7 @@ public class SimplechatService {
     }
 
     // 기존 createRoom 메소드 반영 및 수정
-    public Mono<List<ChatMessage>> createRoom(String name, String Id) {
+    public List<ChatMessage> createRoom(String name, String Id) {
     	int id;
     	String username;
     	
