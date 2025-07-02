@@ -184,9 +184,8 @@ public class SimplechatService {
         return getAllChat(name, id, username);
     }
     
-    public Map<String, ChatRoom> getAllRoom(){
-    	return rooms;
-    }
+    public Map<String, ChatRoom> getAllRoom(){ return rooms; }
+    public ChatRoom getRoom(String roomName) { return rooms.get(roomName); }
 	
 	public void checkNick(String newNick, String Id, String roomName){
 		ChatRoom cr = rooms.get(roomName);

@@ -5,6 +5,7 @@ import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 처리할 �
 import com.example.simplechat.model.UserInfo;
 import com.example.simplechat.event.UserEnteredRoomEvent;
 import com.example.simplechat.event.UserExitedRoomEvent;
+import com.example.simplechat.event.ChangeNicknameEvent;
 
 import org.springframework.context.event.EventListener; // Spring의 이벤트 리스너 어노테이션 import
 import org.springframework.messaging.simp.SimpMessagingTemplate; // 웹소켓 전송 템플릿 import
@@ -77,6 +78,24 @@ public class ChatMessageActivityListener {
     @Async
     @EventListener
     public void handleUserExitedRoom(UserExitedRoomEvent event) {
+    	String userId = event.getUserId();
+    	String userName = event.getUserName();
+    	String roomName = event.getRoomName();
+    	
+        // 1. 웹소켓으로 메시지 브로드캐스트
+        try {
+            // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
+            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", new UserInfo(Integer.parseInt(userId), userName));
+            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId);
+        } catch (Exception e) {
+            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    @Async
+    @EventListener
+    public void handleChangeNicknameEvent(ChangeNicknameEvent event) {
     	UserInfo userinfo = event.getUserInfo();
     	String roomName = event.getRoomName();
     	

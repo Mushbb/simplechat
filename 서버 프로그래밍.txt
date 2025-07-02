@@ -5,8 +5,6 @@ Websocket과 HTTP요청을 확실히 분리
 
 TODO
 
-STOMP를 이용해서 유저퇴장을 인식 (Heartbeat) - 퇴장하면 브로드캐스트 (1개만)
-
 List<UserInfo>를 서비스 클래스로 옮겨서 전체유저를 통합관리
 Map<UUID, Nickname>을 ChatRoom안에 넣어서 닉네임은 방마다 따로관리
 lobby에서 로그인 (일단은 localStorage에 로그인정보 해서 로그인 유지되도록)
@@ -44,6 +42,8 @@ lobby에서 로그인 (일단은 localStorage에 로그인정보 해서 로그�
 
 
 =================================================
+
+STOMP를 이용해서 유저퇴장을 인식 (Heartbeat) - 퇴장하면 브로드캐스트 (1개만)
 
 WebFlux 갖다버리기
 - 없어도 그냥 잘되네.. 난 왜 이 고생을?

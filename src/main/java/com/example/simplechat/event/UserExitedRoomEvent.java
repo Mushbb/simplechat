@@ -1,31 +1,27 @@
 package com.example.simplechat.event;
 
-import com.example.simplechat.model.UserInfo;
 import org.springframework.context.ApplicationEvent; // Spring의 ApplicationEvent 상속
 
 public class UserExitedRoomEvent extends ApplicationEvent {
-	private final UserInfo userinfo;
+	private final String userId;
+	private final String userName;
 	private final String roomName;
 	
-	public UserExitedRoomEvent(Object source, UserInfo userinfo, String roomName) {
+	public UserExitedRoomEvent(Object source, String userId, String userName, String roomName) {
 		super(source);
-		this.userinfo = userinfo;
+		this.userId = userId;
+		this.userName = userName;
 		this.roomName = roomName;
 	}
 	
-	
-	public UserInfo getUserInfo() {
-		return userinfo;
-	}
-	
-    public String getRoomName() {
-        return roomName;
-    }
+	public String getUserId() { return userId; }
+    public String getRoomName() { return roomName;  }
+    public String getUserName() { return userName; }
     
     @Override
     public String toString() {
         return "UserExitedRoomEvent{" +
-               "UserInfo=" + userinfo +
+               "userId=" + userId +
                ", roomName='" + roomName + '\'' +
                '}';
     }    
