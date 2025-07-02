@@ -1,5 +1,7 @@
 package com.example.simplechat.config;
 
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.config.ChannelRegistration;
@@ -27,10 +29,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     }
 
     // Heartbeat를 위한 TaskScheduler Bean
-    // 이 스케줄러는 STOMP 메시지 브로커의 heartbeat를 처리합니다.
-    private ThreadPoolTaskScheduler heartbeatScheduler() {
+    // 이 스케줄러는 STOMP 메시지 브로커의 hWWeartbeat를 처리합니다.
+    // ⭐️ 중요: TaskScheduler 빈을 명시적으로 정의하고 @Primary 또는 'taskExecutor' 이름 지정
+    @Bean
+    @Primary // 또는 @Bean(name = "taskExecutor")
+    public ThreadPoolTaskScheduler heartbeatScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(1); // Heartbeat를 위한 스레드 풀 크기
+        scheduler.setPoolSize(20); // Heartbeat를 위한 스레드 풀 크기
         scheduler.setThreadNamePrefix("websocket-heartbeat-scheduler-");
         scheduler.initialize();
         return scheduler;
