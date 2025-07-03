@@ -36,15 +36,15 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     // Heartbeat를 위한 TaskScheduler Bean (STOMP 브로커용)
     // 이 스케줄러는 STOMP 메시지 브로커의 heartbeat를 처리합니다.
-    @Bean
-    // @Primary // @Primary 어노테이션 제거: SockJsService에 명시적으로 주입하므로 필요 없음
-    public ThreadPoolTaskScheduler heartbeatScheduler() {
-        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(50); // Heartbeat를 위한 스레드 풀 크기
-        scheduler.setThreadNamePrefix("websocket-scheduler-"); // 이름 변경 (하트비트 외 다른 용도로도 사용될 수 있음을 나타냄)
-        scheduler.initialize();
-        return scheduler;
-    }
+//    @Bean
+//    // @Primary // @Primary 어노테이션 제거: SockJsService에 명시적으로 주입하므로 필요 없음
+//    public ThreadPoolTaskScheduler heartbeatScheduler() {
+//        ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+//        scheduler.setPoolSize(50); // Heartbeat를 위한 스레드 풀 크기
+//        scheduler.setThreadNamePrefix("websocket-scheduler-"); // 이름 변경 (하트비트 외 다른 용도로도 사용될 수 있음을 나타냄)
+//        scheduler.initialize();
+//        return scheduler;
+//    }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {

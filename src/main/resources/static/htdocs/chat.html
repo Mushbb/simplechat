@@ -152,7 +152,7 @@
 <script LANGUAGE="javascript" src="/stomp.js"></script>
 <script>
 	let server = "10.50.131.25:8080";
-    server = "localhost:8080";
+    //server = "localhost:8080";
 
 	// 기존 스크립트 시작 부분에 변수 선언 추가
 	let stompClient = null;
@@ -182,9 +182,12 @@
 		var socket = new SockJS('http://'+server+'/ws');
 		stompClient = Stomp.over(socket);
 
+		stompClient.heartbeat.outgoing = 0;   // 내가 보내는 하트비트(ms)
+		stompClient.heartbeat.incoming = 0;   // 서버에서 기대하는 하트비트(ms)
+
         // STOMP 클라이언트 연결
         // 연결 성공 시 onConnected 호출, 실패 시 onError 호출
-		stompClient.connect({ /*'heart-beat': '5000,5000',*/ 'id': id, 'roomName': roomname }, onConnected, onError);
+		stompClient.connect({'id': id, 'roomName': roomname }, onConnected, onError);
 
 		// STOMP 클라이언트 객체가 stompClient 라고 가정합니다.
 		stompClient.ws.onclose = function(event) {
