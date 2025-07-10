@@ -45,7 +45,7 @@
     const tableHeader = document.getElementById('tableHeader');
     const tableBody = document.getElementById('tableBody');
 
-    const SERVER_URL = 'http://localhost:8080/shop'; // 서버 주소
+    const SERVER_URL = 'http://10.50.131.25:8080/shop';//'http://localhost:8080/shop'; // 서버 주소
 
     // 초기 상태 설정
     dataTable.style.display = 'none';
@@ -66,14 +66,11 @@
       try {
         const response = await fetch(SERVER_URL, {
           method: 'POST',
-          // SQL 쿼리 문자열만 보낼 때는 Content-Type을 'text/plain'으로 설정하거나 생략할 수 있습니다.
-          // 생략하면 기본적으로 'text/plain'으로 간주될 수 있습니다.
-          // 서버가 'text/plain'을 명시적으로 요구하는 경우에만 아래 헤더를 추가하세요.
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded'  // 서버에 JSON 데이터를 보낼 것임을 알립니다.
           },
           body: new URLSearchParams({
-            sqlQuery: sqlQueryString      // sessionStorage에 들어있던 id, 없으면 -1
+            sqlQuery: sqlQueryString      // sqlQuery 파라미터로 송신
           })
         });
 
