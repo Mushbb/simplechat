@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.example.jdbctest.jdbctest;
+
 //import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
@@ -63,5 +65,12 @@ public class simplechatController {
 	@PostMapping("/{roomName}/nick")
 	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id, @PathVariable("roomName") String path) {
 		serv.checkNick(newNick, Id, path);
+	}
+	
+	@PostMapping("/shop")
+	public List<String> shop(@RequestParam("sqlQuery") String sqlQuery) {
+		// JDBC 연결해서 쿼리문 결과 List<>리턴 -> JSON 자동변환
+		// 헤더도 포함해서 넣어줘야해
+		return jdbctest.excuteQuery(sqlQuery);
 	}
 }
