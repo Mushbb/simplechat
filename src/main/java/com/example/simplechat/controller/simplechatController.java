@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import jakarta.servlet.http.HttpSession;
+
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,10 +69,32 @@ public class simplechatController {
 		serv.checkNick(newNick, Id, path);
 	}
 	
+	
+	
+	
+	
+	
 	@PostMapping("/shop")
 	public List<String> shop(@RequestParam("sqlQuery") String sqlQuery) {
 		// JDBC 연결해서 쿼리문 결과 List<>리턴 -> JSON 자동변환
 		// 헤더도 포함해서 넣어줘야해
 		return jdbctest.excuteQuery(sqlQuery);
 	}
+	
+	@PostMapping("/login")
+	public Integer login(@RequestParam("user_id") String userid, @RequestParam("user_pw") String userpw, HttpSession session) {
+		Integer logged = jdbctest.login(userid, userpw);
+		if( logged == 1 ) {
+			session.setAttribute("loggedInUser", userid); // 세션에 로그인 사용자 정보 저장
+            session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
+		}
+		return logged;
+	}
+	
+	// 로그아웃 처리
+    @PostMapping("/logout")
+    public Integer logout(HttpSession session) {
+        session.invalidate(); // 세션 무효화
+        return 1;
+    }
 }
