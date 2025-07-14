@@ -36,3 +36,4 @@ out/
 ### VS Code ###
 .vscode/
 mssql-jdbc-12.10.0.jre11.jar
+src/main/resources/static/htdocs/login.html
