@@ -18,6 +18,45 @@ public class jdbctest {
     private static final String DB_USER = "mushbb";     // SQL Server 사용자 이름
     private static final String DB_PASSWORD = "mushbb"; // SQL Server 비밀번호
 
+    public static Integer login(String id, String password) {
+        String connectionUrl = "jdbc:sqlserver://" + DB_HOST + ":" + DB_PORT +
+                ";databaseName=" + DB_NAME + ";user=" + DB_USER + ";password=" + DB_PASSWORD +
+                ";trustServerCertificate=true;"; // 개발/테스트 환경에서만 true, 운영은 CA 발급 인증서 사용
+
+		Connection connection = null;
+		Statement statement = null;
+		ResultSet resultSet = null;
+		Integer count = 0;
+		
+		try {
+	        System.out.println("Connecting to SQL Server...");
+	        connection = DriverManager.getConnection(connectionUrl);
+	        System.out.println("Connection successful!");
+	        
+	        statement = connection.createStatement();
+	        
+	        resultSet = statement.executeQuery("SELECT COUNT(*) AS CNT FROM SM_Mem_Info WHERE MI_ID='"+id+"' AND MI_PW='"+password+"'");
+	        resultSet.next();
+	        count = resultSet.getInt("CNT");
+	        
+		} catch (SQLException e) {
+            System.err.println("Database error occurred: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            // 6. 자원 해제 (역순으로 닫는 것이 좋음)
+            try {
+                if (resultSet != null) resultSet.close();
+                if (statement != null) statement.close();
+                if (connection != null) connection.close();
+                System.out.println("\nDatabase connection closed.");
+            } catch (SQLException e) {
+                System.err.println("Error closing resources: " + e.getMessage());
+            }
+        }
+		
+		return count;
+	}
+    
     public static List<String> excuteQuery(String sqlQuery) {
     	List<String> result = new ArrayList<String>();
     	
