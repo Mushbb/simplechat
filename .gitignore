@@ -37,3 +37,4 @@ out/
 .vscode/
 mssql-jdbc-12.10.0.jre11.jar
 src/main/resources/static/htdocs/login.html
+src/main/resources/static/htdocs/login_OK.html
