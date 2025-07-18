@@ -81,42 +81,52 @@ public class jdbctest {
             System.out.println("Connecting to SQL Server...");
             connection = DriverManager.getConnection(connectionUrl);
             System.out.println("Connection successful!");
-
+            connection.setAutoCommit(false); 
             // 3. Statement 객체 생성 (SQL 쿼리 실행용)
             statement = connection.createStatement();
 
-            // 4. SQL 쿼리 실행
-//	            String sqlQuery = "SELECT * "
-//	            		+ "FROM (SELECT * "
-//	            		+ "	  FROM Purchasing.PurchaseOrderHeader "
-//	            		+ "	  WHERE VendorID = 1580) AS A"; // 실제 테이블 및 컬럼명에 맞게 변경
-            resultSet = statement.executeQuery(sqlQuery);
+            if( sqlQuery.toLowerCase().startsWith("select ") ) {
+	            resultSet = statement.executeQuery(sqlQuery);
+	
+	            // ResultSetMetaData 객체 가져오기
+	            ResultSetMetaData rsmd = resultSet.getMetaData();
+	            int columnCount = rsmd.getColumnCount(); // 총 컬럼 개수
+	            String temp = "";
+	            // 컬럼 헤더 출력
+	            for (int i = 1; i <= columnCount; i++) {
+	                temp += rsmd.getColumnName(i) + "\t"; // 컬럼 이름
+	            }
+	            result.add(temp);
+	            temp = "";
+	            
+	            // 각 행의 모든 데이터 출력
+	            while (resultSet.next()) {
+	                for (int i = 1; i <= columnCount; i++) {
+	                    temp += resultSet.getObject(i) + (i==columnCount?"":"\t"); // Object 타입으로 모든 데이터 가져오기
+	                }
+	                result.add(temp);
+	                temp = "";
+	            }
+            } else {
+            	System.out.println("Executing DML/DDL: " + sqlQuery);
+            	int rowsAffected = statement.executeUpdate(sqlQuery);
+            	System.out.println("Rows affected: " + rowsAffected);
 
-            // --- 5. 결과 집합(ResultSet) 처리: 모든 열 출력 ---
-            System.out.println("\n--- Data from Production.Product Table ---");
-
-            // ResultSetMetaData 객체 가져오기
-            ResultSetMetaData rsmd = resultSet.getMetaData();
-            int columnCount = rsmd.getColumnCount(); // 총 컬럼 개수
-            String temp = "";
-            // 컬럼 헤더 출력
-            for (int i = 1; i <= columnCount; i++) {
-                temp += rsmd.getColumnName(i) + "\t"; // 컬럼 이름
-            }
-            result.add(temp);
-            temp = "";
-            
-            // 각 행의 모든 데이터 출력
-            while (resultSet.next()) {
-                for (int i = 1; i <= columnCount; i++) {
-                    temp += resultSet.getObject(i) + "\t"; // Object 타입으로 모든 데이터 가져오기
-                }
-                result.add(temp);
-                temp = "";
+            	connection.commit();
+                System.out.println("Transaction committed successfully.");
+                result.add("Rows affected: " + rowsAffected);
             }
         } catch (SQLException e) {
-            System.err.println("Database error occurred: " + e.getMessage());
+        	System.err.println("Database error occurred during DML/DDL operation: " + e.getMessage());
             e.printStackTrace();
+            try {
+                if (connection != null) {
+                    connection.rollback();
+                    System.err.println("Transaction rolled back due to error.");
+                }
+            } catch (SQLException rollbackEx) {
+                System.err.println("Error during rollback: " + rollbackEx.getMessage());
+            }
         } finally {
             // 6. 자원 해제 (역순으로 닫는 것이 좋음)
             try {

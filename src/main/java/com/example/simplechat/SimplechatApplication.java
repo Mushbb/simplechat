@@ -6,7 +6,10 @@ import org.springframework.scheduling.annotation.EnableAsync; // 비동기 활�
 
 import org.springframework.context.annotation.Bean; // 이 임포트 추가
 import org.springframework.web.servlet.config.annotation.CorsRegistry; // 이 임포트 추가
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer; // 이 임포트 추가
+
+// import com.example.simplechat.controller.AuthInterceptor;
 
 @SpringBootApplication
 @EnableAsync // <-- 이 어노테이션을 추가하여 @Async를 활성화합니다.
@@ -26,6 +29,18 @@ public class SimplechatApplication {
                         .allowCredentials(true) // 자격 증명(쿠키 등) 허용
                         .allowedHeaders("*"); // 모든 헤더 허용
             }
+            
+//            @Override
+//            public void addInterceptors(InterceptorRegistry registry) {
+//                registry.addInterceptor(new AuthInterceptor())
+//                        .order(1)
+//                        // 오직 /test/login 경로만 인터셉트 대상에 포함합니다.
+//                        // 즉, 사용자가 /test/login POST 요청을 보낼 때만 AuthInterceptor가 실행됩니다.
+//                        .addPathPatterns("/test/login")
+//                        // excludePathPatterns는 addPathPatterns에 포함된 경로 중에서 제외할 경로를 지정하는 것이므로,
+//                        // 현재 설정에서는 불필요합니다.
+//                        .excludePathPatterns(); // 아무것도 제외하지 않음
+//            }
         };
     }
 }
