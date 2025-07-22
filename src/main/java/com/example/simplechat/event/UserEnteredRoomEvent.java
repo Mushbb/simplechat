@@ -1,20 +1,20 @@
 package com.example.simplechat.event;
 
-import com.example.simplechat.model.UserInfo;
+import com.example.simplechat.model.User;
 import org.springframework.context.ApplicationEvent; // Spring의 ApplicationEvent 상속
 
 public class UserEnteredRoomEvent extends ApplicationEvent {
-	private final UserInfo userinfo;
+	private final User userinfo;
 	private final String roomName;
 	
-	public UserEnteredRoomEvent(Object source, UserInfo userinfo, String roomName) {
+	public UserEnteredRoomEvent(Object source, User userinfo, String roomName) {
 		super(source);
 		this.userinfo = userinfo;
 		this.roomName = roomName;
 	}
 	
 	
-	public UserInfo getUserInfo() {
+	public User getUserInfo() {
 		return userinfo;
 	}
 	

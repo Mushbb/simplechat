@@ -1,6 +1,7 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
+import com.example.jdbcsql.JDBC_SQL;
 import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거해주기
 import com.example.simplechat.model.ChatRoom;
 
@@ -16,8 +17,6 @@ import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
-import com.example.jdbctest.jdbctest;
-
 //import org.springframework.web.bind.annotation.CrossOrigin;
 
 @RestController
@@ -30,13 +29,6 @@ public class simplechatController {
 	public simplechatController(SimplechatService serv) {
 		this.serv = serv;
 	}
-	/*
-	@GetMapping("/")	// 한번도 호출되고있지 않은거?
-	public Flux<ChatMessage> catchGetRequests(HttpServletRequest request) {
-        //String requestURI = request.getRequestURI();
-        System.out.println("호출되고 있다구!");
-        return serv.getChat();
-    }*/
 	
 	@PostMapping("/lobby")
 	public List<String[]> getRoomList(){
@@ -73,60 +65,60 @@ public class simplechatController {
 	
 	
 	
-	
-	
-	
-	@PostMapping("/test/shop")
-	public List<String> shop(@RequestParam("sqlQuery") String sqlQuery) {
-		// JDBC 연결해서 쿼리문 결과 List<>리턴 -> JSON 자동변환
-		// 헤더도 포함해서 넣어줘야해
-		return jdbctest.excuteQuery(sqlQuery);
-	}
-	
-	@PostMapping("/test/login")
-	public Map<String, Object> login(@RequestParam(value="user_id",required=false) String userid, 
-			@RequestParam(value="user_pw",required=false) String userpw, HttpSession session) {
-		Map<String, Object> responseBody = new HashMap<>();
-		// 1. 현재 세션에 이미 로그인된 사용자가 있는지 확인
-        String loggedInUser = (String) session.getAttribute("loggedInUser");
-        
-        if (loggedInUser != null) {
-            // 이미 이 사용자가 로그인되어 있다면
-            System.out.println("DEBUG: User '" + loggedInUser + "' is already logged in. Returning success.");
-            responseBody.put("flag", 3);
-        } else {
-        	Integer logged = jdbctest.login(userid, userpw);
-    		if( logged == 1 ) {
-    			session.setAttribute("loggedInUser", userid); // 세션에 로그인 사용자 정보 저장
-    			System.out.print(session.getAttribute("loggedInUser")+"\n");
-    			loggedInUser = userid;
-                session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
-                responseBody.put("flag", 1);
-    		} else {
-    			responseBody.put("flag", 2);
-    		}
-        }
-		responseBody.put("userId", loggedInUser);
-		
-		System.out.print("end: "+session.getAttribute("loggedInUser")+"\n");
-		return responseBody;
-	}
-	
-	// 리다이렉트 처리
-	@PostMapping("/test/redirect")
-	public Map<String, Object> redirect(String URL) {
-		Map<String, Object> responseBody = new HashMap<>();
-		
-		responseBody.put("URL", URL);
-		
-		return responseBody;
-	}
-	
-	// 로그아웃 처리
-    @PostMapping("/test/logout")
-    public Integer logout(HttpSession session) {
-    	System.out.println("Session Closed: "+session.getAttribute("loggedInUser"));
-        session.invalidate(); // 세션 무효화
-        return 1;
-    }
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+///	SQL TEST End-points
+//	
+//	@PostMapping("/test/shop")
+//	public List<String> shop(@RequestParam("sqlQuery") String sqlQuery) {
+//		// JDBC 연결해서 쿼리문 결과 List<>리턴 -> JSON 자동변환
+//		// 헤더도 포함해서 넣어줘야해
+//		return JDBC_SQL.excuteQuery(sqlQuery);
+//	}
+//	
+//	@PostMapping("/test/login")
+//	public Map<String, Object> login(@RequestParam(value="user_id",required=false) String userid, 
+//			@RequestParam(value="user_pw",required=false) String userpw, HttpSession session) {
+//		Map<String, Object> responseBody = new HashMap<>();
+//		// 1. 현재 세션에 이미 로그인된 사용자가 있는지 확인
+//        String loggedInUser = (String) session.getAttribute("loggedInUser");
+//        
+//        if (loggedInUser != null) {
+//            // 이미 이 사용자가 로그인되어 있다면
+//            System.out.println("DEBUG: User '" + loggedInUser + "' is already logged in. Returning success.");
+//            responseBody.put("flag", 3);
+//        } else {
+//        	Integer logged = JDBC_SQL.login(userid, userpw);
+//    		if( logged == 1 ) {
+//    			session.setAttribute("loggedInUser", userid); // 세션에 로그인 사용자 정보 저장
+//    			System.out.print(session.getAttribute("loggedInUser")+"\n");
+//    			loggedInUser = userid;
+//                session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
+//                responseBody.put("flag", 1);
+//    		} else {
+//    			responseBody.put("flag", 2);
+//    		}
+//        }
+//		responseBody.put("userId", loggedInUser);
+//		
+//		System.out.print("end: "+session.getAttribute("loggedInUser")+"\n");
+//		return responseBody;
+//	}
+//	
+//	// 리다이렉트 처리
+//	@PostMapping("/test/redirect")
+//	public Map<String, Object> redirect(String URL) {
+//		Map<String, Object> responseBody = new HashMap<>();
+//		
+//		responseBody.put("URL", URL);
+//		
+//		return responseBody;
+//	}
+//	
+//	// 로그아웃 처리
+//    @PostMapping("/test/logout")
+//    public Integer logout(HttpSession session) {
+//    	System.out.println("Session Closed: "+session.getAttribute("loggedInUser"));
+//        session.invalidate(); // 세션 무효화
+//        return 1;
+//    }
 }

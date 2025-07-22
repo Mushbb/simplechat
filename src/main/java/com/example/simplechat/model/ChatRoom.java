@@ -21,8 +21,8 @@ public class ChatRoom {
 	private String id;	// for controller
 	
     private final List<ChatMessage> chats = new CopyOnWriteArrayList<>();
-    private final Map<Integer, UserInfo> users = new HashMap<>();
-    private final UserInfo admin = new UserInfo(-1, "Server" );
+    private final Map<Integer, User> users = new HashMap<>();
+    private final User admin = new User(-1, "Server" );
     
     // Spring이 이벤트를 발행할 수 있도록 ApplicationEventPublisher를 주입받습니다.
     // ChatRoom은 일반적으로 @Component가 아니므로, 외부에서 주입해줘야 합니다.
@@ -55,7 +55,7 @@ public class ChatRoom {
     public void addChat(String id, String nick, String str) { addChat(new ChatMessage(id, nick, str));	}
     public void addChat(Integer id, String nick, String str) { addChat(new ChatMessage(""+id, nick, str)); 	}
     
-    public int addUser(UserInfo user) { 
+    public int addUser(User user) { 
     	users.put(user.getId(), user);
     	
     	// 메시지가 성공적으로 추가된 후 이벤트 발행
@@ -90,8 +90,8 @@ public class ChatRoom {
     
     public int getPopsCount() { return users.size(); }
     public ChatMessage getLastChat() { return chats.getLast(); }
-    public UserInfo getPop(Integer key) { return users.get(key); }
-    public UserInfo getPop(String key) { return users.get(Integer.parseInt(key)); }
+    public User getPop(Integer key) { return users.get(key); }
+    public User getPop(String key) { return users.get(Integer.parseInt(key)); }
     
     public void ChangeNick(String id, String nick) { 
     	users.get(Integer.parseInt(id)).setUsername(nick);

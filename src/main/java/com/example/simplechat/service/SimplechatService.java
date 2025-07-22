@@ -10,43 +10,42 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
+import java.nio.file.Files;
 import java.util.Scanner;
 import jakarta.annotation.PreDestroy;
 
+import com.example.simplechat.repository.DB_String;
+import java.io.BufferedReader;
+import java.io.FileReader;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import lombok.RequiredArgsConstructor ;
+
 import com.example.simplechat.model.ChatMessage;
-import com.example.simplechat.model.UserInfo;
+import com.example.simplechat.model.User;
 import com.example.simplechat.model.ChatRoom;
-import lombok.RequiredArgsConstructor;
 
 @Service
-@RequiredArgsConstructor // final 필드에 대한 생성자를 자동 생성
+@RequiredArgsConstructor 
 @EnableScheduling
 public class SimplechatService {
-    private final Map<String, ChatRoom> rooms = new HashMap<>();
-    private String serv_room = "chat";
+    private final Map<String, ChatRoom> rooms = new HashMap<>();	// Replace to RoomRepository class
+    private final Map<Integer, User> users = new HashMap<>();		// Replace to UserRepository class
+    																// Add MessageRepository class
     
-    private int flag = 1;
+    
+    private String serv_room = "chat";
     private final Scanner sc = new Scanner(System.in);
 	
 	// SimpMessagingTemplate 주입 (웹소켓 메시지를 발행하는 데 사용)
-//    private final SimpMessagingTemplate messagingTemplate;
     private final ApplicationEventPublisher eventPublisher; // Spring의 ApplicationEventPublisher 주입
+    private final Map<String, String> config = readTsvConfig("config.tsv");
+    private final DB_String DB_Instance = DB_String.configure(config);
 	
 	@Scheduled(fixedRate = 1000)
 	public void serverChat() {
-		// temporary
-//		if( rooms.size() == 0 ) {
-//			rooms.put(serv_room, new ChatRoom(serv_room));
-//			rooms.get(serv_room).addUser(new UserInfo(-1, "Server"));
-////		}
-//		
-//		if( flag == 0 )
-//			return;	// already scanning
-//		if( !checkRoom(serv_room) ) {
-//			System.out.println("there is no room: "+serv_room);
-//			createRoomInternal(serv_room);
-//			return;
-//		}
 		String text = sc.nextLine();
 		
 		if( text.startsWith("/") ) {
@@ -77,67 +76,17 @@ public class SimplechatService {
 		}
 		
 		roomNow().addChat(roomNow().getAdmin().getId(), roomNow().getAdmin().getUsername(), text);
-		
-//      return roomNow().getChats().getLast();
-		
-//		flag = 0;
-//		
-//		flag = 1;
-//		Mono.just(text).map(input -> {
-//			roomNow().addChat(roomNow().getAdmin().getId(), roomNow().getAdmin().getUsername(), input);
-//            return roomNow().getChats().getLast();
-//		}).subscribe(
-//            chatMessage -> { // 메시지가 준비되면 웹소켓으로 전송
-//                messagingTemplate.convertAndSend("/topic/"+roomNow().getName()+"/public", chatMessage);
-//                System.out.println("서버 메시지 전송 완료: " + chatMessage.getChat());
-//            },
-//            error -> { // 오류 처리
-//                System.err.println("메시지 전송 중 오류 발생: " + error.getMessage());
-//                error.printStackTrace();
-//            },
-//            () -> { // 스트림 완료 (여기서는 한 번의 입력 후 완료)
-//                //flag = 1; // 입력 대기 플래그 다시 설정
-//            }
-//        );
 	}
 
 	public void addChat(String idstr, String msgstr, String roomName) {
 		ChatRoom cr = rooms.get(roomName);
 		System.out.println(idstr);
 		cr.addChat(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
-//		Mono<ChatMessage> msgmono = Mono.just(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
-//		
-//		return msgmono.map(msg -> {
-//			cr.addChat(msg);
-//			return msg;
-//		}).doOnSuccess(savedMessage -> {
-//			//ChatMessage temp = new ChatMessage(roomNow().getPop(Integer.parseInt(idstr)).getUsername(), msgstr, false );
-//			
-//            // 메시지가 성공적으로 저장된 후, 웹소켓 토픽으로 발행
-//            System.out.println("서비스: 메시지 저장 성공, 웹소켓 발행 시작: "+savedMessage.getId() +", "+savedMessage.getName()+", "+ savedMessage.getChat());
-//            messagingTemplate.convertAndSend("/topic/"+cr.getName()+"/public", savedMessage); // 핵심 라인!
-//        }).then();
 	}
-	
-	/*
-	public Flux<ChatMessage> getChat(){ 
-		List<ChatMessage> sending = null;
-		if( sended == -1 ) {
-			sending = chats;
-		} else {	// from sended to chats.size()
-			sending = chats.subList(sended, chats.size());
-		}
-		sended = chats.size();
-		return Flux.fromIterable(sending);
-	}*/
 	
 	public List<ChatMessage> getAllChat(String roomName, Integer Id, String name){
 		ChatRoom cr = rooms.get(roomName);
 		List<ChatMessage> temp = new ArrayList<>(cr.getChats());
-		
-//		List<ChatMessage> temp1 = temp.stream()
-//			.map(msg -> new ChatMessage(msg.getId(), msg.getName(), msg.getChat(), false))
-//			.collect(Collectors.toList());
 
 		temp.add(new ChatMessage(""+Id, name, name, -1));	// 할당된 id 보내기
 		// 방에 있는 유저정보
@@ -173,7 +122,7 @@ public class SimplechatService {
         	// createUser
         	username = "익명"+(cr.getPopsCount()+1);
         	
-    		UserInfo ui = new UserInfo(username);
+    		User ui = new User(username);
     		id = ui.getId();
     		System.out.println("new User "+id);
     		cr.addUser(ui);
@@ -197,6 +146,57 @@ public class SimplechatService {
 	private int strtoint(String input) { return Integer.parseInt(input); }
 	private ChatRoom roomNow() { return rooms.get(serv_room); }
 
+	public static Map<String, String> readTsvConfig(String filePath) {
+        Map<String, String> configMap = new HashMap<>();
+        Path path = Paths.get(filePath);
+
+        // 파일 존재 여부 및 읽기 권한 확인
+        if (!Files.exists(path)) {
+            System.err.println("오류: 설정 파일이 존재하지 않습니다. 경로: " + filePath);
+            return configMap; // 빈 맵 반환
+        }
+        if (!Files.isReadable(path)) {
+            System.err.println("오류: 설정 파일을 읽을 수 없습니다. 권한 문제일 수 있습니다. 경로: " + filePath);
+            return configMap; // 빈 맵 반환
+        }
+
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            int lineNumber = 0; // 줄 번호 추적
+            while ((line = br.readLine()) != null) {
+                lineNumber++;
+                String trimmedLine = line.trim();
+
+                // 빈 줄이거나 주석(#으로 시작)은 건너뛰기
+                if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
+                    continue;
+                }
+
+                // 첫 번째 탭 문자로 키와 값을 분리
+                int firstTabIndex = trimmedLine.indexOf('\t');
+                if (firstTabIndex != -1) {
+                    String key = trimmedLine.substring(0, firstTabIndex).trim();
+                    String value = trimmedLine.substring(firstTabIndex + 1).trim();
+
+                    // 키가 비어있으면 경고
+                    if (key.isEmpty()) {
+                        System.err.println("경고 (줄 " + lineNumber + "): 키가 비어있는 항목이 발견되었습니다. 줄: '" + line + "'");
+                        continue; // 이 항목은 건너뛰기
+                    }
+
+                    // Map에 저장
+                    configMap.put(key, value);
+                } else {
+                    System.err.println("경고 (줄 " + lineNumber + "): 유효하지 않은 형식의 줄이 발견되었습니다 (탭 구분자 없음). 줄: '" + line + "'");
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("설정 파일을 읽는 중 예외 발생: " + e.getMessage());
+            // 실제 애플리케이션에서는 이 예외를 상위로 던지거나 더 구체적으로 처리해야 합니다.
+        }
+        return configMap;
+    }
+	
 	@PreDestroy
 	public void closeScanner() { sc.close(); }
 }

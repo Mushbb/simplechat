@@ -2,7 +2,7 @@ package com.example.simplechat.listener;
 
 import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 처리할 이벤트 import
-import com.example.simplechat.model.UserInfo;
+import com.example.simplechat.model.User;
 import com.example.simplechat.event.UserEnteredRoomEvent;
 import com.example.simplechat.event.UserExitedRoomEvent;
 import com.example.simplechat.event.ChangeNicknameEvent;
@@ -61,7 +61,7 @@ public class ChatMessageActivityListener {
     @Async
     @EventListener
     public void handleUserEnteredRoom(UserEnteredRoomEvent event) {
-    	UserInfo userinfo = event.getUserInfo();
+    	User userinfo = event.getUserInfo();
     	String roomName = event.getRoomName();
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
@@ -85,7 +85,7 @@ public class ChatMessageActivityListener {
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
             // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", new UserInfo(Integer.parseInt(userId), userName));
+            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", new User(Integer.parseInt(userId), userName));
             System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId);
         } catch (Exception e) {
             System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
@@ -96,7 +96,7 @@ public class ChatMessageActivityListener {
     @Async
     @EventListener
     public void handleChangeNicknameEvent(ChangeNicknameEvent event) {
-    	UserInfo userinfo = event.getUserInfo();
+    	User userinfo = event.getUserInfo();
     	String roomName = event.getRoomName();
     	
         // 1. 웹소켓으로 메시지 브로드캐스트

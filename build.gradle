@@ -24,6 +24,8 @@ dependencies {
 	
 	compileOnly 'org.projectlombok:lombok:1.18.38' // 최신 버전으로 변경하세요
     annotationProcessor 'org.projectlombok:lombok:1.18.38' // 최신 버전으로 변경하세요
+    
+    implementation 'org.apache.commons:commons-csv:1.10.0' // 최신 버전 확인 후 사용
 }
 
 tasks.named('test') {

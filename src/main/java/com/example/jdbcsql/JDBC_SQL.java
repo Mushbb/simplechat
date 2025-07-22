@@ -1,4 +1,4 @@
-package com.example.jdbctest;
+package com.example.jdbcsql;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -10,7 +10,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.ArrayList;
 
-public class jdbctest {
+public class JDBC_SQL {
 	 // 데이터베이스 연결 정보 설정 (실제 환경에 맞게 변경)
     private static final String DB_HOST = "localhost"; // 또는 SQL Server의 IP 주소
     private static final Integer DB_PORT = 1433; // SQL Server 기본 포트
@@ -18,10 +18,10 @@ public class jdbctest {
     private static final String DB_USER = "mushbb";     // SQL Server 사용자 이름
     private static final String DB_PASSWORD = "mushbb"; // SQL Server 비밀번호
 
-    public static Integer login(String id, String password) {
-        String connectionUrl = "jdbc:sqlserver://" + DB_HOST + ":" + DB_PORT +
-                ";databaseName=" + DB_NAME + ";user=" + DB_USER + ";password=" + DB_PASSWORD +
-                ";trustServerCertificate=true;"; // 개발/테스트 환경에서만 true, 운영은 CA 발급 인증서 사용
+    public static Integer login(String id, String password, String connectionUrl) {
+//        String connectionUrl = "jdbc:sqlserver://" + DB_HOST + ":" + DB_PORT +
+//                ";databaseName=" + DB_NAME + ";user=" + DB_USER + ";password=" + DB_PASSWORD +
+//                ";trustServerCertificate=true;"; // 개발/테스트 환경에서만 true, 운영은 CA 발급 인증서 사용
 
 		Connection connection = null;
 		Statement statement = null;
