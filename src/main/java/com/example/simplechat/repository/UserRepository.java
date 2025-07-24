@@ -1,5 +1,6 @@
 package com.example.simplechat.repository;
 
+import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.User;
 import com.example.sql.JDBC_SQL;
 
@@ -11,11 +12,12 @@ import java.util.Collections;
 import java.util.stream.Collectors;
 import java.sql.Timestamp;
 
+@Repository
 public class UserRepository {
 	public Optional<User> findByUsername(String Username) {
 		String sql = "SELECT * FROM users WHERE username = ?";
 		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{Username});
-		
+
 		if( parsedTable.isEmpty() )
 			return Optional.empty();
 		
@@ -26,7 +28,7 @@ public class UserRepository {
 	public Optional<User> findById(Long Id) {
 		String sql = "SELECT * FROM users WHERE user_id = ?";
 		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{""+Id});
-		
+
 		if( parsedTable.isEmpty() )
 			return Optional.empty();
 		
@@ -35,7 +37,8 @@ public class UserRepository {
 	}
 	
 	public static User mapRowToUser(Map<String, Object> row) {
-		User user = new User((Long) row.get("user_id"), (String) row.get("username"));
+		User user = new User((Long)row.get("user_id") , (String) row.get("username"));
+
 		user.setNickname((String) row.get("nickname"));
 		user.setCreated_at(((Timestamp)row.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		
@@ -54,7 +57,7 @@ public class UserRepository {
 		String sql = "INSERT INTO users (username, password_hash, nickname) VALUES ( ?, ?, ? )";
 		Map<String, Object> result = JDBC_SQL.executeUpdate(sql, 
 				new String[]{user.getUsername(), user.getPassword_hash(), user.getNickname()},
-				new String[] {"user_id", "created_at"});
+				new String[] {"user_id"}, new String[] {"created_at"});
 		
 		if( result != null ) {
 			user.setId((long)result.get("user_id"));
@@ -83,7 +86,7 @@ public class UserRepository {
 		values[i] = ""+user.getId();
 		
 		// 변경된 필드만 갱신
-		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, values, null).get("affected_rows");
+		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, values, null, null).get("affected_rows");
 		
 		if (affectedRows == null || affectedRows == 0L) {
 			throw new RuntimeException("User with ID " + user.getId() + " not found or could not be deleted.");
@@ -92,9 +95,18 @@ public class UserRepository {
 		return user;
 	}
 	
+	public User insertwithId(User user) {
+		// db에 insert하고 id를 받아와 객체에 채움
+		String sql = "INSERT INTO users (user_id, username, password_hash, nickname) VALUES ( ?, ?, ?, ? )";
+		JDBC_SQL.executeInsert_IdentitiyOn(sql, 
+				new String[]{String.valueOf(user.getId()), user.getUsername(), user.getPassword_hash(), user.getNickname()});
+
+		return user;
+	}
+	
 	public void deleteById(Long Id) {
 		String sql = "DELETE FROM users WHERE user_id = ?";
-		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, new String[]{""+Id}, null).get("affected_rows");
+		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, new String[]{""+Id}, null, null).get("affected_rows");
 		
 		if (affectedRows == null || affectedRows == 0L) {
 			throw new RuntimeException("User with ID " + Id + " not found or could not be deleted.");

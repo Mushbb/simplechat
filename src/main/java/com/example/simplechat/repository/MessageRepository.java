@@ -1,5 +1,6 @@
 package com.example.simplechat.repository;
 
+import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.ChatMessage;
 import com.example.sql.JDBC_SQL;
 
@@ -12,6 +13,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Repository
 public class MessageRepository {
 	public List<ChatMessage> findByRoomId(Long roomId){
 		String sql = "SELECT * FROM chat_messages WHERE room_id = ?";
@@ -54,10 +56,10 @@ public class MessageRepository {
 			Params.add(""+msg.getParent_msg_id());
 		
 		Map<String, Object> result = JDBC_SQL.executeUpdate(sql, Params.toArray(new String[0]), 
-				new String[]{"room_id", "created_at"});
+				new String[]{"message_id"}, new String[] {"created_at"});
 		
 		if( result != null ) { 
-			msg.setId((long)result.get("message_id")); 
+			msg.setId( ((Number)result.get("message_id")).longValue() ); 
 			msg.setCreated_at(((Timestamp)result.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		}
 		return msg;

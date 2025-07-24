@@ -41,4 +41,35 @@ public class DB_Utils {
 
 		return parsedData;
 	}
+	
+	public static String TableNameFromInsert(String sqlQuery) {
+        if (sqlQuery == null || sqlQuery.trim().isEmpty()) {
+            return null;
+        }
+
+        String normalizedSql = sqlQuery.trim().toUpperCase(); // Normalize for easier parsing
+
+        // Check if it's an INSERT INTO statement
+        if (!normalizedSql.startsWith("INSERT INTO")) {
+            // Not an INSERT INTO statement
+            return null;
+        }
+
+        // Find the start of the table name (after "INSERT INTO ")
+        int startIndex = "INSERT INTO ".length();
+
+        // Find the end of the table name (before the next space, or the opening parenthesis)
+        int endIndex = normalizedSql.indexOf(" ", startIndex);
+        if (endIndex == -1) { // If no space found, look for '(' (e.g., INSERT INTO MyTable(col1, col2))
+            endIndex = normalizedSql.indexOf("(", startIndex);
+        }
+
+        if (endIndex == -1) {
+            // If neither space nor parenthesis is found, assume the rest is the table name (e.g., INSERT INTO MyTable)
+            return sqlQuery.substring(startIndex).trim();
+        } else {
+            // Extract the substring between startIndex and endIndex
+            return sqlQuery.substring(startIndex, endIndex).trim();
+        }
+	}
 }

@@ -29,39 +29,39 @@ public class simplechatController {
 	public simplechatController(SimplechatService serv) {
 		this.serv = serv;
 	}
-	
-	@PostMapping("/lobby")
-	public List<String[]> getRoomList(){
-		// System.out.println("lobbylist");
-		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
-        return serv.getAllRoom().entrySet().stream()
-            .map(entry -> {
-                String roomName = entry.getKey();
-                ChatRoom room = entry.getValue();
-                // 여기에 필요한 다른 정보(예: 사용자 수)를 추가할 수 있습니다.
-                // 임시로 [방 이름, 방 이름] 형태로 반환 (ID와 Name 개념으로)
-                // 만약 room.getId()와 같은 필드가 있다면 활용 가능
-                return new String[]{roomName, roomName, ""+room.getPopsCount()}; // [ID, Name, Pop] 형태로 가정
-            })
-            .collect(Collectors.toList());
-	}
-	
-	@PostMapping("/{roomName}")
-	public List<ChatMessage> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
-//		System.out.println("new User in "+path+", "+Id);
-        return serv.createRoom(path, Id);
-    }
-	
-	@PostMapping("/{roomName}/chat")
-	public void recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
-		System.out.println(path);
-		serv.addChat(newId, request, path);
-	}
-	
-	@PostMapping("/{roomName}/nick")
-	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id, @PathVariable("roomName") String path) {
-		serv.checkNick(newNick, Id, path);
-	}
+//	
+//	@PostMapping("/lobby")
+//	public List<String[]> getRoomList(){
+//		// System.out.println("lobbylist");
+//		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
+//        return serv.getAllRoom().entrySet().stream()
+//            .map(entry -> {
+//                String roomName = entry.getKey();
+//                ChatRoom room = entry.getValue();
+//                // 여기에 필요한 다른 정보(예: 사용자 수)를 추가할 수 있습니다.
+//                // 임시로 [방 이름, 방 이름] 형태로 반환 (ID와 Name 개념으로)
+//                // 만약 room.getId()와 같은 필드가 있다면 활용 가능
+//                return new String[]{roomName, roomName, ""/*+room.getPopsCount()*/}; // [ID, Name, Pop] 형태로 가정
+//            })
+//            .collect(Collectors.toList());
+//	}
+//	
+//	@PostMapping("/{roomName}")
+//	public List<ChatMessage> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
+////		System.out.println("new User in "+path+", "+Id);
+//        return serv.createRoom(path, Id);
+//    }
+//	
+//	@PostMapping("/{roomName}/chat")
+//	public void recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
+//		System.out.println(path);
+//		serv.addChat(newId, request, path);
+//	}
+//	
+//	@PostMapping("/{roomName}/nick")
+//	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id, @PathVariable("roomName") String path) {
+//		serv.checkNick(newNick, Id, path);
+//	}
 	
 	
 	

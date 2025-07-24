@@ -1,11 +1,5 @@
 package com.example.simplechat.model;
 
-import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 새로 정의한 이벤트 import
-import com.example.simplechat.event.UserEnteredRoomEvent;
-import com.example.simplechat.event.UserExitedRoomEvent;
-import com.example.simplechat.event.ChangeNicknameEvent;
-import org.springframework.context.ApplicationEventPublisher; // 이벤트 발행자 import
-
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 import java.util.Map;
@@ -33,19 +27,8 @@ public class ChatRoom {
     private final Map<Integer, User> users = new HashMap<>();
     private final User admin = new User("-1", "Server" );
     
-    // Spring이 이벤트를 발행할 수 있도록 ApplicationEventPublisher를 주입받습니다.
-    // ChatRoom은 일반적으로 @Component가 아니므로, 외부에서 주입해줘야 합니다.
-    // ChatService에서 ChatRoom을 생성/관리하면서 주입해주는 방식이 일반적입니다.
-    private ApplicationEventPublisher eventPublisher;
-    
     public ChatRoom(String newName) { name = newName; }
     public ChatRoom(Long newId, String newName) { name = newName; id = newId; }
-    
-    // Spring이 ChatRoom 객체에 eventPublisher를 주입할 수 있도록 setter를 제공합니다.
-    // 이 setter는 ChatService에서 ChatRoom을 생성한 후 호출될 수 있습니다.
-    public void setEventPublisher(ApplicationEventPublisher eventPublisher) {
-        this.eventPublisher = eventPublisher;
-    }
     
     public Map<String, Object> getChangedFields(ChatRoom oldRoom) {
 	    Map<String, Object> changes = new HashMap<>();
@@ -65,71 +48,4 @@ public class ChatRoom {
 	    
 	    return changes;
 	}
-    
-    public void addChat(ChatMessage chat) { 
-    	chats.add(chat);
-    	
-    	// 메시지가 성공적으로 추가된 후 이벤트 발행
-        if (eventPublisher != null) {
-            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
-            eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, chat, name));
-            System.out.println("ChatRoom[" + name + "]: ChatMessageAddedToRoomEvent 발행됨.");
-        } else {
-            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
-        }
-	}
-    public void addChat(String id, String nick, String str) { addChat(new ChatMessage(id, nick, str));	}
-    public void addChat(Integer id, String nick, String str) { addChat(new ChatMessage(""+id, nick, str)); 	}
-    
-    public int addUser(User user) { 
-    	users.put(Integer.valueOf(""+user.getId()), user);
-    	
-    	// 메시지가 성공적으로 추가된 후 이벤트 발행
-        if (eventPublisher != null) {
-            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
-            eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, name));
-            System.out.println("ChatRoom[" + name + "]: UserEnteredRoomEvent 발행됨.");
-        } else {
-            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
-        }
-    	
-    	return users.size(); 
-	}
-    
-    public int subUser(Integer key) {
-    	String userId = ""+key;
-    	String userName = getPop(key).getUsername();
-    	
-    	// 메시지가 성공적으로 추가된 후 이벤트 발행
-        if (eventPublisher != null) {
-            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
-            eventPublisher.publishEvent(new UserExitedRoomEvent(this, userId, userName, name));
-            System.out.println("ChatRoom[" + name + "]: UserExitedRoomEvent 발행됨.");
-        } else {
-            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
-        }
-    	
-        
-        users.remove(key);
-    	return users.size();
-    }
-    
-    public int getPopsCount() { return users.size(); }
-    public ChatMessage getLastChat() { return chats.getLast(); }
-    public User getPop(Integer key) { return users.get(key); }
-    public User getPop(String key) { return users.get(Integer.parseInt(key)); }
-    
-    public void ChangeNick(String id, String nick) { 
-    	users.get(Integer.parseInt(id)).setUsername(nick);
-    	
-    	// 메시지가 성공적으로 추가된 후 이벤트 발행
-        if (eventPublisher != null) {
-            // 이벤트를 발생시킨 소스(source)로 'this' (현재 ChatRoom 인스턴스)를 전달
-            eventPublisher.publishEvent(new ChangeNicknameEvent(this, users.get(Integer.parseInt(id)), name));
-            System.out.println("ChatRoom[" + name + "]: UserExitedRoomEvent 발행됨.");
-        } else {
-            System.err.println("ChatRoom[" + name + "]: EventPublisher가 주입되지 않아 이벤트를 발행할 수 없습니다.");
-        }
-    	
-    }
 }

@@ -4,29 +4,29 @@ import com.example.simplechat.model.User;
 import org.springframework.context.ApplicationEvent; // Spring의 ApplicationEvent 상속
 
 public class UserEnteredRoomEvent extends ApplicationEvent {
-	private final User userinfo;
-	private final String roomName;
+	private final User user;
+	private final Long roomId;
 	
-	public UserEnteredRoomEvent(Object source, User userinfo, String roomName) {
+	public UserEnteredRoomEvent(Object source, User userinfo, Long roomid) {
 		super(source);
-		this.userinfo = userinfo;
-		this.roomName = roomName;
+		this.user = userinfo;
+		this.roomId = roomid;
 	}
 	
 	
-	public User getUserInfo() {
-		return userinfo;
+	public User getUser() {
+		return user;
 	}
 	
-    public String getRoomName() {
-        return roomName;
+    public Long getRoomId() {
+        return roomId;
     }
     
     @Override
     public String toString() {
         return "UserEnteredRoomEvent{" +
-               "UserInfo=" + userinfo +
-               ", roomName='" + roomName + '\'' +
+               "UserInfo=" + user +
+               ", roomId='" + roomId + '\'' +
                '}';
     }    
 }

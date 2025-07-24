@@ -1,32 +1,37 @@
 package com.example.simplechat.event;
 
-import com.example.simplechat.model.User;
 import org.springframework.context.ApplicationEvent; // Spring의 ApplicationEvent 상속
 
 public class ChangeNicknameEvent extends ApplicationEvent {
-	private final User userinfo;
-	private final String roomName;
+	private final Long userId;
+	private final Long roomId;
+	private final String newNickname;
 	
-	public ChangeNicknameEvent(Object source, User userinfo, String roomName) {
+	public ChangeNicknameEvent(Object source, Long userId, Long roomId, String newNickname) {
 		super(source);
-		this.userinfo = userinfo;
-		this.roomName = roomName;
+		this.userId = userId;
+		this.roomId = roomId;
+		this.newNickname = newNickname;
 	}
 	
-	
-	public User getUserInfo() {
-		return userinfo;
+	public Long getUserId() {
+		return userId;
 	}
 	
-    public String getRoomName() {
-        return roomName;
+    public Long getRoomId() {
+        return roomId;
     }
+    
+    public String getNewNickname() {
+    	return newNickname;
+    }
+    
     
     @Override
     public String toString() {
         return "ChangeNicknameEvent{" +
-               "UserInfo=" + userinfo +
-               ", roomName='" + roomName + '\'' + ", nickName='" + userinfo.getUsername() + '\'' +
+               "UserInfo=" + userId +
+               ", roomName='" + roomId + '\'' + ", nickName='" + newNickname + '\'' +
                '}';
     }    
 }

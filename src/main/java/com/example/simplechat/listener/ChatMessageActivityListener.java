@@ -28,7 +28,7 @@ public class ChatMessageActivityListener {
     @EventListener
     public void handleChatMessageAddedToRoom(ChatMessageAddedToRoomEvent event) {
         ChatMessage chatMessage = event.getChatMessage();
-        String roomName = event.getRoomName();
+        Long roomId = event.getroomId();
 
 //        System.out.println("--- 리스너: ChatMessageAddedToRoomEvent 감지 ---");
 //        System.out.println("  [이벤트 소스]: " + event.getSource().getClass().getSimpleName()); // ChatRoom
@@ -40,8 +40,8 @@ public class ChatMessageActivityListener {
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
             // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomName + "/public", chatMessage);
-            System.out.println("  [웹소켓 전송]: 메시지 웹소켓 전송 완료: " + chatMessage.getChat());
+            messagingTemplate.convertAndSend("/topic/" + roomId + "/public", chatMessage);
+            System.out.println("  [웹소켓 전송]: 메시지 웹소켓 전송 완료: " + chatMessage.getContent());
         } catch (Exception e) {
             System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
@@ -61,14 +61,14 @@ public class ChatMessageActivityListener {
     @Async
     @EventListener
     public void handleUserEnteredRoom(UserEnteredRoomEvent event) {
-    	User userinfo = event.getUserInfo();
-    	String roomName = event.getRoomName();
+    	User user = event.getUser();
+    	Long roomId = event.getRoomId();
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
             // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", userinfo);
-            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userinfo.getUsername());
+            messagingTemplate.convertAndSend("/topic/" + roomId + "/users", user.getId()+"/"+user.getNickname());
+            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + user.getUsername());
         } catch (Exception e) {
             System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
@@ -78,14 +78,13 @@ public class ChatMessageActivityListener {
     @Async
     @EventListener
     public void handleUserExitedRoom(UserExitedRoomEvent event) {
-    	String userId = event.getUserId();
-    	String userName = event.getUserName();
-    	String roomName = event.getRoomName();
+    	Long userId = event.getUserId();
+    	Long roomId = event.getRoomId();
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
             // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", new User(userId, userName));
+            messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userId);
             System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId);
         } catch (Exception e) {
             System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
@@ -96,14 +95,15 @@ public class ChatMessageActivityListener {
     @Async
     @EventListener
     public void handleChangeNicknameEvent(ChangeNicknameEvent event) {
-    	User userinfo = event.getUserInfo();
-    	String roomName = event.getRoomName();
+    	Long userId = event.getUserId();
+    	Long roomId = event.getRoomId();
+    	String newNickname = event.getNewNickname();
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
             // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomName + "/users", userinfo);
-            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userinfo.getUsername());
+            messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userId+"/"+newNickname);
+            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId+"/"+newNickname);
         } catch (Exception e) {
             System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
             e.printStackTrace();

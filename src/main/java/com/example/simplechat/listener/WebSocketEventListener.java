@@ -25,8 +25,8 @@ public class WebSocketEventListener implements ApplicationListener<SessionDiscon
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
 
         String sessionId = headerAccessor.getSessionId();
-        String userid = (String) headerAccessor.getSessionAttributes().get("id");
-        String roomName = (String) headerAccessor.getSessionAttributes().get("roomName");
+        Long userid = (Long) headerAccessor.getSessionAttributes().get("user_id");
+        Long roomid = (Long) headerAccessor.getSessionAttributes().get("room_id");
 
         logger.info("WebSocket Session Disconnected: [SessionId: {}], [User: {}], [Reason: {}]",
                 sessionId,
@@ -35,8 +35,8 @@ public class WebSocketEventListener implements ApplicationListener<SessionDiscon
 
         // 특정 세션이 끊어졌을 때 필요한 추가 로직을 여기에 구현합니다.
         // 예를 들어, 연결된 사용자 목록에서 제거하거나,
-        System.out.println("접속종료: "+roomName+": "+userid);
-        serv.getRoom(roomName).subUser(Integer.parseInt(userid));
+        System.out.println("접속종료: "+roomid+": "+userid);
+        serv.exitRoom(userid, roomid);
         
         // 해당 사용자와 관련된 리소스를 정리하는 등의 작업을 할 수 있습니다.
         

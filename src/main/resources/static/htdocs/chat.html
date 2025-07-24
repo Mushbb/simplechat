@@ -187,7 +187,7 @@
 
         // STOMP 클라이언트 연결
         // 연결 성공 시 onConnected 호출, 실패 시 onError 호출
-		stompClient.connect({'id': id, 'roomName': roomname }, onConnected, onError);
+		stompClient.connect({'user_id': id, 'room_id': roomname }, onConnected, onError);
 
 		// STOMP 클라이언트 객체가 stompClient 라고 가정합니다.
 		stompClient.ws.onclose = function(event) {

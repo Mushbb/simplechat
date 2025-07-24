@@ -22,6 +22,7 @@ public class ChatMessage {
 	private Long parent_msg_id;
 	
 	public ChatMessage(){ }
+	public ChatMessage(Long author, Long room) { author_id = author; room_id = room; }
 	public ChatMessage(Long newId, Long author, Long room){ id = newId; author_id = author; room_id = room; }
 	
     public Map<String, Object> getChangedFields(ChatMessage oldMsg) {
