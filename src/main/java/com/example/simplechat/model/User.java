@@ -1,6 +1,9 @@
 package com.example.simplechat.model;
 
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Objects;
+
 import lombok.Getter;
 import lombok.Setter;
 
@@ -8,9 +11,28 @@ import lombok.Setter;
 @Getter
 public class User {
 	private String username;
-	private int id;
-	private static final AtomicInteger nextId = new AtomicInteger(1);	// automatic id counter
+	private Long id;
+	private String password_hash;
+	private String nickname;
+	private String created_at;
 	
-	public User( String Name ) { username = Name; id = nextId.getAndIncrement(); }
-	public User( Integer newId, String Name ) { username = Name; id = newId; }
+	
+	public User() { }
+	public User( Long newId, String Name ) { username = Name; id = newId; }
+	public User( String newId, String Name ) { username = Name; id = Long.getLong(newId); }
+	
+	public Map<String, Object> getChangedFields(User oldUser) {
+	    Map<String, Object> changes = new HashMap<>();
+
+	    // 닉네임 비교
+	    if (!Objects.equals(this.nickname, oldUser.nickname)) {
+	        changes.put("nickname", this.nickname);
+	    }
+	    // 비밀번호 해시는 보통 별도 메서드로 처리하지만, 예시상 포함
+	    if (!Objects.equals(this.password_hash, oldUser.password_hash)) {
+	        changes.put("password_hash", this.password_hash);
+	    }
+	    
+	    return changes;
+	}
 }

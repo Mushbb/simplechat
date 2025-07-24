@@ -1,7 +1,7 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
-import com.example.jdbcsql.JDBC_SQL;
+import com.example.sql.JDBC_SQL;
 import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거해주기
 import com.example.simplechat.model.ChatRoom;
 

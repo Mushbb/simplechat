@@ -109,7 +109,7 @@ public class SimplechatService {
 
     // 기존 createRoom 메소드 반영 및 수정
     public List<ChatMessage> createRoom(String name, String Id) {
-    	int id;
+    	Integer id;
     	String username;
     	
         // 이미 방이 존재하지 않는 경우에만 새로운 방을 생성하고 publisher 주입
@@ -122,7 +122,7 @@ public class SimplechatService {
         	// createUser
         	username = "익명"+(cr.getPopsCount()+1);
         	
-    		User ui = new User(username);
+    		User ui = new User("1",username);
     		id = ui.getId();
     		System.out.println("new User "+id);
     		cr.addUser(ui);

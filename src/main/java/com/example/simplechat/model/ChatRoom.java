@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationEventPublisher; // 이벤트 발�
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.HashMap;
 
 import lombok.Getter;
@@ -17,20 +18,28 @@ import lombok.Setter;
 @Setter
 @Getter
 public class ChatRoom {
+	public static enum RoomType {
+		PUBLIC, PRIVATE, GAME
+	}
+	
 	private String name;
-	private String id;	// for controller
+	private Long id;
+	private RoomType room_type;
+	private Long owner;
+	private String created_at;
+	private String password_hash;
 	
     private final List<ChatMessage> chats = new CopyOnWriteArrayList<>();
     private final Map<Integer, User> users = new HashMap<>();
-    private final User admin = new User(-1, "Server" );
+    private final User admin = new User("-1", "Server" );
     
     // Spring이 이벤트를 발행할 수 있도록 ApplicationEventPublisher를 주입받습니다.
     // ChatRoom은 일반적으로 @Component가 아니므로, 외부에서 주입해줘야 합니다.
     // ChatService에서 ChatRoom을 생성/관리하면서 주입해주는 방식이 일반적입니다.
     private ApplicationEventPublisher eventPublisher;
     
-    
     public ChatRoom(String newName) { name = newName; }
+    public ChatRoom(Long newId, String newName) { name = newName; id = newId; }
     
     // Spring이 ChatRoom 객체에 eventPublisher를 주입할 수 있도록 setter를 제공합니다.
     // 이 setter는 ChatService에서 ChatRoom을 생성한 후 호출될 수 있습니다.
@@ -38,7 +47,24 @@ public class ChatRoom {
         this.eventPublisher = eventPublisher;
     }
     
-    
+    public Map<String, Object> getChangedFields(ChatRoom oldRoom) {
+	    Map<String, Object> changes = new HashMap<>();
+
+	    // 닉네임 비교
+	    if (!Objects.equals(this.name, oldRoom.name))
+	        changes.put("nickname", this.name);
+	    // 비밀번호 해시는 보통 별도 메서드로 처리하지만, 예시상 포함
+	    if (!Objects.equals(this.password_hash, oldRoom.password_hash))
+	        changes.put("password_hash", this.password_hash);
+	    // room_type
+	    if (!Objects.equals(this.room_type, oldRoom.room_type))
+	        changes.put("nickname", this.room_type);
+	    // owner
+	    if (!Objects.equals(this.owner, oldRoom.owner))
+	        changes.put("nickname", this.owner);
+	    
+	    return changes;
+	}
     
     public void addChat(ChatMessage chat) { 
     	chats.add(chat);
@@ -56,7 +82,7 @@ public class ChatRoom {
     public void addChat(Integer id, String nick, String str) { addChat(new ChatMessage(""+id, nick, str)); 	}
     
     public int addUser(User user) { 
-    	users.put(user.getId(), user);
+    	users.put(Integer.valueOf(""+user.getId()), user);
     	
     	// 메시지가 성공적으로 추가된 후 이벤트 발행
         if (eventPublisher != null) {
