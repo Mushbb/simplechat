@@ -3,6 +3,7 @@ package com.example.simplechat.repository;
 import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.ChatRoom;
 import com.example.simplechat.dto.ChatRoomUserDto;
+import com.example.simplechat.dto.ChatRoomListDto;
 import com.example.sql.JDBC_SQL;
 
 import java.sql.Timestamp;
@@ -104,7 +105,7 @@ public class RoomRepository {
 		// db에 insert하고 id를 받아와 객체에 채움
 		String sql = "INSERT INTO chat_rooms (room_name, room_type, owner_id, password_hash) VALUES ( ?, ?, ?, ? )";
 		Map<String, Object> result = JDBC_SQL.executeUpdate(sql,
-				new String[]{room.getName(), room.getRoom_type().name(), String.valueOf(room.getOwner()), room.getPassword_hash()}, 
+				new Object[]{room.getName(), room.getRoom_type().name(), room.getOwner(), room.getPassword_hash()}, 
 				new String[]{"room_id"}, new String[] {"created_at"});
 		
 		if( result != null ) { 
@@ -118,7 +119,7 @@ public class RoomRepository {
 		// db에서 기존값을 가져와서 비교
 		Optional<ChatRoom> fromdb = findByName(room.getName());
 		if (fromdb.isEmpty())
-			throw new RuntimeException("User not found with username: " + room.getName());
+			throw new RuntimeException("Room not found with username: " + room.getName());
 		Map<String, Object> Changed = room.getChangedFields(fromdb.get());
 		if (Changed.isEmpty()) { return room; } // 변경 사항 없으면 바로 리턴
 		
@@ -179,6 +180,37 @@ public class RoomRepository {
 		// 각 Map을 User 객체로 변환하여 리스트로 만듭니다.
 		return parsedTable.stream()
 				.map(this::mapRowToRoom)
+				.collect(Collectors.toList());
+	}
+	
+	public List<ChatRoomListDto> findAllWithCount(){
+		String sql = "SELECT r.room_id, r.room_name, r.room_type, u.nickname AS ownerName, COUNT(c.user_id) AS userCount "
+					+ "FROM chat_rooms r "
+					+ "LEFT JOIN chat_room_users c ON r.room_id = c.room_id "
+					+ "LEFT JOIN users u ON r.owner_id = u.user_id "
+					+ "GROUP BY r.room_id, r.room_name, r.room_type, u.nickname;";
+		
+		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, null); // 파라미터 없음
+
+//		for( Map<String, Object> map : parsedTable ) {
+//			System.out.println("room_id: "+map.get("room_id"));
+//			System.out.println("room_name: "+map.get("room_name"));
+//			System.out.println("room_type: "+map.get("room_type"));
+//			System.out.println("ownerName: "+map.get("ownerName"));
+//			System.out.println("userCount: "+map.get("userCount"));
+//		}
+		
+		if (parsedTable.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		return parsedTable.stream()
+				.map(row -> new ChatRoomListDto(
+						(Long) row.get("room_id"),
+						(String) row.get("room_name"),
+						(String) row.get("room_type"),
+						(String) row.get("ownerName"),
+						(Integer) row.get("userCount") ))
 				.collect(Collectors.toList());
 	}
 	

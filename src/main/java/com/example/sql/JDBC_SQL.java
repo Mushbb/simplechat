@@ -69,7 +69,7 @@ public class JDBC_SQL {
             connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
             System.out.println("Connection successful!");
             // 3. Statement 객체 생성 (SQL 쿼리 실행용) + 파라미터 등록
-            statement = connection.prepareStatement(sqlQuery, Statement.RETURN_GENERATED_KEYS);
+            statement = connection.prepareStatement(sqlQuery);
             if( Params != null )
 	            for(int i=0;i<Params.length;i++)
 	            	statement.setObject(i+1, Params[i]);
@@ -84,8 +84,16 @@ public class JDBC_SQL {
             while (resultSet.next()) {
             	Map<String, Object> row = new HashMap<>();
                 for (int i = 1; i <= columnCount; i++) {
+//                	String columnName = rsmd.getColumnLabel(i);
+//                	Object value = resultSet.getObject(i);
+//
+//                	// 디버깅을 위한 로그 출력
+//                	System.out.printf("Column: %s, Type: %s, Value: %s%n",
+//                	                   columnName,
+//                	                   (value != null ? value.getClass().getName() : "NULL"),
+//                	                   value);
                 	// 컬럼 이름을 키로, 실제 타입의 객체를 값으로 저장
-                	row.put(rsmd.getColumnName(i).toLowerCase(), resultSet.getObject(i));
+                	row.put(rsmd.getColumnName(i), resultSet.getObject(i));
                 }
                 result.add(row);
             }
@@ -112,10 +120,11 @@ public class JDBC_SQL {
             }
         }
         
+        
         return result;
     }
     
-    public static Map<String, Object> executeUpdate(String sqlQuery, String[] Params, String[] returnCols, String[] addCols) {
+    public static Map<String, Object> executeUpdate(String sqlQuery, Object[] Params, String[] returnCols, String[] addCols) {
     	Map<String, Object> result = new HashMap<>();
         Connection connection = null;
         PreparedStatement statement = null;
@@ -143,32 +152,33 @@ public class JDBC_SQL {
         	System.out.println("Rows affected: " + rowsAffected);
         	
             ResultSet generatedKeys = statement.getGeneratedKeys();
-            if ( generatedKeys.next() )
+            if ( generatedKeys.next() && returnCols != null)
             	for(int i=0;i<returnCols.length;i++)
             		result.put(returnCols[i], generatedKeys.getObject(i+1));
             
-            statement.close();
-            
-            String SelectSql = "SELECT ";
-            for( String Cols : addCols )
-            	SelectSql += Cols+", ";
-            SelectSql = SelectSql.substring(0, SelectSql.length()-2);
-            SelectSql += " FROM "+DB_Utils.TableNameFromInsert(sqlQuery)+" ";
-            SelectSql += "WHERE "+returnCols[0]+" = "+result.get(returnCols[0]);
-            System.out.println(SelectSql);
-            
-            statement = connection.prepareStatement(SelectSql);
-            ResultSet resultSet = statement.executeQuery();
-            // ResultSetMetaData 객체 가져오기
-            ResultSetMetaData rsmd = resultSet.getMetaData();
-            int columnCount = rsmd.getColumnCount(); // 총 컬럼 개수
-            
-            // 각 행의 모든 데이터 출력
-            while (resultSet.next()) {
-                for (int i = 1; i <= columnCount; i++) {
-                	// 컬럼 이름을 키로, 실제 타입의 객체를 값으로 저장
-                	result.put(rsmd.getColumnName(i).toLowerCase(), resultSet.getObject(i));
-                }
+            if( addCols != null ) {
+            	statement.close();
+	            String SelectSql = "SELECT ";
+	            for( String Cols : addCols )
+	            	SelectSql += Cols+", ";
+	            SelectSql = SelectSql.substring(0, SelectSql.length()-2);
+	            SelectSql += " FROM "+DB_Utils.TableNameFromInsert(sqlQuery)+" ";
+	            SelectSql += "WHERE "+returnCols[0]+" = "+result.get(returnCols[0]);
+	            System.out.println(SelectSql);
+	            
+	            statement = connection.prepareStatement(SelectSql);
+	            ResultSet resultSet = statement.executeQuery();
+	            // ResultSetMetaData 객체 가져오기
+	            ResultSetMetaData rsmd = resultSet.getMetaData();
+	            int columnCount = rsmd.getColumnCount(); // 총 컬럼 개수
+	            
+	            // 각 행의 모든 데이터 출력
+	            while (resultSet.next()) {
+	                for (int i = 1; i <= columnCount; i++) {
+	                	// 컬럼 이름을 키로, 실제 타입의 객체를 값으로 저장
+	                	result.put(rsmd.getColumnName(i).toLowerCase(), resultSet.getObject(i));
+	                }
+	            }
             }
             
             result.put("affected_rows", (long) rowsAffected);

@@ -4,6 +4,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service; 
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,34 +30,32 @@ import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.model.User;
 import com.example.simplechat.model.ChatRoom;
 
-import com.example.simplechat.dto.ChatRoomUserDto;
+import com.example.simplechat.dto.*;
 import com.example.simplechat.event.*;
+import com.example.simplechat.exception.*;
 
 
 @Service
 @RequiredArgsConstructor 
 @EnableScheduling
 public class SimplechatService {
-    private final Map<String, ChatRoom> rooms = new HashMap<>();	// Replace to RoomRepository class
-    private final Map<Integer, User> users = new HashMap<>();		// Replace to UserRepository class
-    
     private ChatRoom serverChat_room = null;
     private User systemUser;
     private final Scanner sc = new Scanner(System.in);
 	
 	// SimpMessagingTemplate 주입 (웹소켓 메시지를 발행하는 데 사용)
     private final ApplicationEventPublisher eventPublisher; // Spring의 ApplicationEventPublisher 주입
-    private final Map<String, String> config = readTsvConfig("config.tsv");
-    private final DB_String DB_Instance = DB_String.configure(config);
     
     private final UserRepository userRepository;
     private final RoomRepository roomRepository;
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
+    private final PasswordEncoder passwordEncoder;
 	
     @PostConstruct
     public void init() {
         System.out.println("Initializing SimplechatService...");
+        DB_String.configure(readTsvConfig("config.tsv"));
 
         // 시스템 유저를 찾고, 만약 없다면 새로 생성해서 저장한 뒤, 그 결과를 사용한다.
         this.systemUser = userRepository.findById(0L).orElseGet(() -> {
@@ -228,6 +227,50 @@ public class SimplechatService {
 	    System.out.println("User " + userId + "'s nickname in room " + roomId + " changed to " + newNickname);
 	}
 	
+	public User register(UserRegistrationRequestDto requestDto) {
+		if(requestDto.username().equals("system")) {	// invalid username
+			throw new RegistrationException("INVALID_USERNAME","Invalid Username");
+		} else if( !userRepository.findByUsername(requestDto.username()).isEmpty() ) {
+			throw new RegistrationException("DUPLICATE_USERNAME","Username is already exist");
+		}
+		
+		return userRepository.save(new User(requestDto.username(), passwordEncoder.encode(requestDto.password()), requestDto.nickname()));
+	}
+	
+	public User login(LoginRequestDto requestDto) {
+		Optional<User> requested = userRepository.findByUsername(requestDto.username());
+		if( requested.isEmpty() ) {
+			throw new RegistrationException("INVALID_USERNAME","Username is not exist");
+		} else if( !passwordEncoder.matches( requestDto.password(), requested.get().getPassword_hash() ) ) {
+			throw new RegistrationException("INVALID_PASSWORD","Password is wrong");
+		}
+		
+		return requested.get();
+	}
+	
+	public User getUserById(Long userId) {
+		return userRepository.findById(userId).orElseThrow(() -> new RuntimeException("해당 ID의 사용자를 찾을 수 없습니다: " + userId));
+	}
+	
+	public Long delete_account(Long userId) {
+		if(userRepository.existsById(userId))
+			userRepository.deleteById(userId);
+		else
+			throw new RuntimeException("해당 ID의 사용자를 찾을 수 없습니다: " + userId);
+		
+		return userId;
+	}
+	
+	public List<ChatRoomListDto> getRoomList(){
+		return roomRepository.findAllWithCount();
+	}
+	
+	public Long createRoom(RoomCreateDto roomcreateDto, Long userId) {
+		return roomRepository.save(new ChatRoom(roomcreateDto.roomName(), 
+				roomcreateDto.roomType(), userId, 
+				roomcreateDto.password()!=null?passwordEncoder.encode(roomcreateDto.password()):roomcreateDto.password() ) ).getId();
+	}
+	
 //	public void addChat(String idstr, String msgstr, String roomName) {
 //		ChatRoom cr = rooms.get(roomName);
 //		System.out.println(idstr);
@@ -295,9 +338,9 @@ public class SimplechatService {
 //	
 //	
 //	private ChatRoom roomNow() { return rooms.get(serv_room); }
-
-	private int strtoint(String input) { return Integer.parseInt(input); }
 	
+	//////////////////////////////////////////////
+	/// Parse config.tsv
 	public static Map<String, String> readTsvConfig(String filePath) {
         Map<String, String> configMap = new HashMap<>();
         Path path = Paths.get(filePath);

@@ -2,17 +2,15 @@ package com.example.simplechat;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.CommandLineRunner;
 import org.springframework.scheduling.annotation.EnableAsync; // 비동기 활성화 어노테이션
 
 import org.springframework.context.annotation.Bean; // 이 임포트 추가
 import org.springframework.web.servlet.config.annotation.CorsRegistry; // 이 임포트 추가
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer; // 이 임포트 추가
 
-import com.example.simplechat.model.User;
-import com.example.simplechat.repository.UserRepository;
+import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
 
-@SpringBootApplication
+@SpringBootApplication(exclude ={UserDetailsServiceAutoConfiguration.class})
 @EnableAsync // <-- 이 어노테이션을 추가하여 @Async를 활성화합니다.
 public class SimplechatApplication {
 	public static void main(String[] args) {
@@ -32,23 +30,4 @@ public class SimplechatApplication {
             }
         };
     }
-	
-//	@Bean
-//	public CommandLineRunner initDatabase(UserRepository userRepository) {
-//	    return args -> {
-//	        long systemUserId = 0L;
-//	        // ID로 사용자가 존재하는지 확인하는 메서드가 필요합니다.
-//	        // 만약 없다면, findById를 사용해도 됩니다.
-//	        if (!userRepository.findById(systemUserId).isPresent()) {
-//	            System.out.println("Initializing: Creating system user...");
-//	            User systemUser = new User(systemUserId, "system");
-//	            systemUser.setNickname("시스템");
-//	            systemUser.setPassword_hash(""); // 시스템 계정은 비밀번호가 필요 없음
-//	            userRepository.save(systemUser);
-//	            System.out.println("Initializing: System user created successfully.");
-//	        } else {
-//	            System.out.println("Initializing: System user already exists.");
-//	        }
-//	    };
-//	}
 }

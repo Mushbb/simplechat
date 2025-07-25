@@ -22,12 +22,14 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	
-	compileOnly 'org.projectlombok:lombok:1.18.38' // 최신 버전으로 변경하세요
-    annotationProcessor 'org.projectlombok:lombok:1.18.38' // 최신 버전으로 변경하세요
+	compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
     
-    implementation 'org.apache.commons:commons-csv:1.10.0' // 최신 버전 확인 후 사용
+    implementation 'org.apache.commons:commons-csv:1.10.0'
     
     runtimeOnly 'com.microsoft.sqlserver:mssql-jdbc'
+    
+    implementation 'org.springframework.boot:spring-boot-starter-security'
 }
 
 tasks.named('test') {

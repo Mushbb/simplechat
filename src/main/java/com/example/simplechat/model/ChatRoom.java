@@ -29,6 +29,12 @@ public class ChatRoom {
     
     public ChatRoom(String newName) { name = newName; }
     public ChatRoom(Long newId, String newName) { name = newName; id = newId; }
+    public ChatRoom(String newName, RoomType roomtype, Long owner_id, String password_hash) {
+    	this.name = newName;
+    	this.room_type = roomtype;
+    	this.owner = owner_id;
+    	this.password_hash = password_hash;
+    }
     
     public Map<String, Object> getChangedFields(ChatRoom oldRoom) {
 	    Map<String, Object> changes = new HashMap<>();

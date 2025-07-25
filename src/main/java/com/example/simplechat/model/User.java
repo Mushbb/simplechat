@@ -20,6 +20,11 @@ public class User {
 	public User() { }
 	public User( Long newId, String Name ) { username = Name; id = newId; }
 	public User( String newId, String Name ) { username = Name; id = Long.getLong(newId); }
+	public User( String Name, String Pass, String Nick ) {
+		username = Name;
+		password_hash = Pass;
+		nickname = Nick;
+	}
 	
 	public Map<String, Object> getChangedFields(User oldUser) {
 	    Map<String, Object> changes = new HashMap<>();

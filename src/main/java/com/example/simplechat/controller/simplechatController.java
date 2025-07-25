@@ -1,14 +1,16 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
-import com.example.sql.JDBC_SQL;
-import com.example.simplechat.model.ChatMessage;		// DTO를 만들어서 제거해주기
-import com.example.simplechat.model.ChatRoom;
+import com.example.simplechat.model.*;
 
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -16,6 +18,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.stream.Collectors;
+
+import com.example.simplechat.exception.*;
+import com.example.simplechat.dto.*;
 
 //import org.springframework.web.bind.annotation.CrossOrigin;
 
@@ -29,23 +34,83 @@ public class simplechatController {
 	public simplechatController(SimplechatService serv) {
 		this.serv = serv;
 	}
-//	
-//	@PostMapping("/lobby")
-//	public List<String[]> getRoomList(){
-//		// System.out.println("lobbylist");
-//		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
-//        return serv.getAllRoom().entrySet().stream()
-//            .map(entry -> {
-//                String roomName = entry.getKey();
-//                ChatRoom room = entry.getValue();
-//                // 여기에 필요한 다른 정보(예: 사용자 수)를 추가할 수 있습니다.
-//                // 임시로 [방 이름, 방 이름] 형태로 반환 (ID와 Name 개념으로)
-//                // 만약 room.getId()와 같은 필드가 있다면 활용 가능
-//                return new String[]{roomName, roomName, ""/*+room.getPopsCount()*/}; // [ID, Name, Pop] 형태로 가정
-//            })
-//            .collect(Collectors.toList());
-//	}
-//	
+	
+	@GetMapping("/room/list")
+	public List<ChatRoomListDto> getRoomList(){
+		// System.out.println("lobbylist");
+		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
+        return serv.getRoomList();
+	}
+	
+	@PostMapping("/room/create")
+	public Long createRoom(@RequestBody RoomCreateDto roomcreateDto, HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		if( userId == null ) {
+			throw new RegistrationException("UNAUTHORIZED","Please login first!");
+		}
+		return serv.createRoom(roomcreateDto, userId);
+	}
+	
+	@PostMapping("/auth/register")
+	public LoginResponseDto registerRequest(@RequestBody UserRegistrationRequestDto requestDto, HttpSession session) {
+		User registered = serv.register(requestDto);
+		
+		session.setAttribute("userId", registered.getId());
+		session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
+		
+		return new LoginResponseDto(
+			registered.getId(),
+			registered.getUsername(),
+			registered.getNickname()
+		);
+	}
+	
+	@PostMapping("/auth/login")
+	public LoginResponseDto loginRequest(@RequestBody LoginRequestDto requestDto, HttpSession session) {
+		User loggedIn = serv.login(requestDto);
+		
+		session.setAttribute("userId", loggedIn.getId());
+		session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
+		
+		return new LoginResponseDto(
+			loggedIn.getId(),
+			loggedIn.getUsername(),
+			loggedIn.getNickname()
+		);
+	}
+	
+	@PostMapping("/auth/session")
+	public LoginResponseDto sessionCheck(HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		
+		if( userId == null ) {
+			throw new RegistrationException("UNAUTHORIZED", "Not Logged In");
+		}
+		
+		User loggedIn = serv.getUserById(userId);
+		return new LoginResponseDto(
+			loggedIn.getId(),
+			loggedIn.getUsername(),
+			loggedIn.getNickname()
+		);
+	}
+	
+	@PostMapping("/auth/logout")	// /logout은 예약엔드포인트였어..
+	public Integer logoutRequest(HttpSession session) {
+		System.out.println("Session Closed: "+session.getAttribute("userId"));
+		session.invalidate(); // 세션 무효화
+	    return 1;
+	}
+	
+	@DeleteMapping("/auth/delete")
+	public Integer deleteRequest(HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		serv.delete_account(userId);
+		System.out.println("Session Closed: "+userId);
+		session.invalidate(); // 세션 무효화
+		return 1;
+	}
+	
 //	@PostMapping("/{roomName}")
 //	public List<ChatMessage> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
 ////		System.out.println("new User in "+path+", "+Id);

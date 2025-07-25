@@ -39,8 +39,9 @@ public class UserRepository {
 	public static User mapRowToUser(Map<String, Object> row) {
 		User user = new User((Long)row.get("user_id") , (String) row.get("username"));
 
+		user.setPassword_hash((String) row.get("password_hash"));
 		user.setNickname((String) row.get("nickname"));
-		user.setCreated_at(((Timestamp)row.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+		user.setCreated_at(((Timestamp) row.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		
 		return user;
 	}
@@ -60,7 +61,7 @@ public class UserRepository {
 				new String[] {"user_id"}, new String[] {"created_at"});
 		
 		if( result != null ) {
-			user.setId((long)result.get("user_id"));
+			user.setId(((Number)result.get("user_id")).longValue());
 			user.setCreated_at(((Timestamp)result.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		}
 		return user;
@@ -117,6 +118,22 @@ public class UserRepository {
 		// 전체 컬럼을 가져올 필요 없이, 존재 여부만 확인하면 되므로 COUNT(1)이 효율적입니다.
 		String sql = "SELECT COUNT(1) FROM users WHERE username = ?";
 		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{username});
+
+		if (parsedTable.isEmpty()) {
+			return false;
+		}
+
+		// COUNT 결과는 보통 Long 타입으로 반환됩니다.
+		// DB Utils나 JDBC 드라이버에 따라 키 이름이 다를 수 있습니다. (예: "COUNT(1)")
+		// 첫 번째 행의 첫 번째 값을 가져옵니다.
+		long count = (long) parsedTable.get(0).values().iterator().next();
+		return count > 0;
+	}
+	
+	public boolean existsById(Long userId) {
+		// 전체 컬럼을 가져올 필요 없이, 존재 여부만 확인하면 되므로 COUNT(1)이 효율적입니다.
+		String sql = "SELECT COUNT(1) FROM users WHERE user_id = ?";
+		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{""+userId});
 
 		if (parsedTable.isEmpty()) {
 			return false;

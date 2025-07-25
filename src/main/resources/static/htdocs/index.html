@@ -80,6 +80,110 @@
             font-style: italic;
             margin-top: 10px;
         }
+
+        /* 모달 전체를 덮는 어두운 배경 (오버레이) */
+        .modal-overlay {
+            display: none; /* 평소에는 숨김 */
+            position: fixed; /* 화면에 고정 */
+            z-index: 1000; /* 다른 요소들 위에 있도록 설정 */
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto; /* 스크롤이 필요할 경우 */
+            background-color: rgba(0, 0, 0, 0.6); /* 반투명 검은색 배경 */
+            /* Flexbox를 이용해 내용물을 중앙 정렬 */
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 모달 내용물이 들어가는 흰색 박스 */
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px 30px 30px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19);
+            position: relative;
+        }
+
+        /* 닫기 버튼 (X) */
+        .close-btn {
+            color: #aaa;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close-btn:hover,
+        .close-btn:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* 폼 그룹 스타일 */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box; /* 패딩이 너비에 포함되도록 설정 */
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        /* 제출 버튼 스타일 */
+        .submit-btn {
+            width: 100%;
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .submit-btn:hover {
+            background-color: #45a049;
+        }
+
+        /* 에러 메시지 스타일 */
+        .error-message {
+            color: red;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+            height: 1em; /* 메시지가 없을 때도 공간 차지 */
+        }
+
+        /* 로그인/회원가입 버튼 컨테이너 */
+        .auth-buttons {
+            padding: 20px;
+            text-align: center;
+        }
+
+        .modal-trigger-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 0 10px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -94,6 +198,94 @@
     </div>
 </div>
 
+<!-- ================================================== -->
+<!-- ======== 로그인/회원가입 버튼 및 모달 UI 시작 ======== -->
+<!-- ================================================== -->
+
+<!-- 1. 로그인/회원가입 버튼 -->
+<div class="auth-buttons">
+    <button id="loginBtn" class="modal-trigger-btn">로그인</button>
+    <button id="registerBtn" class="modal-trigger-btn">회원가입</button>
+</div>
+
+<!-- 2. 로그인 모달 -->
+<div id="loginModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>로그인</h2>
+        <form id="loginForm" method="POST">
+            <div class="form-group">
+                <label for="loginUsername">아이디</label>
+                <input type="text" id="loginUsername" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="loginPassword">비밀번호</label>
+                <input type="password" id="loginPassword" name="password" required>
+            </div>
+            <button type="submit" class="submit-btn">로그인</button>
+            <p id="loginError" class="error-message"></p>
+        </form>
+    </div>
+</div>
+
+<!-- 3. 회원가입 모달 -->
+<div id="registerModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>회원가입</h2>
+        <form id="registerForm" method="POST">
+            <div class="form-group">
+                <label for="regUsername">아이디</label>
+                <input type="text" id="regUsername" name="username" required>
+            </div>
+            <div class="form-group">
+                <label for="regNickname">닉네임</label>
+                <input type="text" id="regNickname" name="nickname" required>
+            </div>
+            <div class="form-group">
+                <label for="regPassword">비밀번호</label>
+                <input type="password" id="regPassword" name="password" required>
+            </div>
+            <button type="submit" class="submit-btn">가입하기</button>
+            <p id="registerError" class="error-message"></p>
+        </form>
+    </div>
+</div>
+
+<!-- 4. 새 채팅방 만들기 모달 -->
+<div id="createRoomModal" class="modal-overlay">
+    <div class="modal-content">
+        <span class="close-btn">&times;</span>
+        <h2>새 채팅방 만들기</h2>
+        <form id="createRoomForm" method="POST">
+            <div class="form-group">
+                <label for="roomName">방 이름</label>
+                <input type="text" id="roomName" name="roomName" required>
+            </div>
+            <div class="form-group">
+                <label>방 타입</label><br>
+                <input type="radio" id="roomTypePublic" name="roomType" value="PUBLIC" checked>
+                <label for="roomTypePublic">공개방</label>
+                <input type="radio" id="roomTypePrivate" name="roomType" value="PRIVATE">
+                <label for="roomTypePrivate">비밀방</label>
+                <input type="radio" id="roomTypeGame" name="roomType" value="GAME">
+                <label for="roomTypeGame">게임방</label>
+            </div>
+            <div class="form-group" id="passwordGroup" style="display: none;">
+                <label for="roomPassword">비밀번호</label>
+                <input type="password" id="roomPassword" name="password">
+            </div>
+            <button type="submit" class="submit-btn">방 만들기</button>
+            <p id="createRoomError" class="error-message"></p>
+        </form>
+    </div>
+</div>
+
+
+<!-- ================================================== -->
+<!-- ========= 로그인/회원가입 버튼 및 모달 UI 끝 ========= -->
+<!-- ================================================== -->
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const roomsUl = document.getElementById('rooms');
@@ -102,25 +294,151 @@
         let existingRoomNames = new Set(); // 방 이름만 저장하는 Set
 
         let SERVER_BASE_URL = 'http://10.50.131.25:8080'; // <-- 서버 주소 확인
-		//SERVER_BASE_URL = "http://localhost:8080";
+		SERVER_BASE_URL = "http://localhost:8080";
+
+
+        // 페이지 로드 시 로그인 상태를 확인하는 함수
+        function checkLoginStatus() {
+            fetch(`${SERVER_BASE_URL}/auth/session`, { method: 'POST', credentials: 'include' })
+                .then(response => {
+                    if (!response.ok) {
+                        // 4xx, 5xx 에러 발생 시 로그인되지 않은 상태로 간주
+                        // 서버가 보낸 에러 메시지를 확인하고 싶다면 response.json()을 사용
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json(); // 성공 시 LoginResponseDto를 파싱
+                })
+                .then(userData => {
+                    // 성공적으로 사용자 정보를 받으면, 로그인된 UI로 변경
+                    updateUIForLoggedInUser(userData);
+                })
+                .catch(error => {
+                    // 로그인되지 않은 상태이므로 기본 UI(로그인/회원가입 버튼) 유지
+                    console.log('세션 확인 결과: 로그인되지 않음.', error.message);
+                    updateUIForLoggedOutUser();
+                });
+        }
+
+        // 로그인된 사용자를 위한 UI 업데이트 함수
+        function updateUIForLoggedInUser(user) {
+            const authButtonsDiv = document.querySelector('.auth-buttons');
+            if (!authButtonsDiv) return;
+
+            // 기존 로그인/회원가입 버튼을 모두 삭제
+            authButtonsDiv.innerHTML = '';
+
+            // 환영 메시지 생성
+            const welcomeMessage = document.createElement('p');
+            welcomeMessage.textContent = `${user.nickname}님, 환영합니다!`;
+            welcomeMessage.style.margin = '0';
+            welcomeMessage.style.marginRight = '20px';
+
+            // 로그아웃 버튼 생성
+            const logoutButton = document.createElement('button');
+            logoutButton.id = 'logoutBtn';
+            logoutButton.className = 'modal-trigger-btn'; // 기존 버튼 스타일 재사용
+            logoutButton.textContent = '로그아웃';
+            logoutButton.addEventListener('click', handleLogout);
+
+            // 화면에 추가
+            authButtonsDiv.style.display = 'flex';
+            authButtonsDiv.style.alignItems = 'center';
+            authButtonsDiv.appendChild(welcomeMessage);
+            authButtonsDiv.appendChild(logoutButton);
+
+            // 회원 탈퇴 버튼 생성
+            const deleteButton = document.createElement('button');
+            deleteButton.id = 'deleteBtn';
+            deleteButton.textContent = '회원 탈퇴';
+            deleteButton.style.marginLeft = '10px'; // 로그아웃 버튼과 간격 띄우기
+            deleteButton.style.backgroundColor = '#dc3545'; // 위험한 작업이므로 빨간색으로
+            deleteButton.style.color = 'white';
+            deleteButton.className = 'modal-trigger-btn';
+            deleteButton.addEventListener('click', handleDeleteAccount);
+
+            // 화면에 추가
+            authButtonsDiv.appendChild(deleteButton); // 탈퇴 버튼 추가
+        }
+
+        // 로그아웃된 상태를 위한 UI 업데이트 함수
+        function updateUIForLoggedOutUser() {
+            const authButtonsDiv = document.querySelector('.auth-buttons');
+            if (!authButtonsDiv) return;
+
+            authButtonsDiv.innerHTML = `
+            <button id="loginBtn" class="modal-trigger-btn">로그인</button>
+            <button id="registerBtn" class="modal-trigger-btn">회원가입</button>
+        `;
+
+            // 다시 이벤트 리스너를 연결해줘야 함
+            document.getElementById('loginBtn').addEventListener('click', () => {
+                document.getElementById('loginModal').style.display = 'flex';
+            });
+            document.getElementById('registerBtn').addEventListener('click', () => {
+                document.getElementById('registerModal').style.display = 'flex';
+            });
+        }
+
+        // 로그아웃 처리 함수
+        function handleLogout() {
+            if (!confirm('로그아웃 하시겠습니까?')) return;
+
+            fetch(`${SERVER_BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include' })
+                .then(response => {
+                    if (response.ok) {
+                        alert('로그아웃 되었습니다.');
+                        window.location.reload(); // 페이지를 새로고침하여 UI를 초기 상태로
+                    } else {
+                        alert('로그아웃에 실패했습니다.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Logout failed:', error);
+                    alert('로그아웃 중 오류가 발생했습니다.');
+                });
+        }
+
+        function handleDeleteAccount() {
+            if (!confirm('정말로 회원에서 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다.')) {
+                return;
+            }
+
+            fetch(`${SERVER_BASE_URL}/auth/delete`, {
+                method: 'DELETE',
+                credentials: 'include'
+            })
+                .then(response => {
+                    if (response.ok) { // 204 No Content도 ok로 처리됨
+                        alert('회원 탈퇴가 완료되었습니다.');
+                        window.location.reload();
+                    } else {
+                        // 서버에서 보낸 에러 메시지를 보여줄 수도 있음
+                        alert('회원 탈퇴에 실패했습니다. 다시 시도해주세요.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Delete account failed:', error);
+                    alert('회원 탈퇴 중 오류가 발생했습니다.');
+                });
+        }
 
         // 1. 방 목록 불러오기
         function fetchRooms() {
-            fetch(`${SERVER_BASE_URL}/lobby`, {method:'POST'})
+            fetch(`${SERVER_BASE_URL}/room/list`, { method:'GET' })
             .then(response => {
             if (!response.ok) {
                 throw new Error(`네트워크 응답 오류: ${response.status} ${response.statusText}`);
             }
-            return response.json(); // List<String[]>을 기대
+            return response.json(); // List<ChatRoomListDto>을 기대
             }).then(data => {
-                // 받아온 List<String[]> 데이터를 처리
-                existingRoomNames.clear(); // 기존 Set 초기화
-                data.forEach(roomArray => {
-                    // roomArray는 [ID, Name] 형태의 String[] (예: ["chat1", "chat1", "1"])
-                    const roomName = roomArray[1]; // Name 부분을 사용
-                    existingRoomNames.add(roomName); // Set에 방 이름 추가
-                });
-		        renderRooms(data); // 렌더링 함수에 List<String[]> 전달
+            //     // 받아온 List<String[]> 데이터를 처리
+            //     existingRoomNames.clear(); // 기존 Set 초기화
+            //     data.forEach(roomArray => {
+            //         // roomArray는 [ID, Name] 형태의 String[] (예: ["chat1", "chat1", "1"])
+            //         const roomName = roomArray[1]; // Name 부분을 사용
+            //         existingRoomNames.add(roomName); // Set에 방 이름 추가
+            //     });
+		        renderRooms(data); // 렌더링 함수에 List<ChatRoomListDto> 전달
 	        }).catch(error => {
                 console.error('방 목록을 가져오는 중 오류 발생:', error);
                 roomsUl.innerHTML = '<li style="color: red;">방 목록을 불러오는 데 실패했습니다. 서버가 실행 중인지 확인하세요.</li>';
@@ -128,72 +446,205 @@
 	    }
 
 		// 2. 방 목록 렌더링
-		// renderRooms 함수가 List<String[]>을 받도록 수정
+		// renderRooms 함수가 List<ChatRoomListDto>을 받도록 수정
         function renderRooms(roomsList) {
+            const roomsUl = document.getElementById('rooms');
             roomsUl.innerHTML = ''; // 기존 목록 비우기
 
             if (roomsList.length === 0) {
                 roomsUl.innerHTML = '<li class="no-rooms">현재 개설된 채팅방이 없습니다.</li>';
-                 return;
+                return;
             }
 
-            roomsList.forEach(roomArray => {
-            const roomId = roomArray[0]; // 배열의 첫 번째 요소 (ID)
-            const roomName = roomArray[1]; // 배열의 두 번째 요소 (Name)
-            const roomPop = roomArray[2];
+            roomsList.forEach(room => {
+                const li = document.createElement('li');
 
-            const li = document.createElement('li');
-            // 사용자 수는 이 데이터에 포함되지 않으므로 표시하지 않거나 '?' 등으로 처리
-                li.innerHTML = `<a href="javascript:void(0);" onclick="openChatWindow('chat.html?room=${encodeURIComponent(roomName)}')">${roomName}</a>
-                    <span class="room-count">(${roomPop})</span> `;
+                // 비밀방일 경우 자물쇠 아이콘 추가
+                const lockIcon = room.roomType === 'PRIVATE' ? '<i class="fas fa-lock"></i> ' : '';
+
+                // 방 정보를 포함하는 HTML 생성
+                li.innerHTML = `
+            <a href="javascript:void(0);" onclick="openChatWindow('chat.html?room=${encodeURIComponent(room.name)}')">
+                ${lockIcon}${room.name}
+            </a>
+            <span class="room-details">
+                (Owner: ${room.ownerName}, Users: ${room.userCount})
+            </span>
+        `;
+
                 roomsUl.appendChild(li);
             });
         }
 
     // 3. 새 채팅방 만들기 버튼 클릭 이벤트
         createRoomButton.addEventListener('click', function() {
-            let roomName = prompt("새 채팅방 이름을 입력하세요:");
-
-            if (roomName === null || roomName.trim() === "") {
-                alert("채팅방 이름이 입력되지 않았습니다.");
-                return;
-            }
-
-            roomName = roomName.trim();
-
-            // 클라이언트 측 중복 체크 (Set 사용)
-            if (existingRoomNames.has(roomName)) { // Set의 has 메서드 사용
-                alert(`'${roomName}' 방은 이미 존재합니다. 다른 이름을 사용해주세요.`);
-
-                // 	// 서버에 방 생성 요청 (이전과 동일)
-                // 	fetch(`${SERVER_BASE_URL}/${encodeURIComponent(roomName)}`, {
-                // 	method: 'POST',
-                // 	headers: {
-                // 	'Content-Type': 'application/json'
-                // }
-                //})
-                // 	.then(response => {
-                // 	if (!response.ok) {
-                // 	return response.json().then(err => { throw new Error(err.message || '방 생성 실패'); });
-                // }
-                // 	return response.json();
-                // })
-                // 	.then(data => {
-                // 	alert(`'${roomName}' 방이 생성되었습니다. 채팅방으로 이동합니다.`);
-                // 	window.location.href = `chat.html?room=${encodeURIComponent(roomName)}`;
-                // })
-                // 	.catch(error => {
-                // 	console.error('방 생성 중 오류 발생:', error);
-                // 	alert('방 생성에 실패했습니다: ' + error.message);
-                // });
-                //});
-            }
-
-            openChatWindow(`chat.html?room=${encodeURIComponent(roomName)}`);
-            setTimeout(function(){location.reload();}, 1000);
+            document.getElementById('createRoomModal').style.display = 'flex';
         });
-        // 초기 로딩 시 방 목록 불러오기
-        fetchRooms();
+
+        fetchRooms();       // 초기 로딩 시 방 목록 불러오기
+        checkLoginStatus(); // 로그인 상태 확인하기
+
+        // --- 모달 관련 로직 추가 ---
+        (function() {
+            // 필요한 DOM 요소들을 모두 가져오기
+            const loginBtn = document.getElementById('loginBtn');
+            const registerBtn = document.getElementById('registerBtn');
+            const loginModal = document.getElementById('loginModal');
+            const createRoomModal = document.getElementById('createRoomModal');
+            const registerModal = document.getElementById('registerModal');
+            const closeBtns = document.querySelectorAll('.close-btn');
+
+            // 로그인 버튼 클릭 시 로그인 모달 표시
+            loginBtn.addEventListener('click', () => {
+                loginModal.style.display = 'flex'; // CSS에서 flex로 중앙정렬 했으므로 flex로 변경
+            });
+
+            // 회원가입 버튼 클릭 시 회원가입 모달 표시
+            registerBtn.addEventListener('click', () => {
+                registerModal.style.display = 'flex';
+            });
+
+            // 방 타입 라디오 버튼 변경 이벤트 리스너
+            const roomTypeRadios = document.querySelectorAll('input[name="roomType"]');
+            const passwordGroup = document.getElementById('passwordGroup');
+            roomTypeRadios.forEach(radio => {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'PRIVATE') {
+                        passwordGroup.style.display = 'block';
+                    } else {
+                        passwordGroup.style.display = 'none';
+                    }
+                });
+            });
+
+            // 모든 닫기(X) 버튼에 이벤트 리스너 추가
+            closeBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // 버튼이 속한 가장 가까운 .modal-overlay를 찾아 숨김
+                    btn.closest('.modal-overlay').style.display = 'none';
+                });
+            });
+
+            // 모달의 어두운 배경 클릭 시 모달 닫기
+            window.addEventListener('click', (event) => {
+                if (event.target.classList.contains('modal-overlay')) {
+                    event.target.style.display = 'none';
+                }
+            });
+
+            // --- 실제 서버 통신 로직 ---
+
+            // 로그인 폼 제출 처리
+            const loginForm = document.getElementById('loginForm');
+            loginForm.addEventListener('submit', function(event) {
+                event.preventDefault(); // 폼 기본 제출 동작(페이지 새로고침) 방지
+
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+                const loginErrorEl = document.getElementById('loginError');
+                loginErrorEl.textContent = ''; // 이전 에러 메시지 초기화
+
+                fetch(`${SERVER_BASE_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'include'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log('로그인 성공:', result);
+                    alert(result.nickname + '님, 환영합니다!');
+                    loginModal.style.display = 'none';
+                    // TODO: 로그인 성공 후 UI 업데이트 (예: 버튼 숨기기, 사용자 이름 표시)
+                    window.location.reload(); // 임시로 페이지 새로고침
+                })
+                .catch(error => {
+                    console.error('로그인 실패:', error);
+                    loginErrorEl.textContent = error.message || '로그인에 실패했습니다.';
+                });
+            });
+
+            // 회원가입 폼 제출 처리
+            const registerForm = document.getElementById('registerForm');
+            registerForm.addEventListener('submit', function(event) {
+                event.preventDefault(); // 폼 기본 제출 동작 방지
+
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+                const registerErrorEl = document.getElementById('registerError');
+                registerErrorEl.textContent = ''; // 이전 에러 메시지 초기화
+
+                fetch(`${SERVER_BASE_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'include'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log('회원가입 성공:', result);
+                    alert(result.nickname + '님, 회원가입이 완료되었습니다. 바로 로그인됩니다.');
+                    registerModal.style.display = 'none';
+                    // TODO: 로그인 성공 후 UI 업데이트
+                    window.location.reload(); // 임시로 페이지 새로고침
+                })
+                .catch(error => {
+                    console.error('회원가입 실패:', error);
+                    registerErrorEl.textContent = error.message || '회원가입에 실패했습니다.';
+                });
+            });
+
+            // 새 채팅방 만들기 폼 제출 처리
+            const createRoomForm = document.getElementById('createRoomForm');
+            createRoomForm.addEventListener('submit', function(event) {
+                event.preventDefault();
+
+                const formData = new FormData(this);
+                const data = Object.fromEntries(formData.entries());
+                const createRoomErrorEl = document.getElementById('createRoomError');
+                createRoomErrorEl.textContent = '';
+
+                // PRIVATE 방이 아니면 password 필드 제거 (서버 DTO에 맞춤)
+                if (data.roomType !== 'PRIVATE') {
+                    delete data.password;
+                }
+
+                fetch(`${SERVER_BASE_URL}/room/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data),
+                    credentials: 'include'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw err; });
+                    }
+                    return response.json();
+                })
+                .then(roomId => {
+                    console.log('방 생성 성공, ID:', roomId);
+                    alert(`'${data.roomName}' 방이 생성되었습니다.`);
+                    createRoomModal.style.display = 'none';
+                    openChatWindow(`chat.html?room=${encodeURIComponent(data.roomName)}`);
+                    setTimeout(function(){location.reload();}, 1000);
+                })
+                .catch(error => {
+                    console.error('방 생성 실패:', error);
+                    createRoomErrorEl.textContent = error.message || '방 생성에 실패했습니다.';
+                });
+            });
+
+        })();
     });
 	function openChatWindow(url) {
 		const chatPageURL = 'chat.html';
