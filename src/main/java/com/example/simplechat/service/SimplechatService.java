@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import java.nio.file.Files;
 import java.util.Scanner;
@@ -93,7 +94,7 @@ public class SimplechatService {
 	}
 	
 	private ChatMessage ServerMessage(String input) {
-		ChatMessage newMsg = new ChatMessage( systemUser.getId(), serverChat_room.getId() );
+		ChatMessage newMsg = new ChatMessage( systemUser.getId(), serverChat_room.getId(), "시스템");
 		newMsg.setContent(input);
 		newMsg.setMsg_type(ChatMessage.MsgType.TEXT);
 		
@@ -125,17 +126,16 @@ public class SimplechatService {
 		// /create <roomName> [options] -> 새로운 방 생성
 		// options: -public(default), -private <password>, -game <gametype>
 		case "create":
-			if( roomRepository.findByName(result.args).isEmpty() ) {
-				ChatRoom newRoom = new ChatRoom(result.args);
-				newRoom.setOwner(0L);	// system_id 0L
-				if( result.options.containsKey("private") ) {
-					newRoom.setRoom_type(ChatRoom.RoomType.PRIVATE);
-					newRoom.setPassword_hash(result.options.get("private"));
-				} else {
-					newRoom.setRoom_type(ChatRoom.RoomType.PUBLIC);
-				}
-				roomRepository.save(newRoom);
+			ChatRoom.RoomType room_type;
+			String pass_hash = null;
+			if( result.options.containsKey("private") ) {
+				room_type = ChatRoom.RoomType.PRIVATE;
+				pass_hash = result.options.get("private");
+			} else {
+				room_type = ChatRoom.RoomType.PUBLIC;
 			}
+			
+			createRoom(new RoomCreateDto(result.args, room_type, pass_hash), 0L);
 			return null;
 		// /enter <roomName> -> 특정 방을 타겟으로 지정
 		case "enter":
@@ -170,61 +170,6 @@ public class SimplechatService {
 			System.out.println("Unknown command: " + result.command);
 			return null;
 		}
-	}
-
-	public void enterRoom(Long userId, Long roomId) {
-	    User user = userRepository.findById(userId)
-	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
-	    ChatRoom room = roomRepository.findById(roomId)
-	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
-
-	    if (roomUserRepository.exists(userId, roomId)) {
-	        System.out.println("User " + userId + " is already in room " + roomId);
-	        return;
-	    }
-
-	    // 1. 사용자의 기본 닉네임을 가져옵니다.
-	    String initialNickname = user.getNickname();
-
-	    // 2. save 메서드에 초기 닉네임을 함께 전달합니다.
-	    roomUserRepository.save(userId, roomId, initialNickname, "USER");
-
-	    // 3. 이벤트 발행
-	    eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId));
-	}
-	
-	public void exitRoom(Long userId, Long roomId) {
-	    User user = userRepository.findById(userId)
-	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
-	    ChatRoom room = roomRepository.findById(roomId)
-	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
-
-	    if (!roomUserRepository.exists(userId, roomId)) {
-	        System.out.println("User " + userId + " is not in room " + roomId);
-	        return;
-	    }
-
-	    // 1. 사용자의 기본 닉네임을 가져옵니다.
-	    String initialNickname = user.getNickname();
-
-	    // 2. save 메서드에 초기 닉네임을 함께 전달합니다.
-	    roomUserRepository.delete(userId, roomId);
-
-	    // 3. 이벤트 발행
-	    eventPublisher.publishEvent(new UserExitedRoomEvent(this, userId, roomId));
-	}
-	
-	public void changeNicknameInRoom(Long userId, Long roomId, String newNickname) {
-	    // (필요하다면) 닉네임 유효성 검사 (길이, 중복 등) 로직 추가
-
-	    // 1. DB의 chat_room_users 테이블에 있는 닉네임을 업데이트
-	    roomUserRepository.updateNickname(userId, roomId, newNickname);
-
-	    // 2. 닉네임 변경 이벤트를 발행하여 다른 사용자들에게 알림
-	    //    (이 이벤트는 기존의 ChangeNicknameEvent와 다를 수 있습니다.
-	    //    방 ID 정보가 포함된 새로운 이벤트 'ChangeNicknameInRoomEvent'를 만드는 것이 좋습니다.)
-	    eventPublisher.publishEvent(new ChangeNicknameEvent(this, userId, roomId, newNickname));
-	    System.out.println("User " + userId + "'s nickname in room " + roomId + " changed to " + newNickname);
 	}
 	
 	public User register(UserRegistrationRequestDto requestDto) {
@@ -266,16 +211,93 @@ public class SimplechatService {
 	}
 	
 	public Long createRoom(RoomCreateDto roomcreateDto, Long userId) {
-		return roomRepository.save(new ChatRoom(roomcreateDto.roomName(), 
+		User user = userRepository.findById(userId)
+	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
+		
+		Long roomId = roomRepository.save(new ChatRoom(roomcreateDto.roomName(), 
 				roomcreateDto.roomType(), userId, 
 				roomcreateDto.password()!=null?passwordEncoder.encode(roomcreateDto.password()):roomcreateDto.password() ) ).getId();
+		
+		// add this user as ADMIN
+		roomUserRepository.save(userId, roomId, user.getNickname(), "ADMIN");
+		return roomId;
 	}
 	
-//	public void addChat(String idstr, String msgstr, String roomName) {
-//		ChatRoom cr = rooms.get(roomName);
-//		System.out.println(idstr);
-//		cr.addChat(new ChatMessage(idstr, cr.getPop(idstr).getUsername(), msgstr));
-//	}
+	public Long enterRoom(Long roomId, Long userId, String password) {
+	    User user = userRepository.findById(userId)
+	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
+	    ChatRoom room = roomRepository.findById(roomId)
+	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
+	    
+	    //비밀번호 검증
+	    if (room.getRoom_type() == ChatRoom.RoomType.PRIVATE) {
+	        if (password == null ||
+	        !passwordEncoder.matches(password, room.getPassword_hash())) {
+	            throw new RegistrationException("FORBIDDEN", "비밀번호가 일치하지 않습니다.");
+	        }
+	    }
+	    
+	    if( roomUserRepository.exists(userId, roomId) ) {	// no need enter process
+	    	System.out.println("User " + user.getNickname() + " is already in room " + room.getName());
+			return roomId;
+		}
+	    
+	    // 2. save 메서드에 초기 닉네임을 함께 전달합니다.
+	    roomUserRepository.save(userId, roomId, user.getNickname(), "MEMBER");
+
+		return roomId;
+	}
+	
+	public RoomInitDataDto initRoom(Long roomId, Long userId) {
+		User user = userRepository.findById(userId)
+	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
+	    ChatRoom room = roomRepository.findById(roomId)
+	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
+		
+		if( !roomUserRepository.exists(userId, roomId) ) {
+	    	throw new RegistrationException("FORBIDDEN", "비정상적인 접근입니다.");
+		}
+		
+	    //eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId));
+		
+		return new RoomInitDataDto(roomRepository.findUsersByRoomId(roomId),
+				msgRepository.findByRoomId(roomId).stream()
+				.map(msg -> new ChatMessageDto(msg))
+				.collect(Collectors.toList()));
+	}
+	
+	public void exitRoom(Long roomId, Long userId) {
+	    User user = userRepository.findById(userId)
+	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
+	    ChatRoom room = roomRepository.findById(roomId)
+	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
+
+	    if (!roomUserRepository.exists(userId, roomId)) {
+	        System.out.println("User " + userId + " is not in room " + roomId);
+	        return;
+	    }
+
+	    roomUserRepository.delete(userId, roomId);
+	    eventPublisher.publishEvent(new UserExitedRoomEvent(this, userId, roomId, UserEventDto.EventType.ROOM_OUT));
+	}
+	
+	public void changeNicknameInRoom(Long userId, Long roomId, String newNickname) {
+	    // (필요하다면) 닉네임 유효성 검사 (길이, 중복 등) 로직 추가
+
+	    // 1. DB의 chat_room_users 테이블에 있는 닉네임을 업데이트
+	    roomUserRepository.updateNickname(userId, roomId, newNickname);
+
+	    // 2. 닉네임 변경 이벤트를 발행하여 다른 사용자들에게 알림
+	    //    (이 이벤트는 기존의 ChangeNicknameEvent와 다를 수 있습니다.
+	    //    방 ID 정보가 포함된 새로운 이벤트 'ChangeNicknameInRoomEvent'를 만드는 것이 좋습니다.)
+	    eventPublisher.publishEvent(new ChangeNicknameEvent(this, userId, roomId, newNickname));
+	    System.out.println("User " + userId + "'s nickname in room " + roomId + " changed to " + newNickname);
+	}
+	
+	public void addChat_publish(ChatMessageRequestDto msgDto) {
+		ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto));
+		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
+	}
 //	
 //	public List<ChatMessage> getAllChat(String roomName, Integer Id, String name){
 //		ChatRoom cr = rooms.get(roomName);

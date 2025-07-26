@@ -88,7 +88,19 @@ public class RoomUserRepository {
             return false;
         }
 
-        long count = (long) parsedTable.get(0).values().iterator().next();
+        int count = (int) parsedTable.get(0).values().iterator().next();
         return count > 0;
+    }
+    
+    public String getRole(Long userId, Long roomId) {
+    	String sql = "SELECT role FROM chat_room_users WHERE user_id = ? AND room_id = ?";
+        List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql,
+                new String[]{String.valueOf(userId), String.valueOf(roomId)});
+
+        if (parsedTable.isEmpty()) {
+            return null;
+        }
+        
+        return (String) parsedTable.get(0).values().iterator().next();
     }
 }

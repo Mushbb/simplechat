@@ -18,7 +18,7 @@ public class UserInterceptor implements ChannelInterceptor {
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
             // 사용자 인증 정보를 추출하여 세션 속성에 저장
             // 예시: WebSocket 연결 시 전송되는 사용자 이름 헤더 (또는 Spring Security 통합)
-            String userid = accessor.getFirstNativeHeader("user_id");
+        	String userid = accessor.getFirstNativeHeader("user_id");
             String roomid = accessor.getFirstNativeHeader("room_id");
 
             if (userid != null) {

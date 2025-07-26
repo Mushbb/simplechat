@@ -1,32 +1,63 @@
 package com.example.simplechat.listener;
 
-import org.springframework.context.ApplicationListener;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
-import org.springframework.web.socket.messaging.SessionConnectedEvent;
+import org.springframework.web.socket.messaging.SessionSubscribeEvent;
+import org.springframework.context.event.EventListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.example.simplechat.service.SimplechatService;
+import lombok.RequiredArgsConstructor;
 
+import com.example.simplechat.service.SimplechatService;
+import com.example.simplechat.model.User;
+import com.example.simplechat.event.UserEnteredRoomEvent;
+import com.example.simplechat.event.UserExitedRoomEvent;
+import com.example.simplechat.service.RoomSessionManager;
+import com.example.simplechat.repository.RoomUserRepository;
+import com.example.simplechat.dto.UserEventDto.EventType;
+import com.example.simplechat.dto.UserEventDto.UserType;
+
+@RequiredArgsConstructor
 @Component
-public class WebSocketEventListener implements ApplicationListener<SessionDisconnectEvent> {
+public class WebSocketEventListener {
     private static final Logger logger = LoggerFactory.getLogger(WebSocketEventListener.class);
     
     private final SimplechatService serv;		// 주입!! 이렇게 하면 알아서 인스턴스를 찾아준다
-    public WebSocketEventListener(SimplechatService serv) {
-    	this.serv = serv;
-    }
+    private final ApplicationEventPublisher eventPublisher; // Spring의 ApplicationEventPublisher 주입
+    private final RoomSessionManager roomSessionManager;
+    private final RoomUserRepository roomUserRepository;
 
-    @Override
-    public void onApplicationEvent(SessionDisconnectEvent event) {
+    @EventListener
+    public void handleSessionSubscribeEvent(SessionSubscribeEvent event) {
+        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        String destination = headerAccessor.getDestination();
+
+        // 사용자가 /topic/{roomId}/public 또는 /users 토픽을 구독할 때를 입장 시점으로 간주
+        if (destination != null && destination.contains("/topic/") && destination.contains("/public")) {
+        	Long userId = Long.valueOf((String)headerAccessor.getSessionAttributes().get("user_id"));
+            Long roomId = Long.valueOf((String)headerAccessor.getSessionAttributes().get("room_id"));
+            User user = serv.getUserById(userId); // SimplechatService에서 사용자 정보 가져오기
+
+            if (userId != null && roomId != null && user != null) {
+            	roomSessionManager.registerSession(roomId, userId, headerAccessor.getSessionId());
+                // 여기서 UserEnteredRoomEvent 발행
+            	eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId, 
+            			UserType.valueOf(roomUserRepository.getRole(userId, roomId))) );
+                logger.info("User {} subscribed to room {}. Publishing enter event.", userId, roomId);
+            }
+        }
+    }
+    
+    @EventListener
+    public void handleSessionDisconnectEvent(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
 
         String sessionId = headerAccessor.getSessionId();
-        Long userid = (Long) headerAccessor.getSessionAttributes().get("user_id");
-        Long roomid = (Long) headerAccessor.getSessionAttributes().get("room_id");
+        Long userid = Long.valueOf((String)headerAccessor.getSessionAttributes().get("user_id"));
+        Long roomid = Long.valueOf((String)headerAccessor.getSessionAttributes().get("room_id"));
 
         logger.info("WebSocket Session Disconnected: [SessionId: {}], [User: {}], [Reason: {}]",
                 sessionId,
@@ -36,15 +67,12 @@ public class WebSocketEventListener implements ApplicationListener<SessionDiscon
         // 특정 세션이 끊어졌을 때 필요한 추가 로직을 여기에 구현합니다.
         // 예를 들어, 연결된 사용자 목록에서 제거하거나,
         System.out.println("접속종료: "+roomid+": "+userid);
-        serv.exitRoom(userid, roomid);
         
-        // 해당 사용자와 관련된 리소스를 정리하는 등의 작업을 할 수 있습니다.
-        
-
         // 만약 사용자 이름이 세션에 저장되어 있다면
         if (userid != null) {
-            // 예시: 연결된 사용자 목록에서 제거 (가상의 서비스라고 가정)
-            // userService.removeConnectedUser(username);
+        	roomSessionManager.unregisterSession(sessionId);
+        	// 여기서 UserEnteredRoomEvent 발행
+        	eventPublisher.publishEvent(new UserExitedRoomEvent(this, userid, roomid, EventType.EXIT));
             logger.info("User {} disconnected. Cleaning up resources.", userid);
         }
     }

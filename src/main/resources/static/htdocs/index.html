@@ -287,15 +287,14 @@
 <!-- ================================================== -->
 
 <script>
+    let SERVER_BASE_URL = 'http://10.50.131.25:8080'; // <-- 서버 주소 확인
+    SERVER_BASE_URL = "http://localhost:8080";
+
     document.addEventListener('DOMContentLoaded', function() {
         const roomsUl = document.getElementById('rooms');
         const createRoomButton = document.getElementById('create-room-button');
         // existingRooms를 Map<String, boolean> 또는 Set<String>으로 변경하여 중복 체크에 용이하게
         let existingRoomNames = new Set(); // 방 이름만 저장하는 Set
-
-        let SERVER_BASE_URL = 'http://10.50.131.25:8080'; // <-- 서버 주소 확인
-		SERVER_BASE_URL = "http://localhost:8080";
-
 
         // 페이지 로드 시 로그인 상태를 확인하는 함수
         function checkLoginStatus() {
@@ -431,13 +430,6 @@
             }
             return response.json(); // List<ChatRoomListDto>을 기대
             }).then(data => {
-            //     // 받아온 List<String[]> 데이터를 처리
-            //     existingRoomNames.clear(); // 기존 Set 초기화
-            //     data.forEach(roomArray => {
-            //         // roomArray는 [ID, Name] 형태의 String[] (예: ["chat1", "chat1", "1"])
-            //         const roomName = roomArray[1]; // Name 부분을 사용
-            //         existingRoomNames.add(roomName); // Set에 방 이름 추가
-            //     });
 		        renderRooms(data); // 렌더링 함수에 List<ChatRoomListDto> 전달
 	        }).catch(error => {
                 console.error('방 목록을 가져오는 중 오류 발생:', error);
@@ -446,7 +438,6 @@
 	    }
 
 		// 2. 방 목록 렌더링
-		// renderRooms 함수가 List<ChatRoomListDto>을 받도록 수정
         function renderRooms(roomsList) {
             const roomsUl = document.getElementById('rooms');
             roomsUl.innerHTML = ''; // 기존 목록 비우기
@@ -459,12 +450,12 @@
             roomsList.forEach(room => {
                 const li = document.createElement('li');
 
-                // 비밀방일 경우 자물쇠 아이콘 추가
-                const lockIcon = room.roomType === 'PRIVATE' ? '<i class="fas fa-lock"></i> ' : '';
-
+                // 비밀방일 경우 자물쇠 아이콘 추가 (FontAwesome 대신 이모지 사용)
+                const lockIcon = room.roomType === 'PRIVATE' ? '🔒 ' : '';
                 // 방 정보를 포함하는 HTML 생성
+                // onclick 이벤트에서 enterRoom 함수를 호출하도록 수정
                 li.innerHTML = `
-            <a href="javascript:void(0);" onclick="openChatWindow('chat.html?room=${encodeURIComponent(room.name)}')">
+            <a href="javascript:void(0);" onclick="enterRoom('${room.id}', '${room.roomType}')">
                 ${lockIcon}${room.name}
             </a>
             <span class="room-details">
@@ -475,6 +466,8 @@
                 roomsUl.appendChild(li);
             });
         }
+
+
 
     // 3. 새 채팅방 만들기 버튼 클릭 이벤트
         createRoomButton.addEventListener('click', function() {
@@ -646,6 +639,44 @@
 
         })();
     });
+    // 2-1. 채팅방 입장 처리 함수
+    function enterRoom(roomId, roomType) {
+        let password = null;
+        // 비밀방의 경우 비밀번호를 입력받음
+        if (roomType === 'PRIVATE') {
+            password = prompt("비밀번호를 입력하세요:");
+            if (password === null) { // 사용자가 '취소'를 누른 경우
+                return;
+            }
+        }
+
+        const enterRequest = {
+            password: password
+        };
+
+        // 서버에 입장 요청
+        fetch(`${SERVER_BASE_URL}/room/`+roomId+`/users`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(enterRequest),
+            credentials: 'include' // 세션 유지를 위해 쿠키 포함
+        })
+        .then(response => {
+            if (response.ok) {
+                // 입장이 성공하면 채팅창을 연다.
+                openChatWindow(`chat.html?room=${encodeURIComponent(roomId)}`);
+            } else {
+                // 서버에서 보낸 에러 메시지를 받아서 throw
+                return response.json().then(err => { throw err; });
+            }
+        })
+        .catch(error => {
+            console.error('채팅방 입장 실패:', error);
+            // error.message는 서버의 ErrorResponseDto에 담긴 message 필드일 수 있습니다.
+            alert(error.message || '채팅방 입장에 실패했습니다. 다시 시도해주세요.');
+        });
+    }
+
 	function openChatWindow(url) {
 		const chatPageURL = 'chat.html';
 		const windowName = 'chatWindow';

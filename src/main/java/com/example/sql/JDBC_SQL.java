@@ -26,9 +26,9 @@ public class JDBC_SQL {
 		Integer count = 0;
 		
 		try {
-	        System.out.println("Connecting to SQL Server...");
+//	        System.out.println("Connecting to SQL Server...");
 	        connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
-	        System.out.println("Connection successful!");
+//	        System.out.println("Connection successful!");
 	        
 	        statement = connection.createStatement();
 	        
@@ -45,7 +45,7 @@ public class JDBC_SQL {
                 if (resultSet != null) resultSet.close();
                 if (statement != null) statement.close();
                 if (connection != null) connection.close();
-                System.out.println("\nDatabase connection closed.");
+//                System.out.println("\nDatabase connection closed.");
             } catch (SQLException e) {
                 System.err.println("Error closing resources: " + e.getMessage());
             }
@@ -65,9 +65,9 @@ public class JDBC_SQL {
             // Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
 
             // 2. 데이터베이스 연결 설정
-            System.out.println("Connecting to SQL Server...");
+//            System.out.println("Connecting to SQL Server...");
             connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
-            System.out.println("Connection successful!");
+//            System.out.println("Connection successful!");
             // 3. Statement 객체 생성 (SQL 쿼리 실행용) + 파라미터 등록
             statement = connection.prepareStatement(sqlQuery);
             if( Params != null )
@@ -114,7 +114,7 @@ public class JDBC_SQL {
                 if (resultSet != null) resultSet.close();
                 if (statement != null) statement.close();
                 if (connection != null) connection.close();
-                System.out.println("\nDatabase connection closed.");
+//                System.out.println("\nDatabase connection closed.");
             } catch (SQLException e) {
                 System.err.println("Error closing resources: " + e.getMessage());
             }
@@ -134,9 +134,9 @@ public class JDBC_SQL {
             // Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
 
             // 2. 데이터베이스 연결 설정
-            System.out.println("Connecting to SQL Server...");
+//            System.out.println("Connecting to SQL Server...");
             connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
-            System.out.println("Connection successful!");
+//           System.out.println("Connection successful!");
             connection.setAutoCommit(false); 
             
             // 3. Statement 객체 생성 (SQL 쿼리 실행용) + 파라미터 등록
@@ -147,9 +147,9 @@ public class JDBC_SQL {
 	            for(int i=0;i<Params.length;i++)
 	            	statement.setObject(i+1, Params[i]);
 
-        	System.out.println("Executing DML/DDL: " + sqlQuery);
+//        	System.out.println("Executing DML/DDL: " + sqlQuery);
         	int rowsAffected = statement.executeUpdate();
-        	System.out.println("Rows affected: " + rowsAffected);
+//        	System.out.println("Rows affected: " + rowsAffected);
         	
             ResultSet generatedKeys = statement.getGeneratedKeys();
             if ( generatedKeys.next() && returnCols != null)
@@ -164,7 +164,7 @@ public class JDBC_SQL {
 	            SelectSql = SelectSql.substring(0, SelectSql.length()-2);
 	            SelectSql += " FROM "+DB_Utils.TableNameFromInsert(sqlQuery)+" ";
 	            SelectSql += "WHERE "+returnCols[0]+" = "+result.get(returnCols[0]);
-	            System.out.println(SelectSql);
+//	            System.out.println(SelectSql);
 	            
 	            statement = connection.prepareStatement(SelectSql);
 	            ResultSet resultSet = statement.executeQuery();
@@ -203,7 +203,7 @@ public class JDBC_SQL {
             try {
                 if (statement != null) statement.close();
                 if (connection != null) connection.close();
-                System.out.println("\nDatabase connection closed.");
+//                System.out.println("\nDatabase connection closed.");
             } catch (SQLException e) {
                 System.err.println("Error closing resources: " + e.getMessage());
             }
@@ -223,9 +223,9 @@ public class JDBC_SQL {
             // Class.forName("com.microsoft.sqlserver.jdbc.SQLServerDriver");
 
             // 2. 데이터베이스 연결 설정
-            System.out.println("Connecting to SQL Server...");
+//            System.out.println("Connecting to SQL Server...");
             connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
-            System.out.println("Connection successful!");
+//            System.out.println("Connection successful!");
             connection.setAutoCommit(false); 
             
             identity = connection.createStatement();
@@ -263,7 +263,7 @@ public class JDBC_SQL {
             	if (identity != null) identity.close();
                 if (statement != null) statement.close();
                 if (connection != null) connection.close();
-                System.out.println("\nDatabase connection closed.");
+//                System.out.println("\nDatabase connection closed.");
             } catch (SQLException e) {
                 System.err.println("Error closing resources: " + e.getMessage());
             }

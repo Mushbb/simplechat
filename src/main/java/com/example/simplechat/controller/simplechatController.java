@@ -1,55 +1,29 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
-import com.example.simplechat.model.*;
+import com.example.simplechat.model.User;
+import com.example.simplechat.exception.*;
+import com.example.simplechat.dto.*;
 
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.messaging.handler.annotation.MessageMapping;
 
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
-
+import org.springframework.web.bind.annotation.PathVariable;
 import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.stream.Collectors;
 
-import com.example.simplechat.exception.*;
-import com.example.simplechat.dto.*;
-
-//import org.springframework.web.bind.annotation.CrossOrigin;
-
+@RequiredArgsConstructor 
 @RestController
 public class simplechatController {
 	// 1. 서비스 객체를 참조할 필드 선언 (불변성을 위해 final로 선언)
 	private final SimplechatService serv;
-	
-	// 2. 생성자를 통한 의존성 주입 (가장 권장되는 방법)
-    // 스프링이 UserService 타입의 빈(객체)을 찾아서 이 생성자의 파라미터로 주입해 줍니다.
-	public simplechatController(SimplechatService serv) {
-		this.serv = serv;
-	}
-	
-	@GetMapping("/room/list")
-	public List<ChatRoomListDto> getRoomList(){
-		// System.out.println("lobbylist");
-		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
-        return serv.getRoomList();
-	}
-	
-	@PostMapping("/room/create")
-	public Long createRoom(@RequestBody RoomCreateDto roomcreateDto, HttpSession session) {
-		Long userId = (Long)session.getAttribute("userId");
-		if( userId == null ) {
-			throw new RegistrationException("UNAUTHORIZED","Please login first!");
-		}
-		return serv.createRoom(roomcreateDto, userId);
-	}
 	
 	@PostMapping("/auth/register")
 	public LoginResponseDto registerRequest(@RequestBody UserRegistrationRequestDto requestDto, HttpSession session) {
@@ -111,19 +85,80 @@ public class simplechatController {
 		return 1;
 	}
 	
-//	@PostMapping("/{roomName}")
+	
+	
+	
+	@GetMapping("/room/list")
+	public List<ChatRoomListDto> getRoomList(){
+		// System.out.println("lobbylist");
+		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
+        return serv.getRoomList();
+	}
+	
+	@PostMapping("/room/create")
+	public Long createRoom(@RequestBody RoomCreateDto roomcreateDto, HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		if( userId == null ) {
+			throw new RegistrationException("UNAUTHORIZED","Please login first!");
+		}
+		return serv.createRoom(roomcreateDto, userId);
+	}
+	
+	@PostMapping("/room/{roomId}/users")
+	public Long enterRoom(@PathVariable("roomId") Long roomId, @RequestBody RoomEnterDto enterDto, HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		if( userId == null ) {
+			throw new RegistrationException("UNAUTHORIZED","Please login first!");
+		}
+		
+		return serv.enterRoom(roomId, userId, enterDto.password());
+	}
+	
+//	@GetMapping("/room/{roomId}/users")
+//	public List<UserListDto> getRoomMembers() {
+//		
+//	}
+//	
+//	@PutMapping("/room/{roomId}/users")
+//	public Long changeNick() {
+//		
+//	}
+	
+	@DeleteMapping("/room/{roomId}/users")
+	public void exitRoom(@PathVariable("roomId") Long roomId, HttpSession session) {
+	    Long userId = (Long) session.getAttribute("userId");
+	    if (userId == null) {
+	        // 이 경우는 거의 없겠지만, 안전을 위해 추가
+	        throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
+	    }
+	    serv.exitRoom(roomId, userId);
+	}
+	
+	@GetMapping("/room/{roomId}/init")
+	public RoomInitDataDto initRoom(@PathVariable("roomId") Long roomId, HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		
+		return serv.initRoom(roomId, userId);
+	}
+	
+	@MessageMapping("/chat.sendMessage")
+	public void recvMessage(ChatMessageRequestDto msgDto) {
+		serv.addChat_publish(msgDto);
+	}
+	
+//	@PostMapping("/room/{roomId}")
 //	public List<ChatMessage> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
 ////		System.out.println("new User in "+path+", "+Id);
 //        return serv.createRoom(path, Id);
 //    }
 //	
-//	@PostMapping("/{roomName}/chat")
+//	@PostMapping("/room/{roomId}/chat")
 //	public void recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
 //		System.out.println(path);
 //		serv.addChat(newId, request, path);
 //	}
 //	
-//	@PostMapping("/{roomName}/nick")
+//	@PutMapping("/room/{roomId}/nick")
 //	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id, @PathVariable("roomName") String path) {
 //		serv.checkNick(newNick, Id, path);
 //	}

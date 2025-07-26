@@ -6,6 +6,10 @@ import com.example.simplechat.dto.ChatRoomUserDto;
 import com.example.simplechat.dto.ChatRoomListDto;
 import com.example.sql.JDBC_SQL;
 
+import lombok.RequiredArgsConstructor;
+
+import com.example.simplechat.service.RoomSessionManager;
+
 import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -14,8 +18,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor 
 @Repository
 public class RoomRepository {
+	private final RoomSessionManager roomSessionManager;
+	
 	public Optional<ChatRoom> findByName(String Name) {
 		String sql = "SELECT * FROM chat_rooms WHERE room_name = ?";
 		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{Name});
@@ -46,7 +53,7 @@ public class RoomRepository {
 			return Collections.emptyList();
 		}
 
-		// 각 Map을 User 객체로 변환하여 리스트로 만듭니다.
+		// 각 Map을 Room 객체로 변환하여 리스트로 만듭니다.
 		return parsedTable.stream()
 				.map(this::mapRowToRoom)
 				.collect(Collectors.toList());
@@ -60,7 +67,7 @@ public class RoomRepository {
 			return Collections.emptyList();
 		}
 
-		// 각 Map을 User 객체로 변환하여 리스트로 만듭니다.
+		// 각 Map을 Room 객체로 변환하여 리스트로 만듭니다.
 		return parsedTable.stream()
 				.map(this::mapRowToRoom)
 				.collect(Collectors.toList());
@@ -81,7 +88,7 @@ public class RoomRepository {
 	// 그리고, 방 안에 있는 유저라는 개념이 방과 강하게 결합된 정보 단위라고 생각해서 이렇게 진행함.
 	public List<ChatRoomUserDto> findUsersByRoomId(Long roomId){
 		String sql = "SELECT u.user_id, cru.nickname, cru.role "+
-					"FROM users u INNER JOIN chat_room_users ON u.user_id = cru.user_id "+
+					"FROM users u INNER JOIN chat_room_users cru ON u.user_id = cru.user_id "+
 					"WHERE room_id = ?";
 		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{String.valueOf(roomId)});
 		
@@ -90,7 +97,8 @@ public class RoomRepository {
 			.map(row -> new ChatRoomUserDto(
 					(Long) row.get("user_id"),
 					(String) row.get("nickname"),
-					(String) row.get("role") ))
+					ChatRoomUserDto.UserType.valueOf((String) row.get("role")),
+					roomSessionManager.getConnectedUsers(roomId).contains(row.get("user_id")) ? ChatRoomUserDto.ConnectType.CONNECT:ChatRoomUserDto.ConnectType.DISCONNECT))
 			.collect(Collectors.toList());
 	}
 	

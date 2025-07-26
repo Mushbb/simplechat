@@ -3,5 +3,16 @@ package com.example.simplechat.dto;
 public record ChatRoomUserDto(
 	Long userId, 
 	String nickname, 
-	String role
-) {}
+	UserType role,
+	ConnectType conn
+) {
+	public enum UserType {
+    	ADMIN,
+    	MEMBER
+    }
+	
+	public enum ConnectType {
+		CONNECT,
+		DISCONNECT
+	}
+}
