@@ -265,11 +265,11 @@
             <div class="form-group">
                 <label>방 타입</label><br>
                 <input type="radio" id="roomTypePublic" name="roomType" value="PUBLIC" checked>
-                <label for="roomTypePublic">공개방</label>
+                <label for="roomTypePublic" style="margin-top: -22px;">공개방</label><br>
                 <input type="radio" id="roomTypePrivate" name="roomType" value="PRIVATE">
-                <label for="roomTypePrivate">비밀방</label>
+                <label for="roomTypePrivate" style="margin-top: -22px;">비밀방</label><br>
                 <input type="radio" id="roomTypeGame" name="roomType" value="GAME">
-                <label for="roomTypeGame">게임방</label>
+                <label for="roomTypeGame" style="margin-top: -22px;">게임방</label><br>
             </div>
             <div class="form-group" id="passwordGroup" style="display: none;">
                 <label for="roomPassword">비밀번호</label>
@@ -459,7 +459,10 @@
                 ${lockIcon}${room.name}
             </a>
             <span class="room-details">
-                (Owner: ${room.ownerName}, Users: ${room.userCount})
+                (Owner: ${room.ownerName})
+            </span>
+            <span class="room-count">
+                (${room.connCount}/${room.userCount})
             </span>
         `;
 
@@ -628,7 +631,7 @@
                     console.log('방 생성 성공, ID:', roomId);
                     alert(`'${data.roomName}' 방이 생성되었습니다.`);
                     createRoomModal.style.display = 'none';
-                    openChatWindow(`chat.html?room=${encodeURIComponent(data.roomName)}`);
+                    openChatWindow(`chat.html?room=${roomId}`);
                     setTimeout(function(){location.reload();}, 1000);
                 })
                 .catch(error => {
@@ -644,37 +647,59 @@
         let password = null;
         // 비밀방의 경우 비밀번호를 입력받음
         if (roomType === 'PRIVATE') {
-            password = prompt("비밀번호를 입력하세요:");
-            if (password === null) { // 사용자가 '취소'를 누른 경우
-                return;
-            }
+            // 서버에 입장 요청
+            fetch(`${SERVER_BASE_URL}/room/`+roomId+`/users`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({password:password}),
+                credentials: 'include' // 세션 유지를 위해 쿠키 포함
+            })
+            .then(response => {
+                if (response.ok) {
+                    // 입장이 성공하면 채팅창을 연다.
+                    openChatWindow(`chat.html?room=${roomId}`);
+                } else {
+                    // 서버에서 보낸 에러 메시지를 받아서 throw
+                    return response.json().then(err => { throw err; });
+                }
+            })
+            .catch(error => {
+                password = prompt("비밀번호를 입력하세요:");
+                if (password === null) { // 사용자가 '취소'를 누른 경우
+                    return;
+                }
+
+                const enterRequest = {
+                    password: password
+                };
+
+                // 서버에 입장 요청
+                fetch(`${SERVER_BASE_URL}/room/`+roomId+`/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(enterRequest),
+                    credentials: 'include' // 세션 유지를 위해 쿠키 포함
+                })
+                    .then(response => {
+                        if (response.ok) {
+                            // 입장이 성공하면 채팅창을 연다.
+                            openChatWindow(`chat.html?room=${roomId}`);
+                        } else {
+                            // 서버에서 보낸 에러 메시지를 받아서 throw
+                            return response.json().then(err => { throw err; });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('채팅방 입장 실패:', error);
+                        // error.message는 서버의 ErrorResponseDto에 담긴 message 필드일 수 있습니다.
+                        alert(error.message || '채팅방 입장에 실패했습니다. 다시 시도해주세요.');
+                    });
+            });
+
+
         }
 
-        const enterRequest = {
-            password: password
-        };
 
-        // 서버에 입장 요청
-        fetch(`${SERVER_BASE_URL}/room/`+roomId+`/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(enterRequest),
-            credentials: 'include' // 세션 유지를 위해 쿠키 포함
-        })
-        .then(response => {
-            if (response.ok) {
-                // 입장이 성공하면 채팅창을 연다.
-                openChatWindow(`chat.html?room=${encodeURIComponent(roomId)}`);
-            } else {
-                // 서버에서 보낸 에러 메시지를 받아서 throw
-                return response.json().then(err => { throw err; });
-            }
-        })
-        .catch(error => {
-            console.error('채팅방 입장 실패:', error);
-            // error.message는 서버의 ErrorResponseDto에 담긴 message 필드일 수 있습니다.
-            alert(error.message || '채팅방 입장에 실패했습니다. 다시 시도해주세요.');
-        });
     }
 
 	function openChatWindow(url) {

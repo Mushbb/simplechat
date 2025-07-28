@@ -5,8 +5,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
+//import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-import lombok.RequiredArgsConstructor ;
+import lombok.RequiredArgsConstructor;
 
 import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.model.User;
@@ -52,6 +52,7 @@ public class SimplechatService {
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RoomSessionManager roomSessionManager;
 	
     @PostConstruct
     public void init() {
@@ -198,16 +199,37 @@ public class SimplechatService {
 	}
 	
 	public Long delete_account(Long userId) {
-		if(userRepository.existsById(userId))
-			userRepository.deleteById(userId);
-		else
+		if(!userRepository.existsById(userId)) {
 			throw new RuntimeException("해당 ID의 사용자를 찾을 수 없습니다: " + userId);
+		}
+
+		// 3. 방장이었던 방도 같이 삭제
+		for( ChatRoom room : roomRepository.findByOwnerId(userId) ) {
+			deleteRoom(room.getId(), userId);
+		}
 		
+		// 1. 사용자가 속한 모든 채팅방 멤버십 정보 삭제
+		roomUserRepository.deleteByUserId(userId);
+		
+		// 2. 사용자 계정 자체를 삭제
+		userRepository.deleteById(userId);
+
 		return userId;
 	}
 	
 	public List<ChatRoomListDto> getRoomList(){
-		return roomRepository.findAllWithCount();
+		List<ChatRoomListDto> roomsFromDb = roomRepository.findAllWithCount();
+
+        return roomsFromDb.stream()
+            .map(roomDto -> new ChatRoomListDto(
+                roomDto.id(),
+                roomDto.name(),
+                roomDto.roomType(),
+                roomDto.ownerName(),
+                roomDto.userCount(),
+                roomSessionManager.getConnectedUsers(roomDto.id()).size()
+            ))
+            .collect(Collectors.toList());
 	}
 	
 	public Long createRoom(RoomCreateDto roomcreateDto, Long userId) {
@@ -229,18 +251,17 @@ public class SimplechatService {
 	    ChatRoom room = roomRepository.findById(roomId)
 	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
 	    
-	    //비밀번호 검증
-	    if (room.getRoom_type() == ChatRoom.RoomType.PRIVATE) {
-	        if (password == null ||
-	        !passwordEncoder.matches(password, room.getPassword_hash())) {
-	            throw new RegistrationException("FORBIDDEN", "비밀번호가 일치하지 않습니다.");
-	        }
-	    }
-	    
 	    if( roomUserRepository.exists(userId, roomId) ) {	// no need enter process
 	    	System.out.println("User " + user.getNickname() + " is already in room " + room.getName());
 			return roomId;
 		}
+	    System.out.println("Password: "+room.getPassword_hash());
+	    //비밀번호 검증
+	    if (room.getRoom_type() == ChatRoom.RoomType.PRIVATE) {
+	        if (password == null || !passwordEncoder.matches(password, room.getPassword_hash())) {
+	            throw new RegistrationException("FORBIDDEN", "비밀번호가 일치하지 않습니다.");
+	        }
+	    }
 	    
 	    // 2. save 메서드에 초기 닉네임을 함께 전달합니다.
 	    roomUserRepository.save(userId, roomId, user.getNickname(), "MEMBER");
@@ -248,7 +269,7 @@ public class SimplechatService {
 		return roomId;
 	}
 	
-	public RoomInitDataDto initRoom(Long roomId, Long userId) {
+	public RoomInitDataDto initRoom(Long roomId, Long userId, int lines) {
 		User user = userRepository.findById(userId)
 	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
 	    ChatRoom room = roomRepository.findById(roomId)
@@ -261,9 +282,9 @@ public class SimplechatService {
 	    //eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId));
 		
 		return new RoomInitDataDto(roomRepository.findUsersByRoomId(roomId),
-				msgRepository.findByRoomId(roomId).stream()
+				msgRepository.findTopNByRoomIdOrderById(roomId, null , lines, "DESC").stream()
 				.map(msg -> new ChatMessageDto(msg))
-				.collect(Collectors.toList()));
+				.collect(Collectors.toList()), room.getName());
 	}
 	
 	public void exitRoom(Long roomId, Long userId) {
@@ -281,85 +302,59 @@ public class SimplechatService {
 	    eventPublisher.publishEvent(new UserExitedRoomEvent(this, userId, roomId, UserEventDto.EventType.ROOM_OUT));
 	}
 	
-	public void changeNicknameInRoom(Long userId, Long roomId, String newNickname) {
+	public void changeNicknameInRoom(NickChangeDto nickChangeDto) {
 	    // (필요하다면) 닉네임 유효성 검사 (길이, 중복 등) 로직 추가
+		
+		Long userId = nickChangeDto.userId();
+		Long roomId = nickChangeDto.roomId();
+		String newNickname = nickChangeDto.newNickname();
 
 	    // 1. DB의 chat_room_users 테이블에 있는 닉네임을 업데이트
 	    roomUserRepository.updateNickname(userId, roomId, newNickname);
 
 	    // 2. 닉네임 변경 이벤트를 발행하여 다른 사용자들에게 알림
-	    //    (이 이벤트는 기존의 ChangeNicknameEvent와 다를 수 있습니다.
-	    //    방 ID 정보가 포함된 새로운 이벤트 'ChangeNicknameInRoomEvent'를 만드는 것이 좋습니다.)
 	    eventPublisher.publishEvent(new ChangeNicknameEvent(this, userId, roomId, newNickname));
 	    System.out.println("User " + userId + "'s nickname in room " + roomId + " changed to " + newNickname);
 	}
-	
+
 	public void addChat_publish(ChatMessageRequestDto msgDto) {
-		ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto));
+		String AuthorName = roomUserRepository.getNickname(msgDto.authorId(), msgDto.roomId());
+		ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto, AuthorName));
 		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
 	}
-//	
-//	public List<ChatMessage> getAllChat(String roomName, Integer Id, String name){
-//		ChatRoom cr = rooms.get(roomName);
-//		List<ChatMessage> temp = new ArrayList<>(cr.getChats());
-//
-//		temp.add(new ChatMessage(""+Id, name, name, -1));	// 할당된 id 보내기
-//		// 방에 있는 유저정보
-//		cr.getUsers().keySet().forEach(key -> {
-//			temp.add(new ChatMessage(""+key, cr.getPop(key).getUsername(), cr.getPop(key).getUsername(), -2));
-//		});
-//		
-//		return temp;
-//	}
-//	
-//	public boolean checkRoom(String name) { return rooms.containsKey(name); }
-//    // ChatRoom 인스턴스에 ApplicationEventPublisher를 주입하는 헬퍼 메소드
-//    private ChatRoom createRoomInternal(String name) {
-//        ChatRoom newRoom = new ChatRoom(name);
-//        newRoom.setEventPublisher(eventPublisher); // <-- 여기에서 publisher 주입!
-//        rooms.put(name, newRoom);
-//        System.out.println("ChatRoom created: " + name);
-//        return newRoom;
-//    }
-//
-//    // 기존 createRoom 메소드 반영 및 수정
-//    public List<ChatMessage> createRoom(String name, String Id) {
-//    	Integer id;
-//    	String username;
-//    	
-//        // 이미 방이 존재하지 않는 경우에만 새로운 방을 생성하고 publisher 주입
-//        if (!checkRoom(name)) {
-//            createRoomInternal(name); // 새로운 방 생성 및 publisher 주입
-//        }
-//        ChatRoom cr = rooms.get(name);
-//        
-//        if( Id.equals("-1") || cr.getPop(Id) == null ) {			// id가 없으면 새로 부여하면서 생성
-//        	// createUser
-//        	username = "익명"+(cr.getPopsCount()+1);
-//        	
-//    		User ui = new User("1",username);
-//    		id = ui.getId();
-//    		System.out.println("new User "+id);
-//    		cr.addUser(ui);
-//        } else {
-//        	id = Integer.parseInt(Id);
-//        	username = cr.getPop(id).getUsername();
-//        }
-//        return getAllChat(name, id, username);
-//    }
-//    
-//    public Map<String, ChatRoom> getAllRoom(){ return rooms; }
-//    public ChatRoom getRoom(String roomName) { return rooms.get(roomName); }
-//	
-//	public void checkNick(String newNick, String Id, String roomName){
-//		ChatRoom cr = rooms.get(roomName);
-//		String oldNick = cr.getPop(Id).getUsername();
-//		cr.ChangeNick(Id, newNick);
-//		System.out.println("닉네임 변경 완료: "+Id+", "+oldNick+" -> "+newNick);
-//	}
-//	
-//	
-//	private ChatRoom roomNow() { return rooms.get(serv_room); }
+
+//	@Transactional
+	public void deleteRoom(Long roomId, Long userId) {
+		// 1. 권한 검증
+		String userRole = roomUserRepository.getRole(userId, roomId);
+		if (!"ADMIN".equals(userRole)) {
+			throw new RegistrationException("FORBIDDEN", "방을 삭제할 권한이 없습니다.");
+		}
+
+		// 2. 접속자에게 방 삭제 이벤트 발행
+		eventPublisher.publishEvent(new UserExitedRoomEvent(this, null, roomId, UserEventDto.EventType.ROOM_DELETED));
+
+		// 3. DB에서 관련 데이터 모두 삭제 (트랜잭션 보장)
+		msgRepository.deleteByRoomId(roomId);
+		roomUserRepository.deleteByRoomId(roomId);
+		roomRepository.deleteById(roomId);
+
+		System.out.println("Room " + roomId + " has been deleted by user " + userId);
+	}
+	
+	public ChatMessageListDto getMessageList(ChatMessageListRequestDto msgListDto) {
+		List<ChatMessage> messages = msgRepository.findTopNByRoomIdOrderById(
+                        msgListDto.roomId(),
+                        msgListDto.beginId(),
+                        msgListDto.rowCount(),
+                        "DESC");
+
+        List<ChatMessageDto> messageDtos = messages.stream()
+                        .map(ChatMessageDto::new)
+                        .collect(Collectors.toList());
+
+        return new ChatMessageListDto(messageDtos);
+	}
 	
 	//////////////////////////////////////////////
 	/// Parse config.tsv

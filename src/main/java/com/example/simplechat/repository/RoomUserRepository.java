@@ -53,6 +53,19 @@ public class RoomUserRepository {
             System.out.println("Warn: Nickname for user " + userId + " in room " + roomId + " was not updated. The user may not be in the room.");
         }
     }
+    
+    public String getNickname(Long userId, Long roomId) {
+    	String sql = "SELECT nickname FROM chat_room_users WHERE user_id = ? AND room_id = ?";
+    	
+    	List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql,
+                new String[]{String.valueOf(userId), String.valueOf(roomId)});
+
+        if (parsedTable.isEmpty()) {
+            return null;
+        }
+        
+        return (String) parsedTable.get(0).values().iterator().next();
+    }
 
     /**
      * 특정 사용자를 특정 채팅방에서 제거합니다.
@@ -102,5 +115,15 @@ public class RoomUserRepository {
         }
         
         return (String) parsedTable.get(0).values().iterator().next();
+    }
+
+    public void deleteByRoomId(Long roomId) {
+        String sql = "DELETE FROM chat_room_users WHERE room_id = ?";
+        JDBC_SQL.executeUpdate(sql, new String[]{String.valueOf(roomId)}, null, null);
+    }
+
+    public void deleteByUserId(Long userId) {
+        String sql = "DELETE FROM chat_room_users WHERE user_id = ?";
+        JDBC_SQL.executeUpdate(sql, new String[]{String.valueOf(userId)}, null, null);
     }
 }

@@ -142,7 +142,7 @@ public class UserRepository {
 		// COUNT 결과는 보통 Long 타입으로 반환됩니다.
 		// DB Utils나 JDBC 드라이버에 따라 키 이름이 다를 수 있습니다. (예: "COUNT(1)")
 		// 첫 번째 행의 첫 번째 값을 가져옵니다.
-		long count = (long) parsedTable.get(0).values().iterator().next();
+		long count = (int) parsedTable.get(0).values().iterator().next();
 		return count > 0;
 	}
 	

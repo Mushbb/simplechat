@@ -77,6 +77,7 @@ public class RoomRepository {
 		ChatRoom room = new ChatRoom((Long) row.get("room_id"), (String) row.get("room_name"));
 		room.setRoom_type(ChatRoom.RoomType.valueOf((String)row.get("room_type")));
 		room.setOwner((Long) row.get("owner_id"));
+		room.setPassword_hash((String)row.get("password_hash"));
 		room.setCreated_at(((Timestamp)row.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		
 		return room;
@@ -218,7 +219,8 @@ public class RoomRepository {
 						(String) row.get("room_name"),
 						(String) row.get("room_type"),
 						(String) row.get("ownerName"),
-						(Integer) row.get("userCount") ))
+						(Integer) row.get("userCount"), 
+						null))
 				.collect(Collectors.toList());
 	}
 	

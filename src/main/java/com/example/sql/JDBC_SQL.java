@@ -7,7 +7,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.PreparedStatement;
-import java.sql.Statement;
 
 import java.util.List;
 import java.util.Map;
@@ -19,41 +18,6 @@ import com.example.simplechat.repository.DB_Utils;
 import java.util.ArrayList;
 
 public class JDBC_SQL {
-    public static Integer login(String id, String password) {
-		Connection connection = null;
-		Statement statement = null;
-		ResultSet resultSet = null;
-		Integer count = 0;
-		
-		try {
-//	        System.out.println("Connecting to SQL Server...");
-	        connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
-//	        System.out.println("Connection successful!");
-	        
-	        statement = connection.createStatement();
-	        
-	        resultSet = statement.executeQuery("SELECT COUNT(*) AS CNT FROM SM_Mem_Info WHERE MI_ID='"+id+"' AND MI_PW='"+password+"'");
-	        resultSet.next();
-	        count = resultSet.getInt("CNT");
-	        
-		} catch (SQLException e) {
-            System.err.println("Database error occurred: " + e.getMessage());
-            e.printStackTrace();
-        } finally {
-            // 6. 자원 해제 (역순으로 닫는 것이 좋음)
-            try {
-                if (resultSet != null) resultSet.close();
-                if (statement != null) statement.close();
-                if (connection != null) connection.close();
-//                System.out.println("\nDatabase connection closed.");
-            } catch (SQLException e) {
-                System.err.println("Error closing resources: " + e.getMessage());
-            }
-        }
-		
-		return count;
-	}
-    
     public static List<Map<String, Object>> executeSelect(String sqlQuery, String[] Params) {
     	List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
         Connection connection = null;
@@ -271,4 +235,39 @@ public class JDBC_SQL {
         
         return result;
     }
+    
+    public static Integer login(String id, String password) {
+		Connection connection = null;
+		Statement statement = null;
+		ResultSet resultSet = null;
+		Integer count = 0;
+		
+		try {
+//	        System.out.println("Connecting to SQL Server...");
+	        connection = DriverManager.getConnection(DB_String.getInstance().connectionUrl());
+//	        System.out.println("Connection successful!");
+	        
+	        statement = connection.createStatement();
+	        
+	        resultSet = statement.executeQuery("SELECT COUNT(*) AS CNT FROM SM_Mem_Info WHERE MI_ID='"+id+"' AND MI_PW='"+password+"'");
+	        resultSet.next();
+	        count = resultSet.getInt("CNT");
+	        
+		} catch (SQLException e) {
+            System.err.println("Database error occurred: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            // 6. 자원 해제 (역순으로 닫는 것이 좋음)
+            try {
+                if (resultSet != null) resultSet.close();
+                if (statement != null) statement.close();
+                if (connection != null) connection.close();
+//                System.out.println("\nDatabase connection closed.");
+            } catch (SQLException e) {
+                System.err.println("Error closing resources: " + e.getMessage());
+            }
+        }
+		
+		return count;
+	}
 }

@@ -65,7 +65,8 @@ public class ChatMessageActivityListener {
     public void handleUserExitedRoom(UserExitedRoomEvent event) {
     	Long userId = event.getUserId();
     	Long roomId = event.getRoomId();
-    	UserEventDto userDto = new UserEventDto(EventType.EXIT, userId, null, null);
+    	EventType eventType = event.getEventType();
+    	UserEventDto userDto = new UserEventDto(eventType, userId, null, null);
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
@@ -85,10 +86,12 @@ public class ChatMessageActivityListener {
     	Long roomId = event.getRoomId();
     	String newNickname = event.getNewNickname();
     	
+    	UserEventDto userDto = new UserEventDto(EventType.NICK_CHANGE, userId, newNickname, null);
+    	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
             // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userId+"/"+newNickname);
+            messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userDto);
             System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId+"/"+newNickname);
         } catch (Exception e) {
             System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());

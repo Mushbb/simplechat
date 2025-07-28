@@ -5,5 +5,6 @@ public record ChatRoomListDto(
     String name,
     String roomType,
     String ownerName,
-    Integer userCount
+    Integer userCount,
+    Integer connCount
 ) {}

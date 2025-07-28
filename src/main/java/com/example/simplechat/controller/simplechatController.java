@@ -9,11 +9,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.messaging.handler.annotation.MessageMapping;
-
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
+
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
@@ -114,15 +115,7 @@ public class simplechatController {
 		return serv.enterRoom(roomId, userId, enterDto.password());
 	}
 	
-//	@GetMapping("/room/{roomId}/users")
-//	public List<UserListDto> getRoomMembers() {
-//		
-//	}
-//	
-//	@PutMapping("/room/{roomId}/users")
-//	public Long changeNick() {
-//		
-//	}
+
 	
 	@DeleteMapping("/room/{roomId}/users")
 	public void exitRoom(@PathVariable("roomId") Long roomId, HttpSession session) {
@@ -133,12 +126,21 @@ public class simplechatController {
 	    }
 	    serv.exitRoom(roomId, userId);
 	}
+
+	@DeleteMapping("/room/{roomId}")
+	public void deleteRoom(@PathVariable("roomId") Long roomId, HttpSession session) {
+		Long userId = (Long) session.getAttribute("userId");
+		if (userId == null) {
+			throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
+		}
+		serv.deleteRoom(roomId, userId);
+	}
 	
 	@GetMapping("/room/{roomId}/init")
-	public RoomInitDataDto initRoom(@PathVariable("roomId") Long roomId, HttpSession session) {
+	public RoomInitDataDto initRoom(@PathVariable("roomId") Long roomId, @RequestParam(name="lines", defaultValue="20") int lines,HttpSession session) {
 		Long userId = (Long)session.getAttribute("userId");
 		
-		return serv.initRoom(roomId, userId);
+		return serv.initRoom(roomId, userId, lines);
 	}
 	
 	@MessageMapping("/chat.sendMessage")
@@ -146,24 +148,16 @@ public class simplechatController {
 		serv.addChat_publish(msgDto);
 	}
 	
-//	@PostMapping("/room/{roomId}")
-//	public List<ChatMessage> catchAllGetRequests(@PathVariable("roomName") String path, @RequestParam("id") String Id) {
-////		System.out.println("new User in "+path+", "+Id);
-//        return serv.createRoom(path, Id);
-//    }
-//	
-//	@PostMapping("/room/{roomId}/chat")
-//	public void recvMessage(@RequestParam("message") String request, @RequestParam("id") String newId, @PathVariable("roomName") String path) {
-//		System.out.println(path);
-//		serv.addChat(newId, request, path);
-//	}
-//	
-//	@PutMapping("/room/{roomId}/nick")
-//	public void recvNick(@RequestParam("nick") String newNick, @RequestParam("id") String Id, @PathVariable("roomName") String path) {
-//		serv.checkNick(newNick, Id, path);
-//	}
+	@MessageMapping("/chat.changeNick")
+	public void changeNick(NickChangeDto nickChangeDto) {
+		serv.changeNicknameInRoom(nickChangeDto);
+	}
 	
-	
+	@MessageMapping("/chat.getMessageList")
+	@SendToUser("/topic/queue/reply")
+	public ChatMessageListDto getMessageList(ChatMessageListRequestDto msgListDto) {
+		return serv.getMessageList(msgListDto);
+	}
 	
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
 ///	SQL TEST End-points

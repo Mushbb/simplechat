@@ -27,6 +27,7 @@ public record UserEventDto(
         /** 기존 사용자가 퇴장했음을 알립니다. */
         EXIT,
         ROOM_OUT,
+        ROOM_DELETED,
         /** 사용자의 닉네임이 변경되었음을 알립니다. */
         NICK_CHANGE,
         ROLE_CHANGE

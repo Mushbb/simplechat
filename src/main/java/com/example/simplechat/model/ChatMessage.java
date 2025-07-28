@@ -38,10 +38,10 @@ public class ChatMessage {
 		this.content = content;
 		this.msg_type = msg_type;
 	}
-	public ChatMessage(ChatMessageRequestDto dto) {
+	public ChatMessage(ChatMessageRequestDto dto, String AuthorName) {
 	    this.room_id = dto.roomId();
 	    this.author_id = dto.authorId();
-	    this.author_name = dto.authorName();
+	    this.author_name = AuthorName;
 	    this.content = dto.content();
 	    this.msg_type = dto.messageType();
 	}

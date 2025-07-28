@@ -2,7 +2,6 @@ package com.example.simplechat.repository;
 
 import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.ChatMessage;
-import com.example.simplechat.dto.ChatMessageDto;
 import com.example.sql.JDBC_SQL;
 
 import java.sql.Timestamp;
@@ -26,6 +25,28 @@ public class MessageRepository {
 		return parsedTable.stream()
 				.map(this::mapRowToMsg)
 				.collect(Collectors.toList());
+	}
+	
+	public List<ChatMessage> findTopNByRoomIdOrderById(Long roomId, Long beginId, Integer N, String Sort) {
+		String sql = "SELECT TOP "+N+" * FROM chat_messages WHERE room_id = ?";
+		List<String> Params = new ArrayList<>();
+		
+		Params.add(""+roomId);
+		if (beginId!=null) {
+			sql += "AND message_id < ?";
+			Params.add(""+beginId);
+		}
+		sql += " ORDER BY message_id "+Sort;
+		
+		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, Params.toArray(new String[0]));
+	
+		if (parsedTable.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		return parsedTable.stream()
+			.map(this::mapRowToMsg)
+			.collect(Collectors.toList());
 	}
 	
 	public List<ChatMessage> findByRoomIdandAuthorId(Long roomId, Long authorId){
@@ -79,5 +100,10 @@ public class MessageRepository {
 		msg.setParent_msg_id((Long) row.get("parent_message_id"));
 		
 		return msg;
+	}
+
+	public void deleteByRoomId(Long roomId) {
+		String sql = "DELETE FROM chat_messages WHERE room_id = ?";
+		JDBC_SQL.executeUpdate(sql, new String[]{String.valueOf(roomId)}, null, null);
 	}
 }
