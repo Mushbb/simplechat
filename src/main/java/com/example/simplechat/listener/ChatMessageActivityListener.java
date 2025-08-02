@@ -8,21 +8,25 @@ import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 처리할 �
 import com.example.simplechat.event.UserEnteredRoomEvent;
 import com.example.simplechat.event.UserExitedRoomEvent;
 import com.example.simplechat.event.ChangeNicknameEvent;
+import com.example.simplechat.repository.UserRepository;
 
 import org.springframework.context.event.EventListener; // Spring의 이벤트 리스너 어노테이션 import
 import org.springframework.messaging.simp.SimpMessagingTemplate; // 웹소켓 전송 템플릿 import
 import org.springframework.scheduling.annotation.Async; // 비동기 처리를 위한 어노테이션 import
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor 
 @Component // Spring Bean 으로 등록하여 이벤트 리스너로 동작하게 함
 public class ChatMessageActivityListener {
 
+    @Value("${file.static-url-prefix}")
+    private String staticUrlPrefix;
+	
     private final SimpMessagingTemplate messagingTemplate; // Spring 이 자동으로 주입해 줍니다.
-
-    // 생성자를 통해 SimpMessagingTemplate을 주입받습니다.
-    public ChatMessageActivityListener(SimpMessagingTemplate messagingTemplate) {
-        this.messagingTemplate = messagingTemplate;
-    }
+    private final UserRepository userRepository;
 
     // Spring 의 @EventListener를 사용하여 ChatMessageAddedToRoomEvent가 발생하면 이 메소드가 호출되도록 합니다.
     // @Async 어노테이션을 사용하여 이 리스너의 동작이 비동기적으로 실행되도록 할 수 있습니다.
@@ -30,7 +34,15 @@ public class ChatMessageActivityListener {
     @EventListener
     public void handleChatMessageAddedToRoom(ChatMessageAddedToRoomEvent event) {
         Long roomId = event.getroomId();
-        ChatMessageDto msgDto = new ChatMessageDto(event.getChatMessage());
+        Long authorId = event.getChatMessage().getAuthor_id();
+
+        // 사용자 프로필 이미지 URL 조회
+        String profileImageUrl = userRepository.findProfileById(authorId)
+                .map(profileData -> (String) profileData.get("profile_image_url"))
+                .map(url -> url != null && !url.isBlank() ? staticUrlPrefix + "/" + url : staticUrlPrefix + "/default.png")
+                .orElse(staticUrlPrefix + "/default.png");
+
+        ChatMessageDto msgDto = new ChatMessageDto(event.getChatMessage(), profileImageUrl);
 
         // 웹소켓으로 메시지 브로드캐스트
         try { // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송

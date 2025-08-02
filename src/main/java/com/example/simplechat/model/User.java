@@ -14,6 +14,8 @@ public class User {
 	private Long id;
 	private String password_hash;
 	private String nickname;
+	private String status_message;
+	private String profile_image_url;
 	private String created_at;
 	
 	
@@ -36,6 +38,14 @@ public class User {
 	    // 비밀번호 해시는 보통 별도 메서드로 처리하지만, 예시상 포함
 	    if (!Objects.equals(this.password_hash, oldUser.password_hash)) {
 	        changes.put("password_hash", this.password_hash);
+	    }
+	    // 상태 메시지 비교
+	    if (!Objects.equals(this.status_message, oldUser.status_message)) {
+	        changes.put("status_message", this.status_message);
+	    }
+	    // 프로필 이미지 URL 비교
+	    if (!Objects.equals(this.profile_image_url, oldUser.profile_image_url)) {
+	        changes.put("profile_image_url", this.profile_image_url);
 	    }
 	    
 	    return changes;

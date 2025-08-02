@@ -1,3 +1,64 @@
+## 2025년 8월 1일 작업 로그
+
+### 주요 작업 내역
+
+1.  **DB 연결 문제 해결:**
+    *   `build.gradle` 파일에 `spring-boot-starter-jdbc` 의존성을 추가하여 애플리케이션 시작 시 발생하던 `DataSource` 빈 생성 오류를 해결했습니다.
+
+2.  **설정 리팩토링 및 경로 문제 해결:**
+    *   `SimplechatService`에 하드코딩되어 있던 프로필 이미지 URL 경로를 `application.properties`의 `file.static-url-prefix` 설정으로 분리했습니다.
+    *   `WebConfig`의 리소스 핸들러 설정을 수정하여, 업로드된 파일(외부 경로)과 기본 이미지(내부 classpath 경로)를 모두 올바르게 처리하도록 개선했습니다.
+
+3.  **프로필 이미지 업로드 기능 디버깅 및 완성:**
+    *   파일이 디스크에는 저장되지만 DB에는 반영되지 않는 현상의 원인을 파악했습니다.
+    *   `UserRepository`의 `update` 로직에서 `findById` 대신 `findByUsername`을 사용하는 오류를 수정했습니다.
+    *   DB 조회 시 `profile_image_url` 필드를 누락하는 문제를 찾아 `findProfileById`와 `mapRowToUser` 메서드를 수정하여 해결했습니다.
+
+4.  **채팅 프로필 사진 표시 기능 구현:**
+    *   모든 채팅 메시지(`ChatMessageDto`)에 작성자의 프로필 이미지 URL을 포함하여 전송하는 방식으로 최종 구현했습니다.
+    *   `ChatMessageDto`에 `authorProfileImageUrl` 필드를 추가했습니다.
+    *   `ChatMessageActivityListener`와 `SimplechatService`의 `getMessageList` 메서드가 DB에서 사용자의 프로필 사진 정보를 조회하여 DTO에 포함시키도록 수정했습니다.
+    *   클라이언트 `chat.html`의 `displayMessage` 함수가 이 URL을 사용하여 메시지 왼쪽에 프로필 이미지를 표시하도록 HTML 구조와 CSS를 변경했습니다.
+
+5.  **UI/UX 개선:**
+    *   프로필 사진 업로드 대화창이 JPG, PNG 파일 형식만 받도록 `accept` 속성을 수정했습니다.
+    *   채팅방 내 사용자 프로필 팝업창의 레이아웃을 개선하여 프로필 사진을 더 눈에 띄게 변경했습니다.
+    *   채팅방 멤버 목록의 헤더를 "멤버 목록"으로 변경하고, 접속 중인 사용자 수만 카운트하도록 로직을 수정했습니다.
+
+---
+
+ # 오늘의 작업 요약 (2025-07-30):
+
+   1. 프로필 수정 기능 기획:
+       * 채팅방(chat.html)이 아닌 로비(index.html)에서 프로필을 수정하는
+         것으로 최종 결정했습니다.
+       * 닉네임과 상태 메시지를 한 번에 수정할 수 있도록 구현 방향을
+         잡았습니다.
+
+   2. 백엔드 구현:
+       * User.java: getChangedFields 메서드에 status_message 변경을
+         감지하는 로직을 추가했습니다.
+       * UserRepository.java: 기존의 동적 update 메서드를 활용하기로
+         결정하고, StringIndexOutOfBoundsException 및 WHERE 절의 컬럼 이름
+         오류(id -> user_id), 파라미터 타입 오류(String[] -> Object[])를
+         수정하여 안정성을 높였습니다.
+       * SimplechatService.java: changeUserProfile 메서드가
+         userRepository.save()를 호출하여 닉네임과 상태 메시지를 한 번에
+         업데이트하도록 구현했습니다.
+       * simplechatController.java: changeUserProfile 메서드에 @RequestBody
+         어노테이션을 추가하여 클라이언트의 JSON 요청을 DTO로 올바르게
+         변환하도록 수정했습니다.
+
+   3. 프론트엔드 구현 (`index.html`):
+       * 로그인 시 '프로필 수정' 버튼이 나타나도록 UI를 변경했습니다.
+       * '프로필 수정' 버튼 클릭 시, 닉네임과 상태 메시지를 수정할 수 있는
+         모달 창이 나타나도록 HTML/JavaScript를 구현했습니다.
+       * '저장' 버튼을 누르면 PUT /user/profile API로 변경된 닉네임과 상태
+         메시지를 함께 전송하고, 성공 시 환영 메시지의 닉네임까지
+         업데이트하는 로직을 완성했습니다.
+
+   4. 다음 시간에는 이 프로필을 채팅방 내부에서 볼 수 있는 기능을 구현할 계획입니다.
+
 # Gemini CLI 세션 요약 (2025-07-28 #2)
 
 1.  **채팅방 무한 스크롤 기능 구현 (완성):**

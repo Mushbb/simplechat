@@ -2,7 +2,6 @@ package com.example.simplechat.repository;
 
 import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.User;
-import com.example.sql.JDBC_SQL;
 
 import java.util.List;
 import java.util.Map;
@@ -11,12 +10,16 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import java.sql.Timestamp;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @Repository
 public class UserRepository {
+	private final JDBC_SQL jdbcsql;
+	
 	public Optional<User> findByUsername(String Username) {
 		String sql = "SELECT * FROM users WHERE username = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{Username});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{Username});
 
 		if( parsedTable.isEmpty() )
 			return Optional.empty();
@@ -27,7 +30,7 @@ public class UserRepository {
 	
 	public Optional<User> findById(Long Id) {
 		String sql = "SELECT * FROM users WHERE user_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{""+Id});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{""+Id});
 
 		if( parsedTable.isEmpty() )
 			return Optional.empty();
@@ -40,7 +43,9 @@ public class UserRepository {
 		User user = new User((Long)row.get("user_id") , (String) row.get("username"));
 
 		user.setPassword_hash((String) row.get("password_hash"));
-		user.setNickname((String) row.get("nickname"));
+		        user.setNickname((String) row.get("nickname"));
+        user.setStatus_message((String) row.get("status_message"));
+        user.setProfile_image_url((String) row.get("profile_image_url"));
 		user.setCreated_at(((Timestamp) row.get("created_at")).toLocalDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
 		
 		return user;
@@ -56,7 +61,7 @@ public class UserRepository {
 	private User insert(User user) {
 		// db에 insert하고 id를 받아와 객체에 채움
 		String sql = "INSERT INTO users (username, password_hash, nickname) VALUES ( ?, ?, ? )";
-		Map<String, Object> result = JDBC_SQL.executeUpdate(sql, 
+		Map<String, Object> result = jdbcsql.executeUpdate(sql, 
 				new String[]{user.getUsername(), user.getPassword_hash(), user.getNickname()},
 				new String[] {"user_id"}, new String[] {"created_at"});
 		
@@ -69,7 +74,7 @@ public class UserRepository {
 	
 	private User update(User user) {
 		// db에서 기존값을 가져와서 비교
-		Optional<User> fromdb = findByUsername(user.getUsername());
+        Optional<User> fromdb = findById(user.getId());
 		if (fromdb.isEmpty())
 			throw new RuntimeException("User not found with username: " + user.getUsername());
 		Map<String, Object> Changed = user.getChangedFields(fromdb.get());
@@ -82,12 +87,12 @@ public class UserRepository {
 			sql += key + " = ? , ";
 			values[i++] = (String)Changed.get(key);
 		}
-		sql = sql.substring(0, -2);
-		sql += "WHERE id = ?";
+		sql = sql.substring(0, sql.length() - 2);
+		sql += "WHERE user_id = ?";
 		values[i] = ""+user.getId();
 		
 		// 변경된 필드만 갱신
-		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, values, null, null).get("affected_rows");
+		Long affectedRows = (long)jdbcsql.executeUpdate(sql, values, null, null).get("affected_rows");
 		
 		if (affectedRows == null || affectedRows == 0L) {
 			throw new RuntimeException("User with ID " + user.getId() + " not found or could not be deleted.");
@@ -99,7 +104,7 @@ public class UserRepository {
 	public User insertwithId(User user) {
 		// db에 insert하고 id를 받아와 객체에 채움
 		String sql = "INSERT INTO users (user_id, username, password_hash, nickname) VALUES ( ?, ?, ?, ? )";
-		JDBC_SQL.executeInsert_IdentitiyOn(sql, 
+		jdbcsql.executeInsert_IdentitiyOn(sql, 
 				new String[]{String.valueOf(user.getId()), user.getUsername(), user.getPassword_hash(), user.getNickname()});
 
 		return user;
@@ -107,7 +112,7 @@ public class UserRepository {
 	
 	public void deleteById(Long Id) {
 		String sql = "DELETE FROM users WHERE user_id = ?";
-		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, new String[]{""+Id}, null, null).get("affected_rows");
+		Long affectedRows = (long)jdbcsql.executeUpdate(sql, new String[]{""+Id}, null, null).get("affected_rows");
 		
 		if (affectedRows == null || affectedRows == 0L) {
 			throw new RuntimeException("User with ID " + Id + " not found or could not be deleted.");
@@ -117,7 +122,7 @@ public class UserRepository {
 	public boolean existsByUsername(String username) {
 		// 전체 컬럼을 가져올 필요 없이, 존재 여부만 확인하면 되므로 COUNT(1)이 효율적입니다.
 		String sql = "SELECT COUNT(1) FROM users WHERE username = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{username});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{username});
 
 		if (parsedTable.isEmpty()) {
 			return false;
@@ -133,7 +138,7 @@ public class UserRepository {
 	public boolean existsById(Long userId) {
 		// 전체 컬럼을 가져올 필요 없이, 존재 여부만 확인하면 되므로 COUNT(1)이 효율적입니다.
 		String sql = "SELECT COUNT(1) FROM users WHERE user_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{""+userId});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{""+userId});
 
 		if (parsedTable.isEmpty()) {
 			return false;
@@ -148,7 +153,7 @@ public class UserRepository {
 	
 	public List<User> findAll() {
 		String sql = "SELECT * FROM users";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, null); // 파라미터 없음
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, null); // 파라미터 없음
 
 		if (parsedTable.isEmpty()) {
 			return Collections.emptyList();
@@ -162,7 +167,7 @@ public class UserRepository {
 	
 	public long count() {
 		String sql = "SELECT COUNT(*) FROM users";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, null);
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, null);
 
 		if (parsedTable.isEmpty()) {
 			return 0L;
@@ -171,4 +176,16 @@ public class UserRepository {
 		// existsByUsername과 마찬가지로, 첫 번째 행의 첫 번째 값을 Long으로 변환합니다.
 		return (long) parsedTable.get(0).values().iterator().next();
 	}
+	
+	public Optional<Map<String, Object>> findProfileById(Long userId) {
+	    String sql = "SELECT user_id, username, nickname, status_message, profile_image_url FROM users WHERE user_id = ?";
+	    List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new Object[]{userId});
+
+	    if (parsedTable.isEmpty()) {
+	        return Optional.empty();
+	    }
+
+	    return Optional.of(parsedTable.get(0));
+	}
+
 }

@@ -4,7 +4,6 @@ import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.ChatRoom;
 import com.example.simplechat.dto.ChatRoomUserDto;
 import com.example.simplechat.dto.ChatRoomListDto;
-import com.example.sql.JDBC_SQL;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,10 +21,11 @@ import java.util.stream.Collectors;
 @Repository
 public class RoomRepository {
 	private final RoomSessionManager roomSessionManager;
+	private final JDBC_SQL jdbcsql;
 	
 	public Optional<ChatRoom> findByName(String Name) {
 		String sql = "SELECT * FROM chat_rooms WHERE room_name = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{Name});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{Name});
 		
 		if( parsedTable.isEmpty() )
 			return Optional.empty();
@@ -36,7 +36,7 @@ public class RoomRepository {
 	
 	public Optional<ChatRoom> findById(Long Id) {
 		String sql = "SELECT * FROM chat_rooms WHERE room_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{String.valueOf(Id)});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(Id)});
 		
 		if( parsedTable.isEmpty() )
 			return Optional.empty();
@@ -47,7 +47,7 @@ public class RoomRepository {
 	
 	public List<ChatRoom> findByRoomType(ChatRoom.RoomType RoomType) {
 		String sql = "SELECT * FROM chat_rooms WHERE room_type = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{RoomType.name()}); // 파라미터 없음
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{RoomType.name()}); // 파라미터 없음
 
 		if (parsedTable.isEmpty()) {
 			return Collections.emptyList();
@@ -61,7 +61,7 @@ public class RoomRepository {
 	
 	public List<ChatRoom> findByOwnerId(Long ownerId) {
 		String sql = "SELECT * FROM chat_rooms WHERE owner_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{String.valueOf(ownerId)}); // 파라미터 없음
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(ownerId)}); // 파라미터 없음
 
 		if (parsedTable.isEmpty()) {
 			return Collections.emptyList();
@@ -91,7 +91,7 @@ public class RoomRepository {
 		String sql = "SELECT u.user_id, cru.nickname, cru.role "+
 					"FROM users u INNER JOIN chat_room_users cru ON u.user_id = cru.user_id "+
 					"WHERE room_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{String.valueOf(roomId)});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(roomId)});
 		
 		// 각 Map을 User 객체로 변환하여 리스트로 만듭니다.
 		return parsedTable.stream()
@@ -113,7 +113,7 @@ public class RoomRepository {
 	private ChatRoom insert(ChatRoom room) {
 		// db에 insert하고 id를 받아와 객체에 채움
 		String sql = "INSERT INTO chat_rooms (room_name, room_type, owner_id, password_hash) VALUES ( ?, ?, ?, ? )";
-		Map<String, Object> result = JDBC_SQL.executeUpdate(sql,
+		Map<String, Object> result = jdbcsql.executeUpdate(sql,
 				new Object[]{room.getName(), room.getRoom_type().name(), room.getOwner(), room.getPassword_hash()}, 
 				new String[]{"room_id"}, new String[] {"created_at"});
 		
@@ -139,12 +139,12 @@ public class RoomRepository {
 			sql += key + " = ? , ";
 			values[i++] = (String)Changed.get(key);
 		}
-		sql = sql.substring(0, -2);
+		sql = sql.substring(0, sql.length()-2);
 		sql += "WHERE id = ?";
 		values[i] = ""+room.getId();
 		
 		// 변경된 필드만 갱신
-		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, values, null, null).get("affected_rows");
+		Long affectedRows = (long)jdbcsql.executeUpdate(sql, values, null, null).get("affected_rows");
 		
 		if (affectedRows == null || affectedRows == 0L) {
 			throw new RuntimeException("ChatRoom with ID " + room.getId() + " not found or could not be deleted.");
@@ -155,7 +155,7 @@ public class RoomRepository {
 	
 	public void deleteById(Long Id) {
 		String sql = "DELETE FROM chat_rooms WHERE room_id = ?";
-		Long affectedRows = (long)JDBC_SQL.executeUpdate(sql, new String[]{""+Id}, null, null).get("affected_rows");
+		Long affectedRows = (long)jdbcsql.executeUpdate(sql, new String[]{""+Id}, null, null).get("affected_rows");
 		
 		if (affectedRows == null || affectedRows == 0L) {
 			throw new RuntimeException("ChatRoom with ID " + Id + " not found or could not be deleted.");
@@ -165,7 +165,7 @@ public class RoomRepository {
 	public boolean existsByName(String name) {
 		// 전체 컬럼을 가져올 필요 없이, 존재 여부만 확인하면 되므로 COUNT(1)이 효율적입니다.
 		String sql = "SELECT COUNT(1) FROM chat_rooms WHERE room_name = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{name});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{name});
 
 		if (parsedTable.isEmpty()) {
 			return false;
@@ -180,7 +180,7 @@ public class RoomRepository {
 	
 	public List<ChatRoom> findAll() {
 		String sql = "SELECT * FROM chat_rooms";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, null); // 파라미터 없음
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, null); // 파라미터 없음
 
 		if (parsedTable.isEmpty()) {
 			return Collections.emptyList();
@@ -199,7 +199,7 @@ public class RoomRepository {
 					+ "LEFT JOIN users u ON r.owner_id = u.user_id "
 					+ "GROUP BY r.room_id, r.room_name, r.room_type, u.nickname;";
 		
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, null); // 파라미터 없음
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, null); // 파라미터 없음
 
 //		for( Map<String, Object> map : parsedTable ) {
 //			System.out.println("room_id: "+map.get("room_id"));
@@ -226,7 +226,7 @@ public class RoomRepository {
 	
 	public long count() {
 		String sql = "SELECT COUNT(*) FROM chat_rooms";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, null);
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, null);
 
 		if (parsedTable.isEmpty()) {
 			return 0L;

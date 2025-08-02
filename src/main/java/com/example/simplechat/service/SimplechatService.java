@@ -1,5 +1,6 @@
 package com.example.simplechat.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service; 
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -13,17 +14,11 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import java.nio.file.Files;
 import java.util.Scanner;
 import jakarta.annotation.PreDestroy;
 import jakarta.annotation.PostConstruct;
 
 import com.example.simplechat.repository.*;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +29,7 @@ import com.example.simplechat.model.ChatRoom;
 import com.example.simplechat.dto.*;
 import com.example.simplechat.event.*;
 import com.example.simplechat.exception.*;
+import org.springframework.web.multipart.MultipartFile;
 
 
 @Service
@@ -53,11 +49,14 @@ public class SimplechatService {
     private final RoomUserRepository roomUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
+    private final FileRepository fileRepository;
+
+    @Value("${file.static-url-prefix}")
+    private String staticUrlPrefix;
 	
     @PostConstruct
     public void init() {
         System.out.println("Initializing SimplechatService...");
-        DB_String.configure(readTsvConfig("config.tsv"));
 
         // 시스템 유저를 찾고, 만약 없다면 새로 생성해서 저장한 뒤, 그 결과를 사용한다.
         this.systemUser = userRepository.findById(0L).orElseGet(() -> {
@@ -283,7 +282,16 @@ public class SimplechatService {
 		
 		return new RoomInitDataDto(roomRepository.findUsersByRoomId(roomId),
 				msgRepository.findTopNByRoomIdOrderById(roomId, null , lines, "DESC").stream()
-				.map(msg -> new ChatMessageDto(msg))
+				.map(msg -> {
+                    // 각 메시지의 작성자 프로필 이미지 URL을 조회합니다.
+                    String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
+                            .map(profileData -> (String) profileData.get("profile_image_url"))
+                            .map(url -> url != null && !url.isBlank() ? staticUrlPrefix + "/" + url : staticUrlPrefix + "/default.png")
+                            .orElse(staticUrlPrefix + "/default.png");
+
+                    // 조회한 URL을 포함하여 DTO를 생성합니다.
+                    return new ChatMessageDto(msg, profileImageUrl);
+                })
 				.collect(Collectors.toList()), room.getName());
 	}
 	
@@ -350,64 +358,82 @@ public class SimplechatService {
                         "DESC");
 
         List<ChatMessageDto> messageDtos = messages.stream()
-                        .map(ChatMessageDto::new)
+                        .map(msg -> {
+                            // 각 메시지의 작성자 프로필 이미지 URL을 조회합니다.
+                            String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
+                                    .map(profileData -> (String) profileData.get("profile_image_url"))
+                                    .map(url -> url != null && !url.isBlank() ? staticUrlPrefix + "/" + url : staticUrlPrefix + "/default.png")
+                                    .orElse(staticUrlPrefix + "/default.png");
+
+                            // 조회한 URL을 포함하여 DTO를 생성합니다.
+                            return new ChatMessageDto(msg, profileImageUrl);
+                        })
                         .collect(Collectors.toList());
 
         return new ChatMessageListDto(messageDtos);
 	}
 	
-	//////////////////////////////////////////////
-	/// Parse config.tsv
-	public static Map<String, String> readTsvConfig(String filePath) {
-        Map<String, String> configMap = new HashMap<>();
-        Path path = Paths.get(filePath);
+	public UserProfileDto getUserProfile(Long userId) {
+		// 1. UserRepository를 사용하여 프로필 정보 조회
+		Map<String, Object> profileData =
+				userRepository.findProfileById(userId)
+						.orElseThrow(() -> new RegistrationException("NOT_FOUND", "User not found with id: " + userId));
 
-        // 파일 존재 여부 및 읽기 권한 확인
-        if (!Files.exists(path)) {
-            System.err.println("오류: 설정 파일이 존재하지 않습니다. 경로: " + filePath);
-            return configMap; // 빈 맵 반환
-        }
-        if (!Files.isReadable(path)) {
-            System.err.println("오류: 설정 파일을 읽을 수 없습니다. 권한 문제일 수 있습니다. 경로: " + filePath);
-            return configMap; // 빈 맵 반환
-        }
+		String imageUrl = (String) profileData.get("profile_image_url");
+		
+		if (imageUrl == null || imageUrl.isBlank()) {
+			imageUrl = staticUrlPrefix + "/default.png"; // 기본 이미지 경로
+		} else {
+			imageUrl = staticUrlPrefix + "/" + imageUrl; // 저장된 이미지 경로
+		}
+		
+		// 2. Map에서 DTO로 데이터 변환
+		return new UserProfileDto(
+				(Long) profileData.get("user_id"),
+				(String) profileData.get("username"),
+				(String) profileData.get("nickname"),
+				(String) profileData.get("status_message"),
+				imageUrl
+		);
+	}
+	
+	public UserProfileDto changeUserProfile(ProfileUpdateRequestDto profileDto, Long userId) {
+		// 1. DB에서 현재 사용자 정보를 가져옴
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "User not found with id: " + userId));
 
-        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
-            String line;
-            int lineNumber = 0; // 줄 번호 추적
-            while ((line = br.readLine()) != null) {
-                lineNumber++;
-                String trimmedLine = line.trim();
+		// 2. DTO의 값으로 User 객체의 필드를 업데이트
+		user.setNickname(profileDto.nickname());
+		user.setStatus_message(profileDto.statusMessage());
 
-                // 빈 줄이거나 주석(#으로 시작)은 건너뛰기
-                if (trimmedLine.isEmpty() || trimmedLine.startsWith("#")) {
-                    continue;
-                }
+		// 3. save 메서드를 호출하여 변경된 필드만 동적으로 업데이트
+		userRepository.save(user);
 
-                // 첫 번째 탭 문자로 키와 값을 분리
-                int firstTabIndex = trimmedLine.indexOf('\t');
-                if (firstTabIndex != -1) {
-                    String key = trimmedLine.substring(0, firstTabIndex).trim();
-                    String value = trimmedLine.substring(firstTabIndex + 1).trim();
+		// 4. 변경된 최신 프로필 정보를 다시 조회하여 반환
+		return getUserProfile(userId);
+	}
 
-                    // 키가 비어있으면 경고
-                    if (key.isEmpty()) {
-                        System.err.println("경고 (줄 " + lineNumber + "): 키가 비어있는 항목이 발견되었습니다. 줄: '" + line + "'");
-                        continue; // 이 항목은 건너뛰기
-                    }
+	public String updateProfileImage(Long userId, MultipartFile file) {
+		// 1. 사용자 정보 조회
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "User not found with id: " + userId));
 
-                    // Map에 저장
-                    configMap.put(key, value);
-                } else {
-                    System.err.println("경고 (줄 " + lineNumber + "): 유효하지 않은 형식의 줄이 발견되었습니다 (탭 구분자 없음). 줄: '" + line + "'");
-                }
-            }
-        } catch (IOException e) {
-            System.err.println("설정 파일을 읽는 중 예외 발생: " + e.getMessage());
-            // 실제 애플리케이션에서는 이 예외를 상위로 던지거나 더 구체적으로 처리해야 합니다.
-        }
-        return configMap;
-    }
+		// 2. 기존 프로필 이미지가 있으면 삭제
+		String oldFilename = user.getProfile_image_url();
+		if (oldFilename != null && !oldFilename.isBlank()) {
+			fileRepository.delete(oldFilename);
+		}
+
+		// 3. 새 파일 저장
+		String newFilename = fileRepository.save(file);
+
+		// 4. DB에 새 파일명 업데이트
+		user.setProfile_image_url(newFilename);
+		userRepository.save(user);
+
+		// 5. 클라이언트가 접근할 수 있는 URL 경로 반환
+		return staticUrlPrefix + "/" + newFilename;
+	}
 	
 	@PreDestroy
 	public void closeScanner() { sc.close(); }

@@ -1,18 +1,20 @@
 package com.example.simplechat.repository;
 
-import com.example.sql.JDBC_SQL;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Map;
+import lombok.RequiredArgsConstructor;
 
 /**
  * chat_room_users 테이블에 대한 데이터 접근을 담당하는 리포지토리입니다.
  * 사용자와 채팅방 간의 관계(멤버십)를 관리합니다.
  */
+@RequiredArgsConstructor
 @Repository
 public class RoomUserRepository {
-
+	private final JDBC_SQL jdbcsql;
+	
     /**
      * 특정 사용자를 특정 채팅방에 지정된 역할과 닉네임으로 추가합니다.
      *
@@ -23,7 +25,7 @@ public class RoomUserRepository {
      */
     public void save(Long userId, Long roomId, String nickname, String role) {
         String sql = "INSERT INTO chat_room_users (user_id, room_id, nickname, role) VALUES (?, ?, ?, ?)";
-        Map<String, Object> result = JDBC_SQL.executeUpdate(sql,
+        Map<String, Object> result = jdbcsql.executeUpdate(sql,
                 new String[]{String.valueOf(userId), String.valueOf(roomId), nickname, role},
                 null, null); // 생성된 키를 반환받을 필요 없음
 
@@ -42,7 +44,7 @@ public class RoomUserRepository {
      */
     public void updateNickname(Long userId, Long roomId, String newNickname) {
         String sql = "UPDATE chat_room_users SET nickname = ? WHERE user_id = ? AND room_id = ?";
-        Map<String, Object> result = JDBC_SQL.executeUpdate(sql,
+        Map<String, Object> result = jdbcsql.executeUpdate(sql,
                 new String[]{newNickname, String.valueOf(userId), String.valueOf(roomId)},
                 null, null);
 
@@ -57,7 +59,7 @@ public class RoomUserRepository {
     public String getNickname(Long userId, Long roomId) {
     	String sql = "SELECT nickname FROM chat_room_users WHERE user_id = ? AND room_id = ?";
     	
-    	List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql,
+    	List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql,
                 new String[]{String.valueOf(userId), String.valueOf(roomId)});
 
         if (parsedTable.isEmpty()) {
@@ -75,7 +77,7 @@ public class RoomUserRepository {
      */
     public void delete(Long userId, Long roomId) {
         String sql = "DELETE FROM chat_room_users WHERE user_id = ? AND room_id = ?";
-        Map<String, Object> result = JDBC_SQL.executeUpdate(sql,
+        Map<String, Object> result = jdbcsql.executeUpdate(sql,
                 new String[]{String.valueOf(userId), String.valueOf(roomId)},
                 null, null);
 
@@ -94,7 +96,7 @@ public class RoomUserRepository {
      */
     public boolean exists(Long userId, Long roomId) {
         String sql = "SELECT COUNT(1) FROM chat_room_users WHERE user_id = ? AND room_id = ?";
-        List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql,
+        List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql,
                 new String[]{String.valueOf(userId), String.valueOf(roomId)});
 
         if (parsedTable.isEmpty()) {
@@ -107,7 +109,7 @@ public class RoomUserRepository {
     
     public String getRole(Long userId, Long roomId) {
     	String sql = "SELECT role FROM chat_room_users WHERE user_id = ? AND room_id = ?";
-        List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql,
+        List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql,
                 new String[]{String.valueOf(userId), String.valueOf(roomId)});
 
         if (parsedTable.isEmpty()) {
@@ -119,11 +121,11 @@ public class RoomUserRepository {
 
     public void deleteByRoomId(Long roomId) {
         String sql = "DELETE FROM chat_room_users WHERE room_id = ?";
-        JDBC_SQL.executeUpdate(sql, new String[]{String.valueOf(roomId)}, null, null);
+        jdbcsql.executeUpdate(sql, new String[]{String.valueOf(roomId)}, null, null);
     }
 
     public void deleteByUserId(Long userId) {
         String sql = "DELETE FROM chat_room_users WHERE user_id = ?";
-        JDBC_SQL.executeUpdate(sql, new String[]{String.valueOf(userId)}, null, null);
+        jdbcsql.executeUpdate(sql, new String[]{String.valueOf(userId)}, null, null);
     }
 }

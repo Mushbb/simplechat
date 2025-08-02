@@ -2,7 +2,6 @@ package com.example.simplechat.repository;
 
 import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.ChatMessage;
-import com.example.sql.JDBC_SQL;
 
 import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
@@ -12,12 +11,16 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
+@RequiredArgsConstructor
 @Repository
 public class MessageRepository {
+	private final JDBC_SQL jdbcsql;
+	
 	public List<ChatMessage> findByRoomId(Long roomId){
 		String sql = "SELECT * FROM chat_messages WHERE room_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{String.valueOf(roomId)});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(roomId)});
 		
 		if( parsedTable.isEmpty() )
 			return Collections.emptyList();
@@ -38,7 +41,7 @@ public class MessageRepository {
 		}
 		sql += " ORDER BY message_id "+Sort;
 		
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, Params.toArray(new String[0]));
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, Params.toArray(new String[0]));
 	
 		if (parsedTable.isEmpty()) {
 			return Collections.emptyList();
@@ -51,7 +54,7 @@ public class MessageRepository {
 	
 	public List<ChatMessage> findByRoomIdandAuthorId(Long roomId, Long authorId){
 		String sql = "SELECT * FROM chat_messages WHERE room_id = ? AND author_id = ?";
-		List<Map<String, Object>> parsedTable = JDBC_SQL.executeSelect(sql, new String[]{String.valueOf(roomId), String.valueOf(authorId)});
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(roomId), String.valueOf(authorId)});
 		
 		if( parsedTable.isEmpty() )
 			return Collections.emptyList();
@@ -77,7 +80,7 @@ public class MessageRepository {
 		if( msg.getParent_msg_id() != null )
 			Params.add(""+msg.getParent_msg_id());
 		
-		Map<String, Object> result = JDBC_SQL.executeUpdate(sql, Params.toArray(new String[0]), 
+		Map<String, Object> result = jdbcsql.executeUpdate(sql, Params.toArray(new String[0]), 
 				new String[]{"message_id"}, new String[] {"created_at"});
 		
 		if( result != null ) { 
@@ -104,6 +107,6 @@ public class MessageRepository {
 
 	public void deleteByRoomId(Long roomId) {
 		String sql = "DELETE FROM chat_messages WHERE room_id = ?";
-		JDBC_SQL.executeUpdate(sql, new String[]{String.valueOf(roomId)}, null, null);
+		jdbcsql.executeUpdate(sql, new String[]{String.valueOf(roomId)}, null, null);
 	}
 }

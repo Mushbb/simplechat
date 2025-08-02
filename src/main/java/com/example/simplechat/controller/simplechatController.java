@@ -9,16 +9,20 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.ResponseEntity;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @RequiredArgsConstructor 
 @RestController
@@ -86,7 +90,32 @@ public class simplechatController {
 		return 1;
 	}
 	
+	@GetMapping("/user/{userId}/profile")
+	public UserProfileDto getUserProfile(@PathVariable("userId") Long userId) {
+		return serv.getUserProfile(userId);
+	}
 	
+	@PutMapping("/user/profile")
+	public UserProfileDto changeUserProfile(@RequestBody ProfileUpdateRequestDto profileDto, HttpSession session) {
+		Long userId = (Long)session.getAttribute("userId");
+		
+		return serv.changeUserProfile(profileDto, userId);
+	}
+
+	@PostMapping("/user/profile/image")
+	public ResponseEntity<Map<String, String>> uploadProfileImage(
+		@RequestParam("profileImage") MultipartFile file,
+		HttpSession session
+	) {
+		Long userId = (Long) session.getAttribute("userId");
+		if (userId == null) {
+			throw new RegistrationException("UNAUTHORIZED", "Please login first!");
+		}
+		String newImageUrl = serv.updateProfileImage(userId, file);
+
+		// 클라이언트가 즉시 이미지를 업데이트할 수 있도록 새 이미지 URL을 반환
+		return ResponseEntity.ok(Map.of("profileImageUrl", newImageUrl));
+	}
 	
 	
 	@GetMapping("/room/list")

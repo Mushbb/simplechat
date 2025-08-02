@@ -121,6 +121,108 @@
         background-color: transparent;
         font: 14px Consolas bold; /* 채팅 로그 li와 동일 폰트 */
     }
+    #user-list li:hover {
+        background-color: #f0f0f0; /* 마우스 올렸을 때 배경색 */
+        cursor: pointer;          /* 마우스 커서를 손가락 모양으로 */
+    }
+
+    /* --- User Profile Popover Styles --- */
+    .profile-popover {
+        display: none; /* 평소에는 숨김 */
+        position: absolute; /* 다른 요소 위에 떠 있도록 */
+        width: 250px;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        z-index: 100;
+        font-family: sans-serif;
+        font-size: 14px;
+    }
+    .profile-popover-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background-color: #f7f7f7;
+        border-bottom: 1px solid #eee;
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+    .profile-popover-header .nickname {
+        font-weight: bold;
+        font-size: 16px;
+    }
+    .profile-popover-header .close-btn {
+        font-size: 20px;
+        color: #aaa;
+        cursor: pointer;
+    }
+    .profile-popover-header .close-btn:hover {
+        color: #000;
+    }
+    .profile-popover-body {
+        padding: 12px;
+    }
+    .popover-top-section {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .popover-profile-pic {
+        width: 50px; /* 조금 작게 조정 */
+        height: 50px;
+        border-radius: 50%;
+        margin-right: 12px;
+        flex-shrink: 0;
+    }
+    .popover-user-info p {
+        margin: 0;
+    }
+    .popover-bottom-section .status-message {
+        margin-top: 0; /* 위쪽 여백 제거 */
+    }
+    .profile-popover-body .status-message {
+        margin-top: 4px;
+        padding: 8px;
+        background-color: #f9f9f9;
+        border-radius: 4px;
+        min-height: 20px;
+        white-space: pre-wrap; /* 줄바꿈과 공백 유지 */
+        overflow-wrap: break-word; /* 긴 텍스트 강제 줄바꿈 */
+    }
+
+    /* --- 채팅 메시지 프로필 사진 스타일 --- */
+    .chat-message-item {
+        display: flex;
+        align-items: flex-start; /* 상단 정렬 */
+        margin-bottom: 10px;
+    }
+    .chat-profile-img {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        margin-right: 10px;
+        flex-shrink: 0; /* 이미지 크기 고정 */
+    }
+    .chat-message-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .chat-message-header {
+        margin-bottom: 4px;
+    }
+    .chat-author-name {
+        font-weight: bold;
+        margin-right: 8px;
+    }
+    .chat-timestamp {
+        font-size: 0.8em;
+        color: #888;
+    }
+    .chat-message-body {
+        line-height: 1.4;
+    }
 </style>
 </html>
 <body>
@@ -151,7 +253,7 @@
     </div>
 
     <div id="user-list-area">
-        <h3>현재 접속자 (<span id="user-count">0</span>)</h3>
+        <h3>멤버 목록 (<span id="user-count">0</span>)</h3>
         <ul id="user-list">
         </ul>
     </div>
@@ -170,6 +272,51 @@
 <!-- ================================================== -->
 <!-- =========== 방 삭제 알림 모달 UI 끝 ============ -->
 <!-- ================================================== -->
+
+<!-- ================================================== -->
+<!-- =========== 프로필 모달 UI 시작 ============ -->
+<!-- ================================================== -->
+<div id="profile-modal" style="display: none; position: fixed; z-index: 1500; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); justify-content: center; align-items: center;">
+    <div id="profile-modal-content" style="background-color: #fff; margin: auto; padding: 20px 30px 30px; border: 1px solid #888; width: 80%; max-width: 450px; border-radius: 8px; box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 6px 20px 0 rgba(0,0,0,0.19); text-align: left; position: relative;">
+        <span id="profile-modal-close" style="position: absolute; top: 10px; right: 20px; color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
+        <h2 id="profile-nickname" style="text-align: center; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;">닉네임</h2>
+        <div>
+            <p style="font-weight: bold; margin-bottom: 5px;">상태 메시지:</p>
+            <div id="profile-status-view" style="padding: 10px; border: 1px solid #ddd; border-radius: 4px; min-height: 50px; background-color: #f9f9f9;">
+                <p id="profile-status-text" style="margin: 0;"></p>
+            </div>
+            <textarea id="profile-status-edit" style="display: none; width: calc(100% - 22px); min-height: 50px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: vertical;"></textarea>
+        </div>
+        <div id="profile-buttons" style="text-align: right; margin-top: 20px;">
+            <button id="profile-edit-btn" style="display: none; padding: 8px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 5px; cursor: pointer;">수정</button>
+            <button id="profile-save-btn" style="display: none; padding: 8px 15px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer;">저장</button>
+            <button id="profile-cancel-btn" style="display: none; padding: 8px 15px; background-color: #f0ad4e; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 5px;">취소</button>
+        </div>
+    </div>
+</div>
+<!-- ================================================== -->
+<!-- =========== 프로필 모달 UI 끝 ============ -->
+<!-- ================================================== -->
+
+<!-- User Profile Popover -->
+<div id="user-profile-popover" class="profile-popover">
+    <div class="profile-popover-header">
+        <span id="popover-nickname" class="nickname"></span>
+        <span id="popover-close" class="close-btn">&times;</span>
+    </div>
+    <div class="profile-popover-body">
+        <div class="popover-top-section">
+            <img id="popover-profile-img" src="" alt="Profile" class="popover-profile-pic">
+            <div class="popover-user-info">
+                <p><strong> <span id="popover-userid"></span></strong></p>
+                <p><span id="popover-username"></span></p>
+            </div>
+        </div>
+        <div class="popover-bottom-section">
+            <p id="popover-status" class="status-message"></p>
+        </div>
+    </div>
+</div>
 
 </body>
 <script LANGUAGE="javascript" src="/sockjs.min.js"></script>
@@ -196,6 +343,7 @@
 	const userListElement = document.getElementById('user-list'); // 새로 추가: 유저 리스트 UL 요소
 	const userCountElement = document.getElementById('user-count'); // 새로 추가: 유저 수 표시 SPAN 요소
     const topElement = document.getElementById("top-of-chat");
+    const profilePopover = document.getElementById('user-profile-popover');
 
 	// --- WebSocket/STOMP 관련 함수 추가 시작 ---
 
@@ -357,11 +505,13 @@
 		users.forEach(user => {
 			const listItem = document.createElement('li');
 			listItem.textContent = user.name;
+            listItem.dataset.userId = user.id; // 여기에 userId 저장
+
             if( user.conn === "DISCONNECT" )
                 listItem.style.color = "gray";
 			userListElement.appendChild(listItem);
 		});
-		userCountElement.textContent = users.length; // 유저 수 업데이트
+        userCountElement.textContent = users.filter(user => user.conn === "CONNECT").length+"/"+users.length; // 접속 중인 유저 수만 카운트
 	}
 
 	// --- WebSocket/STOMP 관련 함수 추가 끝 ---
@@ -422,26 +572,25 @@
     // 화면에 메시지를 표시하는 범용 함수
     // 기존 getChat의 forEach 루프와 onMessageReceived에서 모두 사용하도록 함수 분리
     function displayMessage(message, append) {
-        const listItem = document.createElement('li'); // 새로운 <li> 요소 생성
+        const listItem = document.createElement('li');
+        listItem.classList.add('chat-message-item'); // 스타일링을 위한 클래스 추가
+
+        const profileImageUrl = message.authorProfileImageUrl ? `${SERVER_BASE_URL}${message.authorProfileImageUrl}` : `${SERVER_BASE_URL}/images/profiles/default.png`;
+
         const formattedChat = message.content.replace(/\n/g, '<br>');
 
-        // if( message.id === "-1" ){    // message from server
-        //     if( message.chat.startsWith('/') ){
-        //         if( message.chat.startsWith("/clear") ){
-        //             clear();
-        //         }
-        //     }
-        // }
-
-        // 메시지 형식 (sender가 있는 경우)
-
-        listItem.innerHTML = message.timestamp?`[${message.timestamp.split(' ')[1]}] `:"";
-        listItem.innerHTML += `<strong>${message.authorName}</strong>`;
-        listItem.innerHTML += `(${message.authorId})`;
-        if( isValidUrl(formattedChat) )
-            listItem.innerHTML += `: <a href="${formattedChat}" target="_blank">${formattedChat}</a>`;
-        else
-            listItem.innerHTML += `: ${formattedChat}`;
+        listItem.innerHTML = `
+            <img src="${profileImageUrl}" class="chat-profile-img" alt="profile">
+            <div class="chat-message-content">
+                <div class="chat-message-header">
+                    <strong class="chat-author-name">${message.authorName}</strong>
+                    <span class="chat-timestamp">${message.createdAt || ''}</span>
+                </div>
+                <div class="chat-message-body">
+                    ${formattedChat}
+                </div>
+            </div>
+        `;
         if( append !== 0 ){
             chatLogElement.appendChild(listItem); // ul의 끝에 li 추가
             chatLogElement.scrollTop = chatLogElement.scrollHeight; // 스크롤을 항상 최하단으로 내립니다.
@@ -600,6 +749,30 @@
             window.location.href = 'index.html';
         });
 
+        // --- 프로필 팝오버 닫기 로직 ---
+        // 1. X 버튼 클릭 시
+        document.getElementById('popover-close').addEventListener('click', () => {
+            profilePopover.style.display = 'none';
+        });
+
+        // 2. 팝오버 바깥 영역 클릭 시
+        document.addEventListener('click', (event) => {
+            // 클릭된 요소가 팝오버 자신이 아니고,
+            // 사용자 목록(user-list)의 자식 요소도 아닐 때만 닫습니다.
+            if (!profilePopover.contains(event.target) && !userListElement.contains(event.target)) {
+                profilePopover.style.display = 'none';
+            }
+        });
+
+        // 사용자 목록 클릭 이벤트 리스너 추가
+        userListElement.addEventListener('click', (event) => {
+            const listItem = event.target.closest('li'); // 클릭된 li 요소를 찾음
+            if (listItem && listItem.dataset.userId) {
+                const clickedUserId = listItem.dataset.userId;
+                showUserProfile(clickedUserId, listItem); // 프로필 표시 함수 호출
+            }
+        });
+
         // 페이지 로드 시 로그인 상태를 확인하는 함수
         function checkLoginStatus() {
             fetch(`${SERVER_BASE_URL}/auth/session`, { method: 'POST', credentials: 'include' })
@@ -657,5 +830,48 @@
         return lineHeight > 0 ? lineHeight : 18; // 만약 측정이 안되면 기본값 18px 반환
     }
 
+    function showUserProfile(userId, targetElement) {
+        const url = `${SERVER_BASE_URL}/user/${userId}/profile`;
 
+        fetch(url, {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => { throw new Error(err.message || '프로필을 불러오지 못했습니다.'); });
+            }
+            return response.json();
+        })
+        .then(userProfile => {
+            // 팝오버 내용 채우기
+            // 팝오버 내용 채우기
+            document.getElementById('popover-profile-img').src = SERVER_BASE_URL + userProfile.imageUrl;
+            document.getElementById('popover-nickname').textContent = targetElement.textContent;
+            document.getElementById('popover-username').textContent = userProfile.username;
+            document.getElementById('popover-userid').textContent = userProfile.nickname;
+            document.getElementById('popover-status').textContent = userProfile.status_msg || '(상태 메시지 없음)';
+
+            // 팝오버 위치를 계산하기 전에 먼저 보이게 만들어야 정확한 offsetWidth를 얻을 수 있습니다.
+            // 단, 투명하게 만들어 깜빡임을 방지합니다.
+            profilePopover.style.visibility = 'hidden';
+            profilePopover.style.display = 'block';
+
+            // 팝오버 위치 계산
+            const rect = targetElement.getBoundingClientRect();
+            const popoverWidth = profilePopover.offsetWidth;
+
+            // 팝오버의 오른쪽 끝을 li 요소의 오른쪽 끝에 맞춥니다.
+            profilePopover.style.top = `${rect.top}px`;
+            profilePopover.style.left = `${rect.right - popoverWidth}px`; 
+
+            // 이제 팝오버를 완전히 보이게 합니다.
+            profilePopover.style.visibility = 'visible';
+        })
+        .catch(error => {
+            console.error('Error fetching user profile:', error);
+            // 에러 발생 시 팝오버를 다시 숨깁니다.
+            profilePopover.style.display = 'none';
+        });
+    }
 </script>
