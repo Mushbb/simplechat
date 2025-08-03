@@ -1,6 +1,8 @@
 package com.example.simplechat.service;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service; 
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -49,10 +51,19 @@ public class SimplechatService {
     private final RoomUserRepository roomUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
-    private final FileRepository fileRepository;
 
-    @Value("${file.static-url-prefix}")
-    private String staticUrlPrefix;
+    @Autowired
+    @Qualifier("profileFileRepository")
+    private FileRepository profileFileRepository;
+
+    @Autowired
+    @Qualifier("chatFileRepository")
+    private FileRepository chatFileRepository;
+
+    @Value("${file.profile-static-url-prefix}")
+    private String profileStaticUrlPrefix;
+    @Value("${file.chat-static-url-prefix}")
+    private String chatStaticUrlPrefix;
 	
     @PostConstruct
     public void init() {
@@ -286,8 +297,8 @@ public class SimplechatService {
                     // 각 메시지의 작성자 프로필 이미지 URL을 조회합니다.
                     String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
                             .map(profileData -> (String) profileData.get("profile_image_url"))
-                            .map(url -> url != null && !url.isBlank() ? staticUrlPrefix + "/" + url : staticUrlPrefix + "/default.png")
-                            .orElse(staticUrlPrefix + "/default.png");
+                            .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
+                            .orElse(profileStaticUrlPrefix + "/default.png");
 
                     // 조회한 URL을 포함하여 DTO를 생성합니다.
                     return new ChatMessageDto(msg, profileImageUrl);
@@ -362,8 +373,8 @@ public class SimplechatService {
                             // 각 메시지의 작성자 프로필 이미지 URL을 조회합니다.
                             String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
                                     .map(profileData -> (String) profileData.get("profile_image_url"))
-                                    .map(url -> url != null && !url.isBlank() ? staticUrlPrefix + "/" + url : staticUrlPrefix + "/default.png")
-                                    .orElse(staticUrlPrefix + "/default.png");
+                                    .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
+                                    .orElse(profileStaticUrlPrefix + "/default.png");
 
                             // 조회한 URL을 포함하여 DTO를 생성합니다.
                             return new ChatMessageDto(msg, profileImageUrl);
@@ -382,9 +393,9 @@ public class SimplechatService {
 		String imageUrl = (String) profileData.get("profile_image_url");
 		
 		if (imageUrl == null || imageUrl.isBlank()) {
-			imageUrl = staticUrlPrefix + "/default.png"; // 기본 이미지 경로
+			imageUrl = profileStaticUrlPrefix + "/default.png"; // 기본 이미지 경로
 		} else {
-			imageUrl = staticUrlPrefix + "/" + imageUrl; // 저장된 이미지 경로
+			imageUrl = profileStaticUrlPrefix + "/" + imageUrl; // 저장된 이미지 경로
 		}
 		
 		// 2. Map에서 DTO로 데이터 변환
@@ -421,18 +432,36 @@ public class SimplechatService {
 		// 2. 기존 프로필 이미지가 있으면 삭제
 		String oldFilename = user.getProfile_image_url();
 		if (oldFilename != null && !oldFilename.isBlank()) {
-			fileRepository.delete(oldFilename);
+			profileFileRepository.delete(oldFilename);
 		}
 
 		// 3. 새 파일 저장
-		String newFilename = fileRepository.save(file);
+		String newFilename = profileFileRepository.save(file);
 
 		// 4. DB에 새 파일명 업데이트
 		user.setProfile_image_url(newFilename);
 		userRepository.save(user);
 
 		// 5. 클라이언트가 접근할 수 있는 URL 경로 반환
-		return staticUrlPrefix + "/" + newFilename;
+		return profileStaticUrlPrefix + "/" + newFilename;
+	}
+
+	public void uploadChatFile(Long roomId, Long userId, MultipartFile file) {
+		// 1. 파일 저장
+		String storedFilename = chatFileRepository.save(file);
+		String originalFilename = file.getOriginalFilename();
+
+		// 2. 파일 정보를 담은 메시지 생성 (원본명:저장명)
+		//    나중에 클라이언트에서 a 태그로 만들 때 파싱해서 사용
+		String fileInfoContent = originalFilename + ":" + storedFilename;
+
+		// 3. 채팅 메시지 객체 생성
+		String authorName = roomUserRepository.getNickname(userId, roomId);
+		ChatMessage fileMessage = new ChatMessage(roomId, userId, authorName, fileInfoContent, ChatMessage.MsgType.FILE);
+
+		// 4. 메시지 DB 저장 및 이벤트 발행
+		ChatMessage savedMessage = msgRepository.save(fileMessage);
+		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, roomId));
 	}
 	
 	@PreDestroy

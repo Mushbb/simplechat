@@ -116,6 +116,22 @@ public class simplechatController {
 		// 클라이언트가 즉시 이미지를 업데이트할 수 있도록 새 이미지 URL을 반환
 		return ResponseEntity.ok(Map.of("profileImageUrl", newImageUrl));
 	}
+
+	@PostMapping("/room/{roomId}/file")
+	public ResponseEntity<Void> uploadChatFile(
+			@PathVariable("roomId") Long roomId,
+			@RequestParam("file") MultipartFile file,
+			HttpSession session) {
+
+		Long userId = (Long) session.getAttribute("userId");
+		if (userId == null) {
+			throw new RegistrationException("UNAUTHORIZED", "Please login first!");
+		}
+
+		serv.uploadChatFile(roomId, userId, file);
+
+		return ResponseEntity.ok().build();
+	}
 	
 	
 	@GetMapping("/room/list")

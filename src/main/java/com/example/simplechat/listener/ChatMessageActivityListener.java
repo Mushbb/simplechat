@@ -22,8 +22,8 @@ import lombok.RequiredArgsConstructor;
 @Component // Spring Bean 으로 등록하여 이벤트 리스너로 동작하게 함
 public class ChatMessageActivityListener {
 
-    @Value("${file.static-url-prefix}")
-    private String staticUrlPrefix;
+    @Value("${file.profile-static-url-prefix}")
+    private String profileStaticUrlPrefix;
 	
     private final SimpMessagingTemplate messagingTemplate; // Spring 이 자동으로 주입해 줍니다.
     private final UserRepository userRepository;
@@ -39,8 +39,8 @@ public class ChatMessageActivityListener {
         // 사용자 프로필 이미지 URL 조회
         String profileImageUrl = userRepository.findProfileById(authorId)
                 .map(profileData -> (String) profileData.get("profile_image_url"))
-                .map(url -> url != null && !url.isBlank() ? staticUrlPrefix + "/" + url : staticUrlPrefix + "/default.png")
-                .orElse(staticUrlPrefix + "/default.png");
+                .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
+                .orElse(profileStaticUrlPrefix + "/default.png");
 
         ChatMessageDto msgDto = new ChatMessageDto(event.getChatMessage(), profileImageUrl);
 

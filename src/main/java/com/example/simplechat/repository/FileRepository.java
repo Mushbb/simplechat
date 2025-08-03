@@ -13,12 +13,11 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
-@Repository
 public class FileRepository {
 
     private final Path rootLocation;
 
-    public FileRepository(@Value("${file.upload-dir}") String uploadDir) {
+    public FileRepository(String uploadDir) {
         this.rootLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
     }
 

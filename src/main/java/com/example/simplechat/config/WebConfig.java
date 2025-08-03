@@ -9,15 +9,27 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
 
-    @Value("${file.upload-dir}")
-    private String uploadDir;
+    @Value("${file.profile-upload-dir}")
+    private String profileUploadDir;
+
+    @Value("${file.profile-static-url-prefix}")
+    private String profileStaticUrlPrefix;
+
+    @Value("${file.chat-upload-dir}")
+    private String chatUploadDir;
+
+    @Value("${file.chat-static-url-prefix}")
+    private String chatStaticUrlPrefix;
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // URL 경로가 /images/** 로 시작하는 모든 요청을
-        // 실제 파일 시스템 경로인 file:./uploads/profiles/ 와 매핑합니다.
-        registry.addResourceHandler("/images/profiles/**")
-                .addResourceLocations("file:" + uploadDir + "/", "classpath:/uploads/profiles/");
+        // 프로필 이미지 경로 설정
+        registry.addResourceHandler(profileStaticUrlPrefix + "/**")
+                .addResourceLocations("file:" + profileUploadDir + "/", "classpath:/uploads/profiles/");
+
+        // 채팅 파일 경로 설정
+        registry.addResourceHandler(chatStaticUrlPrefix + "/**")
+                .addResourceLocations("file:" + chatUploadDir + "/");
     }
 
     @Override

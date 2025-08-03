@@ -43,3 +43,10 @@ src/main/java/com/example/jdbctest/jdbctest.java
 src/main/resources/static/htdocs/QNA_Wrt.html
 src/main/resources/static/htdocs/QNA_detail.html
 src/main/resources/static/htdocs/session.js
+*.jpg
+*.gif
+*.zip
+*.mp4
+*.png
+*.jpg
+*.jpg
