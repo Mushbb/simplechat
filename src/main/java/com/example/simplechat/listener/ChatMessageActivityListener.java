@@ -4,11 +4,14 @@ import com.example.simplechat.model.User;
 import com.example.simplechat.dto.ChatMessageDto;
 import com.example.simplechat.dto.UserEventDto;
 import com.example.simplechat.dto.UserEventDto.EventType;
+import com.example.simplechat.dto.LinkPreviewDto;
 import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 처리할 이벤트 import
 import com.example.simplechat.event.UserEnteredRoomEvent;
 import com.example.simplechat.event.UserExitedRoomEvent;
 import com.example.simplechat.event.ChangeNicknameEvent;
 import com.example.simplechat.repository.UserRepository;
+
+import com.example.simplechat.service.LinkPreviewService;
 
 import org.springframework.context.event.EventListener; // Spring의 이벤트 리스너 어노테이션 import
 import org.springframework.messaging.simp.SimpMessagingTemplate; // 웹소켓 전송 템플릿 import
@@ -27,6 +30,7 @@ public class ChatMessageActivityListener {
 	
     private final SimpMessagingTemplate messagingTemplate; // Spring 이 자동으로 주입해 줍니다.
     private final UserRepository userRepository;
+    private final LinkPreviewService linkPreviewService;
 
     // Spring 의 @EventListener를 사용하여 ChatMessageAddedToRoomEvent가 발생하면 이 메소드가 호출되도록 합니다.
     // @Async 어노테이션을 사용하여 이 리스너의 동작이 비동기적으로 실행되도록 할 수 있습니다.
@@ -44,13 +48,14 @@ public class ChatMessageActivityListener {
 
         ChatMessageDto msgDto = new ChatMessageDto(event.getChatMessage(), profileImageUrl);
 
-        // 웹소켓으로 메시지 브로드캐스트
-        try { // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
-            messagingTemplate.convertAndSend("/topic/" + roomId + "/public", msgDto);
-            System.out.println("  [웹소켓 전송]: 메시지 웹소켓 전송 완료: " + msgDto.content());
-        } catch (Exception e) {
-            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
+        // 웹소켓으로 원본 메시지 즉시 전송
+        messagingTemplate.convertAndSend("/topic/" + roomId + "/public", msgDto);
+        System.out.println("  [웹소켓 전송]: 메시지 웹소켓 전송 완료: " + msgDto.content());
+
+        // 비동기적으로 링크 미리보기 생성 및 전송
+        String url = linkPreviewService.findFirstUrl(msgDto.content());
+        if (url != null) {
+            linkPreviewService.generateAndSendPreview(msgDto.messageId(), roomId, url);
         }
     }
 

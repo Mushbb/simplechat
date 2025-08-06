@@ -35,7 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 
 @Service
-@RequiredArgsConstructor 
+@RequiredArgsConstructor
 @EnableScheduling
 public class SimplechatService {
     private ChatRoom serverChat_room = null;
@@ -51,6 +51,9 @@ public class SimplechatService {
     private final RoomUserRepository roomUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
+    
+    @Autowired
+    private LinkPreviewService linkPreviewService; // LinkPreviewService 주입
 
     @Autowired
     @Qualifier("profileFileRepository")
@@ -279,7 +282,7 @@ public class SimplechatService {
 		return roomId;
 	}
 	
-	public RoomInitDataDto initRoom(Long roomId, Long userId, int lines) {
+		public RoomInitDataDto initRoom(Long roomId, Long userId, int lines) {
 		User user = userRepository.findById(userId)
 	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
 	    ChatRoom room = roomRepository.findById(roomId)
@@ -289,21 +292,19 @@ public class SimplechatService {
 	    	throw new RegistrationException("FORBIDDEN", "비정상적인 접근입니다.");
 		}
 		
-	    //eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId));
-		
-		return new RoomInitDataDto(roomRepository.findUsersByRoomId(roomId),
-				msgRepository.findTopNByRoomIdOrderById(roomId, null , lines, "DESC").stream()
-				.map(msg -> {
-                    // 각 메시지의 작성자 프로필 이미지 URL을 조회합니다.
-                    String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
-                            .map(profileData -> (String) profileData.get("profile_image_url"))
-                            .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
-                            .orElse(profileStaticUrlPrefix + "/default.png");
+	    List<ChatMessageDto> messageDtos = mapMessagesToDto(msgRepository.findTopNByRoomIdOrderById(roomId, null, lines, "DESC"));
 
-                    // 조회한 URL을 포함하여 DTO를 생성합니다.
-                    return new ChatMessageDto(msg, profileImageUrl);
-                })
-				.collect(Collectors.toList()), room.getName());
+        // 각 메시지에 대해 비동기적으로 미리보기 생성 요청
+        messageDtos.forEach(dto -> {
+            String url = linkPreviewService.findFirstUrl(dto.content());
+            if (url != null) {
+                linkPreviewService.generateAndSendPreview(dto.messageId(), roomId, url);
+            }
+        });
+
+		return new RoomInitDataDto(roomRepository.findUsersByRoomId(roomId),
+				messageDtos,
+                room.getName());
 	}
 	
 	public void exitRoom(Long roomId, Long userId) {
@@ -368,21 +369,31 @@ public class SimplechatService {
                         msgListDto.rowCount(),
                         "DESC");
 
-        List<ChatMessageDto> messageDtos = messages.stream()
-                        .map(msg -> {
-                            // 각 메시지의 작성자 프로필 이미지 URL을 조회합니다.
-                            String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
-                                    .map(profileData -> (String) profileData.get("profile_image_url"))
-                                    .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
-                                    .orElse(profileStaticUrlPrefix + "/default.png");
+        List<ChatMessageDto> messageDtos = mapMessagesToDto(messages);
 
-                            // 조회한 URL을 포함하여 DTO를 생성합니다.
-                            return new ChatMessageDto(msg, profileImageUrl);
-                        })
-                        .collect(Collectors.toList());
+        // 각 메시지에 대해 비동기적으로 미리보기 생성 요청
+        messageDtos.forEach(dto -> {
+            String url = linkPreviewService.findFirstUrl(dto.content());
+            if (url != null) {
+                linkPreviewService.generateAndSendPreview(dto.messageId(), msgListDto.roomId(), url);
+            }
+        });
 
         return new ChatMessageListDto(messageDtos);
 	}
+
+    private List<ChatMessageDto> mapMessagesToDto(List<ChatMessage> messages) {
+        return messages.stream()
+            .map(msg -> {
+                String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
+                        .map(profileData -> (String) profileData.get("profile_image_url"))
+                        .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
+                        .orElse(profileStaticUrlPrefix + "/default.png");
+
+                return new ChatMessageDto(msg, profileImageUrl);
+            })
+            .collect(Collectors.toList());
+    }
 	
 	public UserProfileDto getUserProfile(Long userId) {
 		// 1. UserRepository를 사용하여 프로필 정보 조회

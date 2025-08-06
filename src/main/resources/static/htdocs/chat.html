@@ -225,6 +225,54 @@
         line-height: 1.4;
     }
 
+    /* --- 링크 미리보기 카드 스타일 --- */
+    .link-preview-card {
+        border: 1px solid #e1e8ed;
+        border-radius: 8px;
+        margin-top: 8px;
+        overflow: hidden; /* 내부 요소가 카드를 벗어나지 않도록 */
+        max-width: 400px; /* 카드의 최대 너비 */
+        text-decoration: none; /* a 태그의 밑줄 제거 */
+        color: inherit; /* 부모 요소의 글자색 상속 */
+        display: block; /* a 태그를 블록 요소로 만들어 전체 영역 클릭 가능하게 */
+    }
+    .link-preview-card:hover {
+        background-color: #f5f8fa;
+    }
+    .link-preview-image {
+        width: 100%;
+        height: 210px; /* 이미지 높이 고정 */
+        object-fit: cover; /* 이미지가 영역에 꽉 차도록 */
+        border-bottom: 1px solid #e1e8ed;
+    }
+    .link-preview-info {
+        padding: 12px;
+    }
+    .link-preview-title {
+        font-weight: bold;
+        font-size: 15px;
+        margin-bottom: 4px;
+        /* 여러 줄 말줄임 처리 (선택 사항) */
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .link-preview-description {
+        font-size: 14px;
+        color: #657786;
+        /* 여러 줄 말줄임 처리 */
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .link-preview-url {
+        font-size: 12px;
+        color: #8899a6;
+        margin-top: 8px;
+    }
+
     /* --- 파일 첨부 미리보기 스타일 --- */
     #file-preview-container {
         display: none; /* 평소에는 숨김 */
@@ -524,6 +572,8 @@
 		stompClient.subscribe('/topic/'+roomId+'/public', onMessageReceived);
         // 메시지 리스트를 한번에 불러오는 토픽
         stompClient.subscribe('/user/topic/queue/reply', onMessageListReceived);
+        // 링크 미리보기 정보를 받아오는 토픽
+        stompClient.subscribe('/topic/' + roomId + '/previews', onPreviewReceived);
 
         // (선택 사항) 서버에 사용자 등록 메시지 전송 (세션에 사용자 이름 저장용)
         // 백엔드 ChatStompController의 @MessageMapping("/chat.addUser")를 사용한다면
@@ -560,6 +610,30 @@
         }
 
         isLoading = false;
+    }
+
+    function onPreviewReceived(payload) {
+        const preview = JSON.parse(payload.body);
+        console.log("웹소켓으로 링크 미리보기 수신:", preview);
+
+        const previewContainer = document.getElementById(`preview-for-${preview.messageId}`);
+        if (!previewContainer) return; // 해당 메시지가 화면에 없으면 무시
+
+        const displayUrl = preview.url.length > 50 ? preview.url.slice(0, 47) + '...' : preview.url;
+
+        const cardHtml = `
+            <a href="${preview.url}" target="_blank" class="link-preview-card">
+                ${preview.imageUrl ? `<img src="${preview.imageUrl}" class="link-preview-image" alt="Preview" onerror="this.style.display='none';">` : ''}
+                <div class="link-preview-info">
+                    <div class="link-preview-title">${escapeHtml(preview.title || '')}</div>
+                    <div class="link-preview-description">${escapeHtml(preview.description || '')}</div>
+                    <div class="link-preview-url">${escapeHtml(displayUrl)}</div>
+                </div>
+            </a>
+        `;
+
+        previewContainer.innerHTML = cardHtml;
+        chatLogElement.scrollTop = chatLogElement.scrollHeight; // 스크롤을 아래로 내려서 보여줌
     }
 
 	// 웹소켓을 통해 새 메시지를 받았을 때 호출되는 함수
@@ -789,6 +863,28 @@
             messageBodyHtml = finalContent.replace(/\n/g, '<br>');
         }
 
+        if (message.linkPreview && message.linkPreview.url) {
+            const preview = message.linkPreview;
+            const url = preview.url;
+            const isYoutube = /youtube\.com|youtu\.be/.test(url); // 유튜브 링크인지 확인
+
+            // 유튜브 링크가 아닐 경우에만 미리보기 카드를 생성합니다.
+            if (!isYoutube) {
+                const displayUrl = url.length > 50 ? url.slice(0, 47) + '...' : url;
+
+                linkPreviewHtml = `
+                    <a href="${url}" target="_blank" class="link-preview-card">
+                        ${preview.imageUrl ? `<img src="${preview.imageUrl}" class="link-preview-image" alt="Preview" onerror="this.style.display='none';">` : ''}
+                        <div class="link-preview-info">
+                            <div class="link-preview-title">${escapeHtml(preview.title || '')}</div>
+                            <div class="link-preview-description">${escapeHtml(preview.description || '')}</div>
+                            <div class="link-preview-url">${escapeHtml(displayUrl)}</div>
+                        </div>
+                    </a>
+                `;
+            }
+        }
+
         listItem.innerHTML = `
             <img src="${profileImageUrl}" class="chat-profile-img" alt="profile">
             <div class="chat-message-content">
@@ -798,6 +894,7 @@
                 </div>
                 <div class="chat-message-body">
                     ${messageBodyHtml}
+                    <div class="link-preview-container" id="preview-for-${message.messageId}"></div> <!-- 미리보기 카드가 삽입될 컨테이너 -->
                 </div>
             </div>
         `;
