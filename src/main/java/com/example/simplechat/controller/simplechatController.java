@@ -58,7 +58,7 @@ public class simplechatController {
 		);
 	}
 	
-	@PostMapping("/auth/session")
+	@GetMapping("/auth/session")
 	public LoginResponseDto sessionCheck(HttpSession session) {
 		Long userId = (Long)session.getAttribute("userId");
 		

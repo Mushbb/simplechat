@@ -379,7 +379,7 @@ public class SimplechatService {
             }
         });
 
-        return new ChatMessageListDto(messageDtos);
+        return new ChatMessageListDto(messageDtos.reversed());
 	}
 
     private List<ChatMessageDto> mapMessagesToDto(List<ChatMessage> messages) {

@@ -1089,7 +1089,7 @@
 
         // 페이지 로드 시 로그인 상태를 확인하는 함수
         function checkLoginStatus() {
-            fetch(`${SERVER_BASE_URL}/auth/session`, { method: 'POST', credentials: 'include' })
+            fetch(`${SERVER_BASE_URL}/auth/session`, { method: 'GET', credentials: 'include' })
                 .then(response => {
                     if (!response.ok) {
                         // 4xx, 5xx 에러 발생 시 로그인되지 않은 상태로 간주
