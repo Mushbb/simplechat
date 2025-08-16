@@ -135,10 +135,12 @@ public class simplechatController {
 	
 	
 	@GetMapping("/room/list")
-	public List<ChatRoomListDto> getRoomList(){
-		// System.out.println("lobbylist");
-		// Map의 각 엔트리(방 이름, ChatRoom 객체)를 순회하며 필요한 정보만 추출
-        return serv.getRoomList();
+	public List<ChatRoomListDto> getRoomList(HttpSession session){
+		Long userId = (Long)session.getAttribute("userId");
+		if( userId == null ) {
+			throw new RegistrationException("UNAUTHORIZED","Please login first!");
+		}
+        return serv.getRoomList(userId);
 	}
 	
 	@PostMapping("/room/create")

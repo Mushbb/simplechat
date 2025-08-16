@@ -230,7 +230,7 @@ public class SimplechatService {
 		return userId;
 	}
 	
-	public List<ChatRoomListDto> getRoomList(){
+	public List<ChatRoomListDto> getRoomList(Long userId){
 		List<ChatRoomListDto> roomsFromDb = roomRepository.findAllWithCount();
 
         return roomsFromDb.stream()
@@ -240,7 +240,8 @@ public class SimplechatService {
                 roomDto.roomType(),
                 roomDto.ownerName(),
                 roomDto.userCount(),
-                roomSessionManager.getConnectedUsers(roomDto.id()).size()
+                roomSessionManager.getConnectedUsers(roomDto.id()).size(),
+                roomUserRepository.exists(userId, roomDto.id())
             ))
             .collect(Collectors.toList());
 	}
@@ -282,7 +283,7 @@ public class SimplechatService {
 		return roomId;
 	}
 	
-		public RoomInitDataDto initRoom(Long roomId, Long userId, int lines) {
+	public RoomInitDataDto initRoom(Long roomId, Long userId, int lines) {
 		User user = userRepository.findById(userId)
 	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
 	    ChatRoom room = roomRepository.findById(roomId)

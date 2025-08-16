@@ -1,33 +1,30 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { Link } from 'react-router-dom';
 
 function Topbar() {
   // 1. AuthContext에서 필요한 값들을 가져옵니다.
-  const { user, logout, openModal } = useContext(AuthContext);
+    const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal } = useContext(AuthContext);
 
   return (
-    <div style={{
-      backgroundColor: '#20232a',
-      padding: '10px 20px',
-      color: 'white',
-      borderBottom: '1px solid #444',
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center'
-    }}>
-      <h1>Simple Chat</h1>
-      <div>
-        {/* 2. user 상태에 따라 조건부 렌더링 */}
-        {user ? (
-          <>
-            <span style={{ marginRight: '15px' }}>{user.nickname}님, 환영합니다!</span>
-            <button onClick={logout}>로그아웃</button>
-          </>
-        ) : (
-          <button onClick={openModal}>로그인</button>
-        )}
-      </div>
-    </div>
+    <header className="topbar">
+        <h1><Link to="/" className="topbar-logo">Simple Chat</Link></h1>
+        <div className="topbar-auth-controls">
+            {user ? (
+                <>
+                    <span>{user.nickname}님</span>
+                    <button onClick={openProfileModal}>프로필 수정</button>
+                    <button onClick={logout}>로그아웃</button>
+                    <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>
+                </>
+            ) : (
+                <>
+                    <button onClick={openLoginModal}>로그인</button>
+                    <button onClick={openRegisterModal}>회원가입</button>
+                </>
+            )}
+        </div>
+    </header>
   );
 }
 

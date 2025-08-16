@@ -24,7 +24,7 @@ const modalContentStyle = {
 function AuthModal() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { login } = useContext(AuthContext); // Context에서 login 함수를 가져옵니다.
+    const { login, closeLoginModal } = useContext(AuthContext); // Context에서 login 함수를 가져옵니다.
 
   const handleSubmit = (e) => {
     e.preventDefault(); // 폼 제출 시 페이지가 새로고침되는 것을 방지
@@ -37,8 +37,9 @@ function AuthModal() {
   };
 
   return (
-    <div style={modalOverlayStyle}>
-      <div style={modalContentStyle}>
+    <div className="modal-overlay" style={modalOverlayStyle}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close-btn" onClick={closeLoginModal}>&times;</button>
         <h2>로그인</h2>
         <form onSubmit={handleSubmit}>
           <div style={{ marginTop: '15px' }}>

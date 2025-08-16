@@ -1,5 +1,6 @@
 package com.example.simplechat.repository;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 import com.example.simplechat.model.ChatRoom;
 import com.example.simplechat.dto.ChatRoomUserDto;
@@ -22,6 +23,8 @@ import java.util.stream.Collectors;
 public class RoomRepository {
 	private final RoomSessionManager roomSessionManager;
 	private final JDBC_SQL jdbcsql;
+    @Value("${file.profile-static-url-prefix}")
+    private String profileStaticUrlPrefix;
 	
 	public Optional<ChatRoom> findByName(String Name) {
 		String sql = "SELECT * FROM chat_rooms WHERE room_name = ?";
@@ -88,7 +91,7 @@ public class RoomRepository {
 	// 지금처럼 한번에 유저정보를 받아서 User 객체를 리턴할지 고민함.
 	// 그리고, 방 안에 있는 유저라는 개념이 방과 강하게 결합된 정보 단위라고 생각해서 이렇게 진행함.
 	public List<ChatRoomUserDto> findUsersByRoomId(Long roomId){
-		String sql = "SELECT u.user_id, cru.nickname, cru.role "+
+		String sql = "SELECT u.user_id, cru.nickname, cru.role, u.profile_image_url "+
 					"FROM users u INNER JOIN chat_room_users cru ON u.user_id = cru.user_id "+
 					"WHERE room_id = ?";
 		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(roomId)});
@@ -99,7 +102,9 @@ public class RoomRepository {
 					(Long) row.get("user_id"),
 					(String) row.get("nickname"),
 					ChatRoomUserDto.UserType.valueOf((String) row.get("role")),
-					roomSessionManager.getConnectedUsers(roomId).contains(row.get("user_id")) ? ChatRoomUserDto.ConnectType.CONNECT:ChatRoomUserDto.ConnectType.DISCONNECT))
+					roomSessionManager.getConnectedUsers(roomId).contains(row.get("user_id")) ? ChatRoomUserDto.ConnectType.CONNECT:ChatRoomUserDto.ConnectType.DISCONNECT,
+							profileStaticUrlPrefix + "/" + (String) row.get("profile_image_url") 
+			))
 			.collect(Collectors.toList());
 	}
 	
@@ -220,7 +225,7 @@ public class RoomRepository {
 						(String) row.get("room_type"),
 						(String) row.get("ownerName"),
 						(Integer) row.get("userCount"), 
-						null))
+						null, false))
 				.collect(Collectors.toList());
 	}
 	

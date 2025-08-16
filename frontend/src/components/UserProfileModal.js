@@ -28,7 +28,7 @@ const bodyStyle = { padding: '15px' };
 const profilePicStyle = { width: '60px', height: '60px', borderRadius: '50%', marginRight: '15px' };
 const statusMsgStyle = { marginTop: '10px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', minHeight: '40px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
 
-function ProfileModal({ profile, onClose, position }) {
+function UserProfileModal({ profile, onClose, position }) {
     if (!profile) return null;
 
     // position prop으로 받은 top, left를 스타일에 직접 적용
@@ -53,4 +53,4 @@ function ProfileModal({ profile, onClose, position }) {
     );
 }
 
-export default ProfileModal;
+export default UserProfileModal;

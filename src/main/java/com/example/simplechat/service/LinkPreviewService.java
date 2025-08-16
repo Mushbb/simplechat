@@ -36,7 +36,7 @@ public class LinkPreviewService {
 
     @Async
     public void generateAndSendPreview(Long messageId, Long roomId, String urlString) {
-        if (isYoutubeUrl(urlString)) {
+        if (isYoutubeUrl(urlString) || isDirectMediaLink(urlString)) {
             return; // 유튜브 URL은 미리보기를 생성하지 않음
         }
 
@@ -76,4 +76,19 @@ public class LinkPreviewService {
         String lowerCaseUrl = url.toLowerCase();
         return lowerCaseUrl.contains("youtube.com") || lowerCaseUrl.contains("youtu.be");
     }
+    
+    private boolean isDirectMediaLink(String url) {
+        if (url == null || url.isEmpty()) {
+            return false;
+        }
+        String path = url.split("\\?")[0].toLowerCase();
+        
+        return path.endsWith(".jpg") ||
+               path.endsWith(".jpeg") ||
+               path.endsWith(".png") ||
+               path.endsWith(".gif") ||
+               path.endsWith(".webp") ||
+               path.endsWith(".mp4");
+    }
+
 }
