@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { ChatContext } from '../context/ChatContext';
 import CreateRoomModal from './CreateRoomModal';
 import axiosInstance from '../api/axiosInstance';
 
@@ -24,8 +25,9 @@ const roomActionsStyle = {
 
 function LobbyPage() {
   const [rooms, setRooms] = useState([]);
-  const { user, openLoginModal } = useContext(AuthContext);
-  const navigate = useNavigate();
+  const { user, openLoginModal, loading  } = useContext(AuthContext);
+    const { setActiveRoomId, initializeChat, usersByRoom  } = useContext(ChatContext);
+    const navigate = useNavigate();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
@@ -85,6 +87,9 @@ function LobbyPage() {
             const newRoomId = response.data;
             setIsCreateModalOpen(false); // 모달 닫기
             alert('새로운 방이 생성되었습니다!');
+
+            await initializeChat();
+
             fetchRooms(); // 방 목록 새로고침
             // navigate(`/chat/${newRoomId}`); // 생성된 방으로 바로 이동하고 싶다면 주석 해제
         } catch (error) {
@@ -98,9 +103,29 @@ function LobbyPage() {
         fetchRooms();
     }, []);
 
-  if (!user) {
-    return <h2 style={{padding: '20px'}}>로그인하고 채팅방 목록을 확인하세요.</h2>;
-  }
+    useEffect(() => {
+        // 로비 페이지가 보이면, 활성화된 방이 없다고 Context에 알려줍니다.
+        setActiveRoomId(null);
+
+        if (!loading) {
+            fetchRooms();
+        }
+    }, [setActiveRoomId, loading]);
+
+    // ✅ 4. usersByRoom 상태가 변경될 때마다 방 목록을 새로고침하는
+    //    useEffect를 새로 추가합니다.
+    useEffect(() => {
+        // usersByRoom이 비어있지 않다는 것은 웹소켓 연결 및 초기화가
+        // 어느정도 진행되었다는 신호이므로, 이 때 목록을 새로고침하면
+        // 정확한 인원수를 가져올 확률이 높습니다.
+        if (Object.keys(usersByRoom).length > 0) {
+            fetchRooms();
+        }
+    }, [usersByRoom]); // usersByRoom 객체가 바뀔 때마다 실행
+
+  // if (!user) {
+  //   return <h2 style={{padding: '20px'}}>로그인하고 채팅방 목록을 확인하세요.</h2>;
+  // }
 
     // ✅ 2. 전체 방 목록을 '내가 참여 중인 방'과 '그 외의 방'으로 분리합니다.
     const myRooms = rooms.filter(room => room.isMember);

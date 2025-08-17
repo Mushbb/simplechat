@@ -230,6 +230,32 @@ public class SimplechatService {
 		return userId;
 	}
 	
+	public List<ChatRoomListDto> findRoomsByUserId(Long userId) {
+        // 1. RoomUserRepository에서 사용자가 속한 방의 기본 정보를 가져옵니다.
+        List<Map<String, Object>> roomInfos = roomUserRepository.findRoomsByUserId(userId);
+
+        // 2. 각 방의 정보를 완전한 ChatRoomListDto로 변환합니다.
+        return roomInfos.stream()
+            .map(row -> {
+                Long roomId = (Long) row.get("room_id");
+                
+                // 각 방의 전체 인원수와 현재 접속 인원수를 계산합니다.
+                int totalUsers = roomRepository.countUsersByRoomId(roomId); // 이 메소드가 RoomRepository에 필요합니다.
+                int connectedUsers = roomSessionManager.getConnectedUsers(roomId).size();
+
+                return new ChatRoomListDto(
+                        roomId,
+                        (String) row.get("room_name"),
+                        (String) row.get("room_type"), // Enum 변환 제거
+                        (String) row.get("owner_name"),
+                        totalUsers,
+                        connectedUsers,
+                        true
+                );
+            })
+            .collect(Collectors.toList());
+    }
+	
 	public List<ChatRoomListDto> getRoomList(Long userId){
 		List<ChatRoomListDto> roomsFromDb = roomRepository.findAllWithCount();
 

@@ -8,6 +8,7 @@ function AuthProvider({ children }) {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // 앱이 처음 시작될 때 세션을 확인하는 로직
   useEffect(() => {
@@ -22,6 +23,8 @@ function AuthProvider({ children }) {
         }
       } catch (error) {
         console.error('Session check failed:', error);
+      } finally {
+          setLoading(false); // ✅ 2. 세션 확인이 끝나면 로딩 상태를 false로 변경
       }
     };
     checkSession();
@@ -64,6 +67,7 @@ function AuthProvider({ children }) {
       await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
     } finally {
       setUser(null);
+        window.location.reload();
     }
   };
 
@@ -123,6 +127,7 @@ function AuthProvider({ children }) {
     // Context로 전달할 값들
     const value = {
         user,
+        loading,
         login,
         logout,
         register, // 추가

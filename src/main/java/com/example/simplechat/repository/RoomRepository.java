@@ -240,4 +240,14 @@ public class RoomRepository {
 		// existsByUsername과 마찬가지로, 첫 번째 행의 첫 번째 값을 Long으로 변환합니다.
 		return (long) parsedTable.get(0).values().iterator().next();
 	}
+	
+	public int countUsersByRoomId(Long roomId) {
+	    String sql = "SELECT count(user_id) FROM chat_room_users WHERE room_id = ?";
+	    List<Map<String, Object>> result = jdbcsql.executeSelect(sql, new String[]{String.valueOf(roomId)});
+	    if (result.isEmpty()) {
+	        return 0;
+	    }
+	    // 결과가 Long 또는 Integer 등 DB 드라이버에 따라 다를 수 있으니 확인이 필요합니다.
+	    return ((Number) result.get(0).values().iterator().next()).intValue();
+	}
 }

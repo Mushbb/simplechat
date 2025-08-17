@@ -1,14 +1,22 @@
 import React, { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { Link } from 'react-router-dom';
+import { ChatContext } from '../context/ChatContext';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 function Topbar() {
   // 1. AuthContext에서 필요한 값들을 가져옵니다.
     const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal } = useContext(AuthContext);
+    const { joinedRooms, activeRoomId, setActiveRoomId } = useContext(ChatContext);
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const handleTabClick = (roomId) => {
+        setActiveRoomId(roomId); // Context에 현재 활성화된 방이 무엇인지 알립니다.
+        navigate(`/chat/${roomId}`); // 해당 방의 URL로 페이지를 이동시킵니다.
+    };
 
   return (
     <header className="topbar">
-        <h1><Link to="/" className="topbar-logo">Simple Chat</Link></h1>
         <div className="topbar-auth-controls">
             {user ? (
                 <>
@@ -24,6 +32,25 @@ function Topbar() {
                 </>
             )}
         </div>
+        {user && (
+            <nav className="room-tabs-container">
+                <button
+                    className={`room-tab ${location.pathname === '/' ? 'active' : ''}`}
+                    onClick={() => navigate('/')}
+                >
+                    로비
+                </button>
+                {joinedRooms.map(room => (
+                    <button
+                        key={room.id}
+                        className={`room-tab ${room.id === activeRoomId ? 'active' : ''}`}
+                        onClick={() => handleTabClick(room.id)}
+                    >
+                        {room.name}
+                    </button>
+                ))}
+            </nav>
+        )}
     </header>
   );
 }

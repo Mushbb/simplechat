@@ -358,6 +358,7 @@ code {
 }
 
 .nickname-editor {
+    flex-shrink: 0;
     margin-top: auto; /* 다른 요소들을 위로 밀고 자신은 맨 아래에 위치 */
     padding-top: 10px;
 }
@@ -385,11 +386,14 @@ code {
 
 [data-id="user-list-panel"] {
     overflow-x: hidden; /* 가로 스크롤바 숨김 */
+
+    padding: 24px; /* 상하좌우에 24px의 안쪽 여백을 줍니다. */
+    box-sizing: border-box; /* 패딩을 추가해도 전체 크기가 늘어나지 않도록 보장합니다. */
 }
 
 [data-id="user-list-panel"] h4 {
     margin-top: 0; /* 선과 '참가자' 텍스트 사이의 간격 */
-    margin-bottom: 0; /* '참가자' 텍스트와 실제 목록 사이의 간격 */
+    margin-bottom: 10px; /* '참가자' 텍스트와 실제 목록 사이의 간격 */
     font-size: 1em;
 }
 
@@ -397,6 +401,25 @@ code {
     padding-bottom: 10px; /* 제목 텍스트와 선 사이의 간격 */
     border-bottom: 2px solid #000; /* 연한 회색의 1px 실선 */
     color: #333;
+}
+
+.user-list-panel {
+    width: 220px;
+    border-right: 1px solid #eee;
+    padding: 10px;
+
+    /* ✅ 1. 이 패널을 세로 Flexbox 컨테이너로 설정합니다. */
+    display: flex;
+    flex-direction: column;
+}
+
+/* ✅ 2. 사용자 목록(ul)이 남는 공간을 모두 차지하도록 설정합니다. */
+.user-list-scrollable {
+    flex-grow: 1; /* 남는 세로 공간을 모두 차지 */
+    overflow-y: auto; /* 목록이 길어지면 이 영역만 스크롤 */
+    list-style: none;
+    padding: 0;
+    margin: 0;
 }
 
 .user-list-item {
@@ -666,4 +689,78 @@ code {
 .radio-group {
     display: flex;
     gap: 20px;
+}
+
+/* Topbar 스타일 개선 */
+.topbar {
+    display: flex;
+    flex-direction: column; /* ✅ 자식들을 세로로 쌓음 (상단 영역 -> 하단 탭 영역) */
+    background-color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* 입체감을 위한 그림자 */
+    flex-shrink: 0;
+}
+/* 상단 영역 (로고 + 인증 버튼) */
+.topbar-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+}
+.topbar-logo {
+    margin: 0;
+}
+.topbar-logo, .topbar-logo:hover {
+    color: #333;
+    text-decoration: none;
+}
+
+
+/* 룸 탭 컨테이너 */
+.room-tabs {
+    display: flex;
+    gap: 5px;
+    /* Topbar의 남는 공간을 차지하여 중앙에 위치하도록 */
+    flex-grow: 1;
+    justify-content: center;
+    padding: 0 20px;
+}
+/* 하단 탭 영역 컨테이너 */
+.room-tabs-container {
+    display: flex;
+    padding: 0 10px; /* 좌우 여백 */
+    border-top: 1px solid #eee; /* 상단 영역과의 구분선 */
+}
+/* 개별 룸 탭 버튼 */
+.room-tab {
+    padding: 10px 15px;
+    border: none;
+    background-color: transparent; /* 배경 없음 */
+    cursor: pointer;
+    font-size: 15px;
+    color: #555;
+    border-bottom: 3px solid transparent; /* 비활성 탭 하단선 (투명) */
+}
+.room-tab:hover {
+    background-color: #f8f9fa;
+}
+/* 활성화된 탭 스타일 */
+.room-tab.active {
+    color: #007bff;
+    font-weight: bold;
+    border-bottom: 3px solid #007bff; /* 활성 탭 하단선 (파란색) */
+}
+
+/* 오른쪽 채팅 패널 (메시지 목록 + 입력창) */
+.chat-panel {
+    flex: 1; /* 가로로 남는 공간을 모두 차지 */
+    display: flex;
+    flex-direction: column; /* ✅ 자식들을 세로로 쌓음 (가장 중요!) */
+    min-width: 0;
+}
+
+/* 메시지 목록 */
+.chat-message-list {
+    flex: 1; /* ✅ 세로로 남는 공간을 모두 차지 (입력창을 맨 아래로 밀어냄) */
+    overflow-y: auto;
+    padding: 10px;
 }

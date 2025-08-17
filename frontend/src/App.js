@@ -8,6 +8,7 @@ import LobbyPage from './components/LobbyPage';
 import ChatPage from './components/ChatPage'; // 1. 실제 ChatPage 컴포넌트를 import 합니다.
 import RegisterModal from './components/RegisterModal';
 import MyProfileModal from "./components/MyProfileModal"; // RegisterModal import
+import ProtectedRoute from './components/ProtectedRoute';
 
 // --- 페이지 컴포넌트 (임시) ---
 // 이제 모든 페이지가 실제 파일로 분리되었으므로 임시 코드는 모두 삭제합니다.
@@ -27,7 +28,14 @@ function App() {
         <Routes>
           {/* 2. 각 Route의 element가 이제 실제 컴포넌트를 가리킵니다. */}
           <Route path="/" element={<LobbyPage />} />
-          <Route path="/chat/:roomId" element={<ChatPage />} />
+            <Route
+                path="/chat/:roomId"
+                element={
+                    <ProtectedRoute>
+                        <ChatPage />
+                    </ProtectedRoute>
+                }
+            />
         </Routes>
       </main>
     </div>

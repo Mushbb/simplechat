@@ -6,6 +6,11 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.http.HttpMethod;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import java.util.Arrays;
 
 @Configuration
 public class SecurityConfig {
@@ -17,21 +22,49 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // CSRF(Cross-Site Request Forgery) 보호 기능을 비활성화합니다.
-            // REST API 서버는 일반적으로 세션 대신 토큰을 사용하므로 CSRF 공격에 덜 취약합니다.
-            // 테스트 편의를 위해 비활성화하는 경우가 많습니다.
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
-            
-            // 들어오는 모든 HTTP 요청에 대한 접근 권한을 설정합니다.
-            .authorizeHttpRequests(auth -> auth
-                // anyRequest() : 어떤 요청이든
-                // permitAll() : 인증 없이 접근을 허용합니다.
-                // 이 설정을 통해 Spring Security의 기본 인증 요구 사항을 비활성화하여
-                // 모든 엔드포인트에 자유롭게 접근할 수 있게 합니다.
-                .anyRequest().permitAll() );
+            .authorizeHttpRequests(authz -> authz
+                // 모든 OPTIONS 사전 요청은 무조건 허용 (CORS 문제 해결)
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                // --- 👇 인증 없이 접근 허용할 경로들 ---
+                .requestMatchers("/auth/**").permitAll()
                 
+                // ✅ 이 줄이 가장 중요합니다. GET 방식의 /room/list 요청은 무조건 허용!
+                .requestMatchers(HttpMethod.GET, "/room/list").permitAll() 
+                
+                .requestMatchers("/ws/**").permitAll()
+                // --- 그 외 모든 요청 (React Router가 처리) ---
+                .anyRequest().permitAll()
+            );
+
         return http.build();
+    }
+
+ // ✅ 2. CORS 상세 설정을 정의합니다.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        
+        // React 개발 서버 주소(localhost:3000)를 허용합니다.
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:3000"));
+        
+        // 모든 HTTP 메소드(GET, POST, PUT, DELETE 등)를 허용합니다.
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        
+        // 모든 요청 헤더를 허용합니다.
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        
+        // 쿠키/세션을 포함한 요청을 허용합니다.
+        configuration.setAllowCredentials(true);
+        
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        // 모든 경로에 대해 위 CORS 설정을 적용합니다.
+        source.registerCorsConfiguration("/**", configuration);
+        
+        return source;
     }
 }

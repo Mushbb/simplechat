@@ -15,6 +15,23 @@ import lombok.RequiredArgsConstructor;
 public class RoomUserRepository {
 	private final JDBC_SQL jdbcsql;
 	
+	/**
+     * 특정 사용자가 참여하고 있는 모든 채팅방의 기본 정보를 조회합니다.
+     * 방 정보와 방 개설자의 닉네임을 함께 가져옵니다.
+     *
+     * @param userId 사용자의 ID
+     * @return 각 방의 정보를 담은 Map의 리스트
+     */
+    public List<Map<String, Object>> findRoomsByUserId(Long userId) {
+        String sql = "SELECT r.room_id, r.room_name, r.room_type, u.nickname as owner_name " +
+                     "FROM chat_rooms r " +
+                     "INNER JOIN chat_room_users cru ON r.room_id = cru.room_id " +
+                     "LEFT JOIN users u ON r.owner_id = u.user_id " +
+                     "WHERE cru.user_id = ?";
+        
+        return jdbcsql.executeSelect(sql, new String[]{String.valueOf(userId)});
+    }
+	
     /**
      * 특정 사용자를 특정 채팅방에 지정된 역할과 닉네임으로 추가합니다.
      *
@@ -96,6 +113,10 @@ public class RoomUserRepository {
      */
     public boolean exists(Long userId, Long roomId) {
         String sql = "SELECT COUNT(1) FROM chat_room_users WHERE user_id = ? AND room_id = ?";
+        if( userId == null ) {
+        	return false;
+        }
+        
         List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql,
                 new String[]{String.valueOf(userId), String.valueOf(roomId)});
 

@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
@@ -90,6 +91,18 @@ public class simplechatController {
 		return 1;
 	}
 	
+	@GetMapping("/api/my-rooms")
+	public ResponseEntity<List<ChatRoomListDto>> getMyRooms(HttpSession session) {
+	    Long userId = (Long) session.getAttribute("userId");
+	    if (userId == null) {
+	        // 로그인하지 않은 사용자는 빈 목록 또는 에러를 반환
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+	    }
+	    // ✅ 서비스에 userId로 참여 중인 방 목록을 가져오는 로직이 필요합니다.
+	    List<ChatRoomListDto> myRooms = serv.findRoomsByUserId(userId);
+	    return ResponseEntity.ok(myRooms);
+	}
+	
 	@GetMapping("/user/{userId}/profile")
 	public UserProfileDto getUserProfile(@PathVariable("userId") Long userId) {
 		return serv.getUserProfile(userId);
@@ -137,9 +150,9 @@ public class simplechatController {
 	@GetMapping("/room/list")
 	public List<ChatRoomListDto> getRoomList(HttpSession session){
 		Long userId = (Long)session.getAttribute("userId");
-		if( userId == null ) {
-			throw new RegistrationException("UNAUTHORIZED","Please login first!");
-		}
+//		if( userId == null ) {
+//			throw new RegistrationException("UNAUTHORIZED","Please login first!");
+//		}
         return serv.getRoomList(userId);
 	}
 	
