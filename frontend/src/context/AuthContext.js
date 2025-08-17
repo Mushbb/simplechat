@@ -1,6 +1,8 @@
 import React, { createContext, useState, useEffect } from 'react';
 import axiosInstance from '../api/axiosInstance';
 
+const SERVER_URL = 'http://localhost:8080';
+
 const AuthContext = createContext();
 
 function AuthProvider({ children }) {
@@ -14,7 +16,7 @@ function AuthProvider({ children }) {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch('/auth/session', {
+        const response = await fetch(`${SERVER_URL}/auth/session`, {
           credentials: 'include',
         });
         if (response.ok) {
@@ -39,7 +41,7 @@ function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const response = await fetch('/auth/login', {
+      const response = await fetch(`${SERVER_URL}/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -64,7 +66,7 @@ function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await fetch('/auth/logout', { method: 'POST', credentials: 'include' });
+      await fetch(`${SERVER_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
     } finally {
       setUser(null);
         window.location.reload();
@@ -74,7 +76,7 @@ function AuthProvider({ children }) {
     // ✅ 회원가입 함수 추가
     const register = async (username, nickname, password) => {
         try {
-            const response = await axiosInstance.post('/auth/register', { username, nickname, password });
+            const response = await axiosInstance.post(`${SERVER_URL}/auth/register`, { username, nickname, password });
             setUser(response.data); // 회원가입 성공 시 바로 로그인 처리
             closeRegisterModal();
             alert('회원가입 성공! 환영합니다.');
@@ -90,7 +92,7 @@ function AuthProvider({ children }) {
             return;
         }
         try {
-            await axiosInstance.delete('/auth/delete');
+            await axiosInstance.delete(`${SERVER_URL}/auth/delete`);
             setUser(null); // 로그아웃 처리
             alert('계정이 성공적으로 삭제되었습니다.');
         } catch (error) {

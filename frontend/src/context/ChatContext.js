@@ -3,6 +3,7 @@ import { AuthContext } from './AuthContext';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '../api/axiosInstance';
+const SERVER_URL = 'http://localhost:8080';
 
 const ChatContext = createContext();
 
@@ -50,7 +51,7 @@ function ChatProvider({ children }) {
         if (!user || stompClientsRef.current.has(roomId)) return;
 
         const client = new Client({
-            webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+            webSocketFactory: () => new SockJS(`${SERVER_URL}/ws`),
             connectHeaders: { user_id: String(user.userId), room_id: String(roomId) },
             onConnect: () => {
                 console.log(`Room #${roomId}: 웹소켓 연결 성공`);
