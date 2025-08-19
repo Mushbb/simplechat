@@ -28,14 +28,14 @@ const roomActionsStyle = {
 function LobbyPage() {
   const [rooms, setRooms] = useState([]);
   const { user, openLoginModal, loading  } = useContext(AuthContext);
-    const { setActiveRoomId, initializeChat, usersByRoom } = useContext(ChatContext);
+    const { setActiveRoomId, initializeChat, usersByRoom, joinRoomAndConnect } = useContext(ChatContext);
     const navigate = useNavigate();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const fetchRooms = async () => {
     try {
-        const response = await axiosInstance.get(`${SERVER_URL}/room/list`);
+        const response = await axiosInstance.get(`/room/list`);
         setRooms(response.data);
     } catch (error) {
         console.error('Failed to fetch rooms:', error);
@@ -43,50 +43,38 @@ function LobbyPage() {
   };
 
   // 방 입장 처리 함수 - async/await 추가
-  const handleEnterRoom = async (room) => {
-    let password = '';
-    // 비공개 방일 경우 비밀번호를 입력받습니다.
-    if (room.roomType === 'PRIVATE' && !room.isMember) {
-      password = prompt('비밀번호를 입력하세요:');
-      if (password === null) return;// 사용자가 취소 버튼을 누른 경우
-        try {
-            const response = await fetch(`${SERVER_URL}/room/${room.id}/users`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                credentials: 'include',
-                body: JSON.stringify({ password }), // 비밀번호를 body에 담아 전송
-            });
-
-            if (response.ok) {
-                console.log(`Successfully entered room ${room.id}`);
-                setActiveRoomId(room.id);
-                setTimeout( function(){navigate(`/chat/${room.id}`)}, 100); // 성공 시에만 페이지 이동
-            } else {
-                const errorData = await response.json();
-                alert(errorData.message || '입장에 실패했습니다.');
+    
+    const handleEnterRoom = async (room) => {
+        let password = ''; // ✅ 1. password 변수를 먼저 선언합니다.
+        
+        // ✅ 2. 비밀방이고, 아직 멤버가 아닐 경우에만 비밀번호를 물어봅니다.
+        if (room.roomType === 'PRIVATE' && !room.isMember) {
+            password = prompt('비밀번호를 입력하세요:');
+            if (password === null) { // 사용자가 '취소'를 누르면 함수를 종료합니다.
+                return;
             }
+        }
+        
+        try {
+            // ✅ 3. prompt로 입력받았거나, 공개방이어서 빈 값인 password를 전송합니다.
+            await axiosInstance.post(`/room/${room.id}/users`, { password });
+            
+            // API 호출이 성공하면, Context에 새로운 방 정보를 알리고 연결을 시작합니다.
+            joinRoomAndConnect(room);
+            
+            // 채팅방으로 이동합니다.
+            navigate(`/chat/${room.id}`);
+            
         } catch (error) {
             console.error('Failed to enter room:', error);
-            alert('방 입장에 실패했습니다.');
+            alert(error.response?.data?.message || '입장에 실패했습니다.');
         }
-    }
-
-    // 공개방이거나, 이미 멤버인 비밀방은 바로 입장 요청
-      try {
-          const response = await axiosInstance.post(`${SERVER_URL}/room/${room.id}/users`, { password: '' }); // 비밀번호는 빈 값으로
-          navigate(`/chat/${room.id}`);
-      } catch (error) {
-          console.error('Failed to enter room:', error);
-          alert(error.response?.data?.message || '입장에 실패했습니다.');
-      }
-  };
+    };
 
   const handleCreateRoom = async (roomData) => {
         try {
             // roomData는 모달에서 받은 { roomName, roomType, password } 객체입니다.
-            const response = await axiosInstance.post(`${SERVER_URL}/room/create`, roomData);
+            const response = await axiosInstance.post(`/room/create`, roomData);
             const newRoomId = response.data;
             setIsCreateModalOpen(false); // 모달 닫기
             alert('새로운 방이 생성되었습니다!');

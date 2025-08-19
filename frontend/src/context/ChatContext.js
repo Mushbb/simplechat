@@ -13,9 +13,24 @@ function ChatProvider({ children }) {
     const [activeRoomId, setActiveRoomId] = useState(null);
     const [messagesByRoom, setMessagesByRoom] = useState({});
     const [usersByRoom, setUsersByRoom] = useState({});
-
+    const [isRoomLoading, setIsRoomLoading] = useState({});
+    
     const stompClientsRef = useRef(new Map());
-
+    
+    const joinRoomAndConnect = (newRoom) => {
+        // 이미 명단에 있으면 아무것도 하지 않음
+        if (joinedRooms.some(room => room.id === newRoom.id)) {
+            console.log(`Room #${newRoom.id} is already in the list.`);
+            return;
+        }
+        
+        // 1. lifeguard의 명단(joinedRooms state)에 새로운 방을 추가
+        setJoinedRooms(prevRooms => [...prevRooms, newRoom]);
+        
+        // 2. 해당 방의 웹소켓 연결 및 초기화 시작
+        connectToRoom(newRoom.id);
+    };
+    
     useEffect(() => {
         const connectToAllMyRooms = async () => {
             if (!loading && user) {
@@ -49,21 +64,26 @@ function ChatProvider({ children }) {
 
     const connectToRoom = (roomId) => {
         if (!user || stompClientsRef.current.has(roomId)) return;
-
+        
+        setIsRoomLoading(prev => ({ ...prev, [roomId]: true }));
+        
         const client = new Client({
             webSocketFactory: () => new SockJS(`${SERVER_URL}/ws`),
             connectHeaders: { user_id: String(user.userId), room_id: String(roomId) },
-            onConnect: () => {
+            onConnect: options => {
                 console.log(`Room #${roomId}: 웹소켓 연결 성공`);
-                client.subscribe(`${SERVER_URL}/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
-                client.subscribe(`${SERVER_URL}/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
-                client.subscribe(`${SERVER_URL}/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
+                client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
+                client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
+                client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
                 // 알림 채널은 여기에 추가할 수 있습니다.
 
-                axiosInstance.get(`${SERVER_URL}/room/${roomId}/init?lines=20`).then(response => {
+                axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
                     const data = response.data;
                     setUsersByRoom(prev => ({ ...prev, [roomId]: data.users || [] }));
                     setMessagesByRoom(prev => ({ ...prev, [roomId]: [...(data.messages || [])].reverse() }));
+                }).finally(() => {
+                    // ✅ 3. API 호출이 성공하든 실패하든 끝나면 로딩 상태를 false로 설정
+                    setIsRoomLoading(prev => ({ ...prev, [roomId]: false }));
                 });
             },
         });
@@ -152,6 +172,8 @@ function ChatProvider({ children }) {
         usersByRoom,
         stompClientsRef,
         initializeChat,
+        isRoomLoading,
+        joinRoomAndConnect,
     };
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

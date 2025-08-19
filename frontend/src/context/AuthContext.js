@@ -69,14 +69,13 @@ function AuthProvider({ children }) {
       await fetch(`${SERVER_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
     } finally {
       setUser(null);
-        window.location.reload();
     }
   };
 
     // ✅ 회원가입 함수 추가
     const register = async (username, nickname, password) => {
         try {
-            const response = await axiosInstance.post(`${SERVER_URL}/auth/register`, { username, nickname, password });
+            const response = await axiosInstance.post(`/auth/register`, { username, nickname, password });
             setUser(response.data); // 회원가입 성공 시 바로 로그인 처리
             closeRegisterModal();
             alert('회원가입 성공! 환영합니다.');
@@ -92,7 +91,7 @@ function AuthProvider({ children }) {
             return;
         }
         try {
-            await axiosInstance.delete(`${SERVER_URL}/auth/delete`);
+            await axiosInstance.delete(`/auth/delete`);
             setUser(null); // 로그아웃 처리
             alert('계정이 성공적으로 삭제되었습니다.');
         } catch (error) {

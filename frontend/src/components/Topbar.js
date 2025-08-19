@@ -14,7 +14,13 @@ function Topbar() {
         setActiveRoomId(roomId); // Context에 현재 활성화된 방이 무엇인지 알립니다.
         navigate(`/chat/${roomId}`); // 해당 방의 URL로 페이지를 이동시킵니다.
     };
-
+    
+    // ✅ 새로운 로그아웃 핸들러 함수를 만듭니다.
+    const handleLogout = async () => {
+        await logout(); // 기존의 logout 함수를 호출해서 상태를 변경하고
+        navigate('/');  // 작업이 끝나면 로비로 이동시킵니다.
+    };
+    
   return (
     <header className="topbar">
         <div className="topbar-auth-controls">
@@ -22,7 +28,7 @@ function Topbar() {
                 <>
                     <span>{user.nickname}님</span>
                     <button onClick={openProfileModal}>프로필 수정</button>
-                    <button onClick={logout}>로그아웃</button>
+                    <button onClick={handleLogout}>로그아웃</button>
                     <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>
                 </>
             ) : (

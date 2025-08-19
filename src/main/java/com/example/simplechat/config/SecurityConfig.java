@@ -20,30 +20,27 @@ public class SecurityConfig {
         // BCrypt 알고리즘을 사용하는 PasswordEncoder를 반환합니다.
         return new BCryptPasswordEncoder();
     }
-
+    
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(authz -> authz
-                // 모든 OPTIONS 사전 요청은 무조건 허용 (CORS 문제 해결)
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+        	    // CORS Preflight 요청은 항상 허용
+        	    .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // --- 👇 인증 없이 접근 허용할 경로들 ---
-                .requestMatchers("/auth/**").permitAll()
-                
-                // ✅ 이 줄이 가장 중요합니다. GET 방식의 /room/list 요청은 무조건 허용!
-                .requestMatchers(HttpMethod.GET, "/room/list").permitAll() 
-                
-                .requestMatchers("/ws/**").permitAll()
-                // --- 그 외 모든 요청 (React Router가 처리) ---
-                .anyRequest().permitAll()
-            );
+        	    // --- 👇 인증 없이 접근해야만 하는 경로들 ---
+        	    .requestMatchers("/auth/login", "/auth/register").permitAll()
+        	    .requestMatchers(HttpMethod.GET, "/room/list").permitAll()
+        	    .requestMatchers("/ws/**").permitAll()
+
+        	    // --- 👇 그 외 모든 요청은 반드시 인증 필요 ---
+        	    .anyRequest().authenticated() // '/auth/session' 포함 모든 요청은 인증된 사용자만
+        	);
 
         return http.build();
     }
-
  // ✅ 2. CORS 상세 설정을 정의합니다.
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

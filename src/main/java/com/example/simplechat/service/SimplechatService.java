@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
-//import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -186,6 +186,7 @@ public class SimplechatService {
 		}
 	}
 	
+	@Transactional
 	public User register(UserRegistrationRequestDto requestDto) {
 		if(requestDto.username().equals("system")) {	// invalid username
 			throw new RegistrationException("INVALID_USERNAME","Invalid Username");
@@ -210,7 +211,7 @@ public class SimplechatService {
 	public User getUserById(Long userId) {
 		return userRepository.findById(userId).orElseThrow(() -> new RuntimeException("해당 ID의 사용자를 찾을 수 없습니다: " + userId));
 	}
-	
+	@Transactional
 	public Long delete_account(Long userId) {
 		if(!userRepository.existsById(userId)) {
 			throw new RuntimeException("해당 ID의 사용자를 찾을 수 없습니다: " + userId);
@@ -271,7 +272,7 @@ public class SimplechatService {
             ))
             .collect(Collectors.toList());
 	}
-	
+	@Transactional
 	public Long createRoom(RoomCreateDto roomcreateDto, Long userId) {
 		User user = userRepository.findById(userId)
 	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
@@ -284,7 +285,7 @@ public class SimplechatService {
 		roomUserRepository.save(userId, roomId, user.getNickname(), "ADMIN");
 		return roomId;
 	}
-	
+	@Transactional
 	public Long enterRoom(Long roomId, Long userId, String password) {
 	    User user = userRepository.findById(userId)
 	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
@@ -329,11 +330,28 @@ public class SimplechatService {
             }
         });
 
-		return new RoomInitDataDto(roomRepository.findUsersByRoomId(roomId),
-				messageDtos,
-                room.getName());
+     // 1. Repository에서 사용자 목록을 일단 가져옵니다.
+        List<ChatRoomUserDto> rawUsers = roomRepository.findUsersByRoomId(roomId);
+
+        // 2. 스트림을 사용해 각 사용자의 이미지 URL을 확인하고, null이면 기본 이미지 경로를 넣어줍니다.
+        List<ChatRoomUserDto> correctedUsers = rawUsers.stream()
+            .map(u -> {
+                String imageUrl = u.profileImageUrl();
+                if (imageUrl == null || imageUrl.isBlank() || imageUrl.endsWith("null")) { // DB 값이 null인 경우
+                    imageUrl = profileStaticUrlPrefix + "/default.png";
+                } else if (!imageUrl.startsWith(profileStaticUrlPrefix)) { // 상대 경로가 아닌 경우 (혹시 모를 예외 처리)
+                    imageUrl = profileStaticUrlPrefix + "/" + imageUrl;
+                }
+                // DTO의 다른 필드는 그대로 두고, 이미지 URL만 수정한 새 DTO를 생성합니다.
+                // (주의: ChatRoomUserDto에 모든 필드를 받는 생성자가 필요합니다.)
+                return new ChatRoomUserDto(u.userId(), u.nickname(), u.role(), u.conn(), imageUrl);
+            })
+            .collect(Collectors.toList());
+
+        // 3. 수정된 사용자 목록(correctedUsers)으로 최종 DTO를 생성하여 반환합니다.
+        return new RoomInitDataDto(correctedUsers, messageDtos, room.getName());
 	}
-	
+	@Transactional
 	public void exitRoom(Long roomId, Long userId) {
 	    User user = userRepository.findById(userId)
 	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
@@ -348,7 +366,7 @@ public class SimplechatService {
 	    roomUserRepository.delete(userId, roomId);
 	    eventPublisher.publishEvent(new UserExitedRoomEvent(this, userId, roomId, UserEventDto.EventType.ROOM_OUT));
 	}
-	
+	@Transactional
 	public void changeNicknameInRoom(NickChangeDto nickChangeDto) {
 	    // (필요하다면) 닉네임 유효성 검사 (길이, 중복 등) 로직 추가
 		
@@ -370,7 +388,7 @@ public class SimplechatService {
 		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
 	}
 
-//	@Transactional
+	@Transactional
 	public void deleteRoom(Long roomId, Long userId) {
 		// 1. 권한 검증
 		String userRole = roomUserRepository.getRole(userId, roomId);
@@ -445,7 +463,7 @@ public class SimplechatService {
 				imageUrl
 		);
 	}
-	
+	@Transactional
 	public UserProfileDto changeUserProfile(ProfileUpdateRequestDto profileDto, Long userId) {
 		// 1. DB에서 현재 사용자 정보를 가져옴
 		User user = userRepository.findById(userId)
@@ -461,7 +479,7 @@ public class SimplechatService {
 		// 4. 변경된 최신 프로필 정보를 다시 조회하여 반환
 		return getUserProfile(userId);
 	}
-
+	@Transactional
 	public String updateProfileImage(Long userId, MultipartFile file) {
 		// 1. 사용자 정보 조회
 		User user = userRepository.findById(userId)
