@@ -1,6 +1,6 @@
 import React, { useRef, useLayoutEffect, useState } from 'react';
 
-const SERVER_URL = 'http://localhost:8080';
+const SERVER_URL = 'http://10.50.131.25:8080';
 
 const ChatMessage = ({ message }) => {
   const messageBodyRef = useRef(null);

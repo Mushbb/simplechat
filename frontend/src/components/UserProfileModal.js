@@ -1,6 +1,6 @@
 import React from 'react';
 
-const SERVER_URL = 'http://localhost:8080';
+const SERVER_URL = 'http://10.50.131.25:8080';
 
 // 모달 전체에 적용될 스타일
 const modalStyle = {

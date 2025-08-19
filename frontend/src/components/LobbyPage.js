@@ -5,6 +5,8 @@ import { ChatContext } from '../context/ChatContext';
 import CreateRoomModal from './CreateRoomModal';
 import axiosInstance from '../api/axiosInstance';
 
+const SERVER_URL = 'http://10.50.131.25:8080';
+
 // 간단한 리스트 아이템 스타일
 const listItemStyle = {
   display: 'flex',
@@ -26,14 +28,14 @@ const roomActionsStyle = {
 function LobbyPage() {
   const [rooms, setRooms] = useState([]);
   const { user, openLoginModal, loading  } = useContext(AuthContext);
-    const { setActiveRoomId, initializeChat, usersByRoom  } = useContext(ChatContext);
+    const { setActiveRoomId, initializeChat, usersByRoom } = useContext(ChatContext);
     const navigate = useNavigate();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   const fetchRooms = async () => {
     try {
-        const response = await axiosInstance.get('/room/list');
+        const response = await axiosInstance.get(`${SERVER_URL}/room/list`);
         setRooms(response.data);
     } catch (error) {
         console.error('Failed to fetch rooms:', error);
@@ -48,7 +50,7 @@ function LobbyPage() {
       password = prompt('비밀번호를 입력하세요:');
       if (password === null) return;// 사용자가 취소 버튼을 누른 경우
         try {
-            const response = await fetch(`/room/${room.id}/users`, {
+            const response = await fetch(`${SERVER_URL}/room/${room.id}/users`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -59,7 +61,8 @@ function LobbyPage() {
 
             if (response.ok) {
                 console.log(`Successfully entered room ${room.id}`);
-                navigate(`/chat/${room.id}`); // 성공 시에만 페이지 이동
+                setActiveRoomId(room.id);
+                setTimeout( function(){navigate(`/chat/${room.id}`)}, 100); // 성공 시에만 페이지 이동
             } else {
                 const errorData = await response.json();
                 alert(errorData.message || '입장에 실패했습니다.');
@@ -72,7 +75,7 @@ function LobbyPage() {
 
     // 공개방이거나, 이미 멤버인 비밀방은 바로 입장 요청
       try {
-          const response = await axiosInstance.post(`/room/${room.id}/users`, { password: '' }); // 비밀번호는 빈 값으로
+          const response = await axiosInstance.post(`${SERVER_URL}/room/${room.id}/users`, { password: '' }); // 비밀번호는 빈 값으로
           navigate(`/chat/${room.id}`);
       } catch (error) {
           console.error('Failed to enter room:', error);
@@ -83,7 +86,7 @@ function LobbyPage() {
   const handleCreateRoom = async (roomData) => {
         try {
             // roomData는 모달에서 받은 { roomName, roomType, password } 객체입니다.
-            const response = await axiosInstance.post('/room/create', roomData);
+            const response = await axiosInstance.post(`${SERVER_URL}/room/create`, roomData);
             const newRoomId = response.data;
             setIsCreateModalOpen(false); // 모달 닫기
             alert('새로운 방이 생성되었습니다!');
@@ -91,7 +94,7 @@ function LobbyPage() {
             await initializeChat();
 
             fetchRooms(); // 방 목록 새로고침
-            // navigate(`/chat/${newRoomId}`); // 생성된 방으로 바로 이동하고 싶다면 주석 해제
+            navigate(`/chat/${newRoomId}`); // 생성된 방으로 바로 이동하고 싶다면 주석 해제
         } catch (error) {
             console.error('Failed to create room:', error);
             alert(error.response?.data?.message || '방 생성에 실패했습니다.');

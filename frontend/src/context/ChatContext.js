@@ -3,7 +3,7 @@ import { AuthContext } from './AuthContext';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '../api/axiosInstance';
-const SERVER_URL = 'http://localhost:8080';
+const SERVER_URL = 'http://10.50.131.25:8080';
 
 const ChatContext = createContext();
 
@@ -55,12 +55,12 @@ function ChatProvider({ children }) {
             connectHeaders: { user_id: String(user.userId), room_id: String(roomId) },
             onConnect: () => {
                 console.log(`Room #${roomId}: 웹소켓 연결 성공`);
-                client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
-                client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
-                client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
+                client.subscribe(`${SERVER_URL}/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
+                client.subscribe(`${SERVER_URL}/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
+                client.subscribe(`${SERVER_URL}/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
                 // 알림 채널은 여기에 추가할 수 있습니다.
 
-                axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
+                axiosInstance.get(`${SERVER_URL}/room/${roomId}/init?lines=20`).then(response => {
                     const data = response.data;
                     setUsersByRoom(prev => ({ ...prev, [roomId]: data.users || [] }));
                     setMessagesByRoom(prev => ({ ...prev, [roomId]: [...(data.messages || [])].reverse() }));
@@ -135,7 +135,7 @@ function ChatProvider({ children }) {
             stompClientsRef.current.forEach(client => client.deactivate());
             stompClientsRef.current.clear();
 
-            const response = await axiosInstance.get('/api/my-rooms');
+            const response = await axiosInstance.get(`${SERVER_URL}/api/my-rooms`);
             const myRooms = response.data;
             setJoinedRooms(myRooms);
             myRooms.forEach(room => connectToRoom(room.id));

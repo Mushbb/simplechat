@@ -7,7 +7,7 @@ import UserProfileModal from './UserProfileModal';
 import { IoSend } from "react-icons/io5";
 import axiosInstance from '../api/axiosInstance';
 
-const SERVER_URL = 'http://localhost:8080';
+const SERVER_URL = 'http://10.50.131.25:8080';
 
 function ChatPage() {
     const { roomId } = useParams();
