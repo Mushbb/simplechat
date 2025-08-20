@@ -15,9 +15,14 @@ function ChatProvider({ children }) {
     const [usersByRoom, setUsersByRoom] = useState({});
     const [isRoomLoading, setIsRoomLoading] = useState({});
     const [unreadRooms, setUnreadRooms] = useState(new Set());  // 안 읽은 메시지가 있는 방 ID를 저장할 Set state
+    // ✅ NEW: 방마다 더 불러올 메시지가 있는지 추적하는 state
+    const [hasMoreMessagesByRoom, setHasMoreMessagesByRoom] = useState({});
     
     const stompClientsRef = useRef(new Map());
     const activeRoomIdRef = useRef(activeRoomId);
+    // ✅ NEW: 개인 응답 채널의 구독 상태를 관리할 ref를 추가합니다.
+    const replySubscriptionRef = useRef(null);
+    
     // activeRoomId state가 바뀔 때마다 '전자 게시판(ref)'의 내용을 즉시 업데이트
     useEffect(() => {
         activeRoomIdRef.current = activeRoomId;
@@ -65,9 +70,37 @@ function ChatProvider({ children }) {
             setJoinedRooms([]);
             setMessagesByRoom({});
             setUsersByRoom({});
+            replySubscriptionRef.current = null; // 구독 상태 초기화
         };
     }, [user, loading]);
-
+    
+    const onMoreMessagesReceived = (response) => {
+        const { roomId, messages } = response;
+        if (!roomId || !messages) return;
+        
+        // ✅ NEW: 서버가 빈 배열을 반환하면, 더 이상 메시지가 없다고 기록합니다.
+        if (messages.length === 0) {
+            setHasMoreMessagesByRoom(prev => ({ ...prev, [roomId]: false }));
+            return;
+        }
+        
+        // 더 이상 불러올 메시지가 없을 때(빈 배열 수신) 로딩 상태를 중지시키기 위함
+        if (messages.length === 0) {
+            console.log(`No more messages for room #${roomId}`);
+            // ChatPage에서 isFetchingMore를 false로 바꿔주도록 빈 배열을 전달
+        }
+        
+        setMessagesByRoom(prev => {
+            const currentMessages = prev[roomId] || [];
+            const existingMessageIds = new Set(currentMessages.map(msg => msg.messageId));
+            const newMessages = messages.filter(msg => !existingMessageIds.has(msg.messageId));
+            
+            if (newMessages.length === 0) return prev; // 중복 또는 빈 배열이면 상태 변경 안함
+            
+            return { ...prev, [roomId]: [...newMessages, ...currentMessages] };
+        });
+    };
+    
     const connectToRoom = (roomId) => {
         if (!user || stompClientsRef.current.has(roomId)) return;
         
@@ -81,12 +114,27 @@ function ChatProvider({ children }) {
                 client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
                 client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
                 client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
+                // ✅ MODIFIED: 아직 구독하지 않았을 때만 개인 응답 채널을 구독합니다.
+                if (!replySubscriptionRef.current) {
+                    console.log("Subscribing to the user-reply topic for the first time.");
+                    replySubscriptionRef.current = client.subscribe(`/user/topic/queue/reply`, (payload) => {
+                        console.log("Received a message on user-reply topic.");
+                        const response = JSON.parse(payload.body);
+                        onMoreMessagesReceived(response);
+                    });
+                }
                 // 알림 채널은 여기에 추가할 수 있습니다.
 
                 axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
                     const data = response.data;
                     setUsersByRoom(prev => ({ ...prev, [roomId]: data.users || [] }));
                     setMessagesByRoom(prev => ({ ...prev, [roomId]: [...(data.messages || [])].reverse() }));
+                    
+                    // ✅ NEW: 방에 처음 입장할 때는 기본적으로 더 불러올 메시지가 있다고 가정합니다.
+                    // (만약 처음부터 메시지가 20개 미만이면 false로 설정하는 최적화도 가능합니다.)
+                    const initialMessages = response.data.messages || [];
+                    setHasMoreMessagesByRoom(prev => ({ ...prev, [roomId]: initialMessages.length >= 20 }));
+                    
                 }).finally(() => {
                     // ✅ 3. API 호출이 성공하든 실패하든 끝나면 로딩 상태를 false로 설정
                     setIsRoomLoading(prev => ({ ...prev, [roomId]: false }));
@@ -188,6 +236,32 @@ function ChatProvider({ children }) {
         }
     };
     
+    // ✅ NEW: 이전 메시지를 서버에 요청하는 함수
+    const loadMoreMessages = (roomId) => {
+        const client = stompClientsRef.current.get(roomId);
+        const currentMessages = messagesByRoom[roomId] || [];
+        
+        // 클라이언트가 연결되지 않았거나, 메시지가 없으면 요청하지 않음
+        if (!client?.connected || currentMessages.length === 0) {
+            console.log("Cannot load more messages. Client not connected or no existing messages.");
+            return;
+        }
+        
+        const oldestMessage = currentMessages[0]; // 배열의 첫 번째 메시지가 가장 오래된 메시지
+        
+        const requestDto = {
+            roomId: roomId,
+            beginId: oldestMessage.messageId,
+            rowCount: 20 // 한 번에 20개씩 불러오기
+        };
+        
+        // 백엔드의 getMessageList 메시지 핸들러로 요청 전송
+        client.publish({
+            destination: '/app/chat.getMessageList',
+            body: JSON.stringify(requestDto),
+        });
+    };
+    
     // ✅ 3. 방 나가기 함수 추가
     const exitRoom = async (roomId) => {
         try {
@@ -231,6 +305,8 @@ function ChatProvider({ children }) {
         exitRoom,
         deleteRoom,
         unreadRooms,
+        hasMoreMessagesByRoom, // ✅ NEW: ChatPage에서 사용할 수 있도록 추가
+        loadMoreMessages,
     };
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

@@ -12,7 +12,7 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 function ChatPage() {
     const { roomId } = useParams();
     const { user } = useContext(AuthContext);
-    const { setActiveRoomId, messagesByRoom, usersByRoom, joinedRooms, stompClientsRef, isRoomLoading } = useContext(ChatContext);
+    const { setActiveRoomId, messagesByRoom, usersByRoom, joinedRooms, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom } = useContext(ChatContext);
 
     // --- UI 상호작용을 위한 Local State ---
     const [newMessage, setNewMessage] = useState('');
@@ -24,6 +24,7 @@ function ChatPage() {
     const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [myRole, setMyRole] = useState(null);
+    const [isFetchingMore, setIsFetchingMore] = useState(false);
 
     // --- DOM 참조 및 스크롤 관리를 위한 Ref ---
     const textareaRef = useRef(null);
@@ -37,6 +38,18 @@ function ChatPage() {
     const users = usersByRoom[currentRoomId] || [];
     const scrollActionRef = useRef('initial');
     const isLoading = isRoomLoading[currentRoomId] !== false;
+    // ✅ NEW: 현재 방에 더 불러올 메시지가 있는지 확인하는 변수
+    // 아직 값이 설정되지 않았다면 기본값으로 true를 사용합니다.
+    const hasMoreMessages = hasMoreMessagesByRoom[currentRoomId] !== false;
+    
+    // ✅ MODIFIED: 'stuck loading' 버그를 해결하기 위한 useEffect
+    // 이전에 제안했던 prevMessageCountRef 로직을 이 방식으로 대체하거나 통합합니다.
+    useEffect(() => {
+        // 로딩 중 상태인데, 더 이상 불러올 메시지가 없다고 판명되면 로딩 상태를 해제합니다.
+        if (isFetchingMore && !hasMoreMessages) {
+            setIsFetchingMore(false);
+        }
+    }, [isFetchingMore, hasMoreMessages]);
     
     // ✅ addFiles 함수를 useCallback으로 감싸줍니다.
     const addFiles = useCallback((newFiles) => {
@@ -96,13 +109,21 @@ function ChatPage() {
             textarea.style.height = `${scrollHeight}px`;
         }
     }, [newMessage]);
-
+    
+    // ✅ MODIFIED: 기존 useLayoutEffect를 수정하여 스크롤 위치를 보존하는 로직을 추가합니다.
     useLayoutEffect(() => {
         const container = scrollContainerRef.current;
-        if (container) {
+        if (!container) return;
+        
+        if (isFetchingMore) {
+            // 이전 메시지가 로드되었을 때: 스크롤 위치를 조정하여 뷰를 유지
+            container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
+            setIsFetchingMore(false); // 로딩 상태 해제
+        } else {
+            // 새 메시지가 오거나 방에 처음 들어왔을 때: 맨 아래로 스크롤
             container.scrollTop = container.scrollHeight;
         }
-    }, [messages]);
+    }, [messages]); // messages 배열이 변경될 때마다 실행
     
     useEffect(() => {
         if (user && users.length > 0) {
@@ -132,6 +153,17 @@ function ChatPage() {
         if (e.key === 'Enter') {
             e.preventDefault();
             handleSendMessage(e);
+        }
+    };
+    
+    const handleScroll = () => {
+        const container = scrollContainerRef.current;
+        // ✅ MODIFIED: 'hasMoreMessages'가 true일 때만 로딩을 시작하도록 조건을 추가합니다.
+        if (container && container.scrollTop === 0 && !isFetchingMore && hasMoreMessages) {
+            console.log("Reached top, fetching older messages...");
+            prevScrollHeightRef.current = container.scrollHeight;
+            setIsFetchingMore(true);
+            loadMoreMessages(currentRoomId);
         }
     };
 
@@ -273,14 +305,23 @@ function ChatPage() {
                     </div>
                 </div>
                 <div className="chat-panel">
-                    <div ref={scrollContainerRef} className="chat-message-list">
+                    <div ref={scrollContainerRef} className="chat-message-list" onScroll={handleScroll}>
                         {/* ✅ 3. 로딩 상태에 따라 조건부 렌더링 */}
                         {isLoading ? (
                             <div style={{ textAlign: 'center', padding: '20px' }}>
                                 채팅 내역을 불러오는 중입니다...
                             </div>
                         ) : (
-                            messages.map((msg, index) => <ChatMessage key={msg.messageId || `msg-${index}`} message={msg} />)
+                            <>
+                                {/* ✅ MODIFIED: 조건부 렌더링 로직 수정 */}
+                                {!hasMoreMessages && (
+                                    <div style={{ textAlign: 'center', padding: '10px', color: '#888' }}>
+                                        대화의 시작입니다.
+                                    </div>
+                                )}
+                                {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px' }}>이전 메시지 로딩 중...</div>}
+                                {messages.map((msg, index) => <ChatMessage key={msg.messageId || `msg-${index}`} message={msg} />)}
+                            </>
                         )}
                     </div>
                     {filesToUpload.length > 0 && (

@@ -424,7 +424,7 @@ public class SimplechatService {
             }
         });
 
-        return new ChatMessageListDto(messageDtos.reversed());
+        return new ChatMessageListDto(msgListDto.roomId(), messageDtos.reversed());
 	}
 
     private List<ChatMessageDto> mapMessagesToDto(List<ChatMessage> messages) {
