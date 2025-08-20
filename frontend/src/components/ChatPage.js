@@ -23,6 +23,7 @@ function ChatPage() {
     const [selectedProfile, setSelectedProfile] = useState(null);
     const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
     const [isDragging, setIsDragging] = useState(false);
+    const [myRole, setMyRole] = useState(null);
 
     // --- DOM 참조 및 스크롤 관리를 위한 Ref ---
     const textareaRef = useRef(null);
@@ -102,6 +103,17 @@ function ChatPage() {
             container.scrollTop = container.scrollHeight;
         }
     }, [messages]);
+    
+    useEffect(() => {
+        if (user && users.length > 0) {
+            const me = users.find(u => u.userId === user.userId);
+            if (me) {
+                setMyNickname(me.nickname);
+                // ✅ 2. 내 역할 정보도 함께 state에 저장
+                setMyRole(me.role);
+            }
+        }
+    }, [users, user]);
 
     // --- 이벤트 핸들러 ---
     const handleSendMessage = (e) => {

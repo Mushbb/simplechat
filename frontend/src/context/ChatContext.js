@@ -14,8 +14,14 @@ function ChatProvider({ children }) {
     const [messagesByRoom, setMessagesByRoom] = useState({});
     const [usersByRoom, setUsersByRoom] = useState({});
     const [isRoomLoading, setIsRoomLoading] = useState({});
+    const [unreadRooms, setUnreadRooms] = useState(new Set());  // 안 읽은 메시지가 있는 방 ID를 저장할 Set state
     
     const stompClientsRef = useRef(new Map());
+    const activeRoomIdRef = useRef(activeRoomId);
+    // activeRoomId state가 바뀔 때마다 '전자 게시판(ref)'의 내용을 즉시 업데이트
+    useEffect(() => {
+        activeRoomIdRef.current = activeRoomId;
+    }, [activeRoomId]);
     
     const joinRoomAndConnect = (newRoom) => {
         // 이미 명단에 있으면 아무것도 하지 않음
@@ -93,6 +99,11 @@ function ChatProvider({ children }) {
     };
 
     const onMessageReceived = (roomId, payload) => {
+        // 메시지를 받았을 때, 현재 보고 있는 방이 아니면 '안 읽은 방'으로 추가
+        if (roomId !== activeRoomIdRef.current) {
+            setUnreadRooms(prev => new Set(prev).add(roomId));
+        }
+        
         const message = JSON.parse(payload.body);
         setMessagesByRoom(prev => {
             const updatedMessages = [...(prev[roomId] || []), message];
@@ -110,6 +121,19 @@ function ChatProvider({ children }) {
             return prev;
         });
     };
+    
+    // 사용자가 방에 입장(탭 클릭)하면 '안 읽은' 상태를 해제
+    useEffect(() => {
+        // activeRoomId가 있고, 해당 방이 unreadRooms Set에 있다면
+        if (activeRoomId && unreadRooms.has(activeRoomId)) {
+            // unreadRooms Set에서 현재 방 ID를 제거하여 '읽음' 처리
+            setUnreadRooms(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(activeRoomId);
+                return newSet;
+            });
+        }
+    }, [activeRoomId, unreadRooms]); // activeRoomId가 바뀔 때마다 실행됩니다.
 
     const onUserInfoReceived = (roomId, payload) => {
         const userEvent = JSON.parse(payload.body);
@@ -163,6 +187,36 @@ function ChatProvider({ children }) {
             console.error("ChatContext 초기화 실패:", error);
         }
     };
+    
+    // ✅ 3. 방 나가기 함수 추가
+    const exitRoom = async (roomId) => {
+        try {
+            await axiosInstance.delete(`/room/${roomId}/users`);
+            // 상태 업데이트: 나간 방을 joinedRooms 목록에서 제거
+            setJoinedRooms(prev => prev.filter(room => room.id !== roomId));
+            // 웹소켓 연결 해제
+            stompClientsRef.current.get(roomId)?.deactivate();
+            stompClientsRef.current.delete(roomId);
+        } catch (error) {
+            console.error("Failed to exit room:", error);
+            alert(error.response?.data?.message || "방에서 나가는 데 실패했습니다.");
+        }
+    };
+    
+    // ✅ 4. 방 삭제 함수 추가
+    const deleteRoom = async (roomId) => {
+        try {
+            await axiosInstance.delete(`/room/${roomId}`);
+            // 상태 업데이트: 삭제된 방을 joinedRooms 목록에서 제거
+            setJoinedRooms(prev => prev.filter(room => room.id !== roomId));
+            // 웹소켓 연결 해제
+            stompClientsRef.current.get(roomId)?.deactivate();
+            stompClientsRef.current.delete(roomId);
+        } catch (error) {
+            console.error("Failed to delete room:", error);
+            alert(error.response?.data?.message || "방 삭제에 실패했습니다.");
+        }
+    };
 
     const value = {
         joinedRooms,
@@ -174,6 +228,9 @@ function ChatProvider({ children }) {
         initializeChat,
         isRoomLoading,
         joinRoomAndConnect,
+        exitRoom,
+        deleteRoom,
+        unreadRooms,
     };
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

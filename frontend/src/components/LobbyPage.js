@@ -156,8 +156,9 @@ function LobbyPage() {
                                 <span className="room-owner">개설자: {room.ownerName}</span>
                             </div>
                             <div className="room-meta">
-                                <span className="room-count">{room.connCount} / {room.userCount}</span>
-                                <button className="enter-btn">입장</button>
+                                <span className="room-count online">
+                                    ● {room.connCount}
+                                </span>
                             </div>
                         </li>
                     )) : <p className="no-rooms">참여 중인 채팅방이 없습니다.</p>}
@@ -177,8 +178,9 @@ function LobbyPage() {
                                 <span className="room-owner">개설자: {room.ownerName}</span>
                             </div>
                             <div className="room-meta">
-                                <span className="room-count">{room.connCount} / {room.userCount}</span>
-                                <button className="enter-btn">입장</button>
+                                <span className="room-count online">
+                                    ● {room.connCount}
+                                </span>
                             </div>
                         </li>
                     )) : <p className="no-rooms">입장할 수 있는 다른 채팅방이 없습니다.</p>}
