@@ -879,3 +879,63 @@ code {
 .radio-group input[type="radio"] {
     margin-right: 5px;     /* 라디오 버튼과 텍스트 사이에 약간의 간격을 줍니다. */
 }
+
+/* 방장 닉네임은 굵은 보라색 계열로 표시 */
+.user-list-item.admin .user-list-nickname {
+    color: #6a1b9a; /* 고급스러운 보라색 */
+    font-weight: bold;
+}
+
+/* 방장 닉네임 옆에 왕관 아이콘 추가 */
+.user-list-item.admin .user-list-nickname::after {
+    content: '👑';
+    margin-left: 5px; /* 닉네임과 아이콘 사이 간격 */
+    font-size: 14px;
+}
+
+/* --- 유튜브 썸네일 'Facade' 스타일 --- */
+.youtube-thumbnail {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    background-size: cover;
+    background-position: center;
+    border-radius: 8px;
+    margin-top: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease-in-out;
+}
+.youtube-thumbnail:hover {
+    transform: scale(1.02);
+}
+.play-button {
+    width: 60px;
+    height: 42px;
+    background-color: rgba(0, 0, 0, 0.6);
+    border-radius: 12px;
+    position: relative;
+    transition: background-color 0.2s;
+}
+.youtube-thumbnail:hover .play-button {
+    background-color: rgba(255, 0, 0, 0.8);
+}
+.play-button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-40%, -50%);
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 12px 0 12px 20px;
+    border-color: transparent transparent transparent white;
+}
+
+/* --- 스크롤 중 iframe 이벤트 비활성화 스타일 --- */
+.chat-message-list.is-scrolling iframe {
+    pointer-events: none;
+}

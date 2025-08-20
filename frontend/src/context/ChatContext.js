@@ -191,8 +191,17 @@ function ChatProvider({ children }) {
             let newUsers = [...currentUsers];
             switch (userEvent.eventType) {
                 case 'ENTER':
-                    if (userIndex === -1) newUsers.push({ userId: userEvent.userId, nickname: userEvent.nickname, conn: 'CONNECT', profileImageUrl: userEvent.profileImageUrl });
-                    else newUsers[userIndex].conn = 'CONNECT';
+                    if (userIndex === -1) {
+                        newUsers.push({
+                            userId: userEvent.userId,
+                            nickname: userEvent.nickname,
+                            conn: 'CONNECT',
+                            profileImageUrl: userEvent.profileImageUrl,
+                            role: userEvent.role // 역할 정보 추가
+                        });
+                    } else {
+                        newUsers[userIndex].conn = 'CONNECT';
+                    }
                     break;
                 case 'EXIT':
                     if (userIndex !== -1) newUsers[userIndex].conn = 'DISCONNECT';

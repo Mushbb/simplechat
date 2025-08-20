@@ -358,6 +358,12 @@ public class SimplechatService {
 	    ChatRoom room = roomRepository.findById(roomId)
 	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
 
+	    // 방장이 방을 나가려고 하는지 확인하는 로직
+        String userRole = roomUserRepository.getRole(userId, roomId);
+        if ("ADMIN".equals(userRole)) {
+            throw new RegistrationException("FORBIDDEN", "방 개설자는 방을 나갈 수 없습니다. 방을 삭제해주세요.");
+        }
+	    
 	    if (!roomUserRepository.exists(userId, roomId)) {
 	        System.out.println("User " + userId + " is not in room " + roomId);
 	        return;

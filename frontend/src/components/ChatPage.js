@@ -25,6 +25,8 @@ function ChatPage() {
     const [isDragging, setIsDragging] = useState(false);
     const [myRole, setMyRole] = useState(null);
     const [isFetchingMore, setIsFetchingMore] = useState(false);
+    const [isUserScrolling, setIsUserScrolling] = useState(false);
+    const scrollTimeoutRef = useRef(null);
 
     // --- DOM 참조 및 스크롤 관리를 위한 Ref ---
     const textareaRef = useRef(null);
@@ -36,6 +38,19 @@ function ChatPage() {
     const roomName = joinedRooms.find(r => r.id === currentRoomId)?.name || '';
     const messages = messagesByRoom[currentRoomId] || [];
     const users = usersByRoom[currentRoomId] || [];
+    // ✅ NEW: 사용자 목록을 정렬하는 로직을 추가합니다.
+    const sortedUsers = [...users].sort((a, b) => {
+        // 1. 접속 상태로 정렬 (온라인이 위로)
+        if (a.conn === 'CONNECT' && b.conn !== 'CONNECT') return -1;
+        if (a.conn !== 'CONNECT' && b.conn === 'CONNECT') return 1;
+        
+        // 2. 역할로 정렬 (방장(ADMIN)이 위로)
+        if (a.role === 'ADMIN' && b.role !== 'ADMIN') return -1;
+        if (a.role !== 'ADMIN' && b.role === 'ADMIN') return 1;
+        
+        // 3. 닉네임 오름차순으로 정렬
+        return a.nickname.localeCompare(b.nickname);
+    });
     const scrollActionRef = useRef('initial');
     const isLoading = isRoomLoading[currentRoomId] !== false;
     // ✅ NEW: 현재 방에 더 불러올 메시지가 있는지 확인하는 변수
@@ -66,6 +81,7 @@ function ChatPage() {
         }));
         Promise.all(filePromises).then(newFileObjects => {
             setFilesToUpload(prevFiles => [...prevFiles, ...newFileObjects]);
+            textareaRef.current?.focus();
         });
     }, []); // 의존성 배열이 비어있어도 괜찮습니다. (setFilesToUpload는 항상 동일)
     
@@ -152,15 +168,29 @@ function ChatPage() {
         if (e.key === 'Enter' && e.shiftKey) return;
         if (e.key === 'Enter') {
             e.preventDefault();
-            handleSendMessage(e);
+            // 업로드할 파일이 있는지 먼저 확인합니다.
+            if (filesToUpload.length > 0) {
+                // 파일이 있으면, 텍스트 내용은 무시하고 파일만 전송합니다.
+                handleFileUpload();
+            } else {
+                // 파일이 없으면, 기존처럼 텍스트 메시지를 전송합니다.
+                handleSendMessage(e);
+            }
         }
     };
     
     const handleScroll = () => {
+        // 스크롤 시작 시 상태 변경 및 타이머 설정
+        setIsUserScrolling(true);
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = setTimeout(() => {
+            setIsUserScrolling(false);
+        }, 150);
+        
+        // 이전 메시지 로딩 로직
         const container = scrollContainerRef.current;
-        // ✅ MODIFIED: 'hasMoreMessages'가 true일 때만 로딩을 시작하도록 조건을 추가합니다.
+        const hasMoreMessages = hasMoreMessagesByRoom[currentRoomId] !== false;
         if (container && container.scrollTop === 0 && !isFetchingMore && hasMoreMessages) {
-            console.log("Reached top, fetching older messages...");
             prevScrollHeightRef.current = container.scrollHeight;
             setIsFetchingMore(true);
             loadMoreMessages(currentRoomId);
@@ -291,8 +321,8 @@ function ChatPage() {
                     <h2 className="panel-title">{roomName}</h2>
                     <h4>멤버 목록 ({users.filter(u => u.conn === 'CONNECT').length} / {users.length})</h4>
                     <ul className="user-list-scrollable">
-                        {users.map(u => (
-                            <li key={u.userId} className={`user-list-item ${u.userId === user.userId ? 'me' : ''} ${u.conn === 'DISCONNECT' ? 'disconnected' : ''}`}
+                        {sortedUsers.map(u => (
+                            <li key={u.userId} className={`user-list-item ${u.userId === user.userId ? 'me' : ''} ${u.conn === 'DISCONNECT' ? 'disconnected' : ''} ${u.role === 'ADMIN' ? 'admin' : ''}`}
                                 onClick={(event) => handleUserClick(u.userId, event)}>
                                 <img src={`${SERVER_URL}${u.profileImageUrl}`} alt={u.nickname} className="user-list-profile-img" />
                                 <span className="user-list-nickname">{u.nickname}</span>
@@ -305,7 +335,12 @@ function ChatPage() {
                     </div>
                 </div>
                 <div className="chat-panel">
-                    <div ref={scrollContainerRef} className="chat-message-list" onScroll={handleScroll}>
+                    {/* ✅ MODIFIED: isUserScrolling 상태에 따라 클래스를 동적으로 추가합니다. */}
+                    <div
+                        ref={scrollContainerRef}
+                        className={`chat-message-list ${isUserScrolling ? 'is-scrolling' : ''}`}
+                        onScroll={handleScroll}
+                    >
                         {/* ✅ 3. 로딩 상태에 따라 조건부 렌더링 */}
                         {isLoading ? (
                             <div style={{ textAlign: 'center', padding: '20px' }}>

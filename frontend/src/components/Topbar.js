@@ -62,7 +62,10 @@ function Topbar() {
             </div>
             {isActiveRoomChat && (
                 <div className="room-actions">
-                    <button onClick={handleExitRoom}>방 나가기</button>
+                    {/* 내가 방장이 아닐 때만 '방 나가기' 버튼이 보입니다. */}
+                    {myRoleInActiveRoom !== 'ADMIN' && (
+                        <button onClick={handleExitRoom}>방 나가기</button>
+                    )}
                     {/* 내가 방장(ADMIN)일 때만 방 삭제 버튼이 보입니다. */}
                     {myRoleInActiveRoom === 'ADMIN' && (
                         <button onClick={handleDeleteRoom} className="danger-button">
