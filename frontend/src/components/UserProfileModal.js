@@ -11,7 +11,7 @@ const modalStyle = {
     border: '1px solid #ccc',
     borderRadius: '8px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    zIndex: 100, // 다른 채팅방 UI 위에 보이도록 z-index 설정
+    zIndex: 1100, // 다른 채팅방 UI 위에 보이도록 z-index 설정
 };
 
 const headerStyle = {

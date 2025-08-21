@@ -55,18 +55,27 @@ function FriendListModal() {
 				setLoading(false);
 			}
 		};
-		
-		fetchFriends();
-	}, [setFriends]);
+		if (!friends.length) { // 친구 목록이 비어있을 때만 호출
+			fetchFriends();
+		} else {
+			setLoading(false);
+		}
+	}, [friends.length, setFriends]);
 	
 	// --- 핸들러 함수 ---
-	const handleProfileClick = async (friend, event) => {
+	const handleProfileClick = async (friendId, event) => {
 		// li 요소의 위치를 기준으로 모달 위치 계산
 		const liRect = event.currentTarget.getBoundingClientRect();
-		setModalPosition({ top: liRect.top, left: liRect.right + 10 });
+		setModalPosition({ top: liRect.top, left: liRect.left + 110 });
 		
-		setSelectedProfile(friend);
-		setIsProfileModalOpen(true);
+		try {
+			const response = await axiosInstance.get(`/user/${friendId}/profile`);
+			setSelectedProfile(response.data); // 서버에서 받은 전체 프로필로 state 설정
+			setIsProfileModalOpen(true);
+		} catch (error) {
+			console.error('프로필 정보를 가져오는 데 실패했습니다:', error);
+			alert('프로필 정보를 가져오는 데 실패했습니다.');
+		}
 	};
 	
 	const handleRemoveClick = (e, friendId) => {
@@ -89,7 +98,7 @@ function FriendListModal() {
 				) : (
 					<ul className="friend-list">
 						{friends.map(friend => (
-							<li key={friend.userId} className="friend-item">
+							<li key={friend.userId} className="friend-item" onClick={(e) => handleProfileClick(friend.userId, e)}>
 								<img src={`${SERVER_URL}${friend.profileImageUrl}`} alt={friend.nickname} className="friend-profile-img" />
 								<span className={`friend-status ${friend.conn}`}>●</span>
 								<span className="friend-nickname">{friend.nickname}</span>
