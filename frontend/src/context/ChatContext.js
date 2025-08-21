@@ -14,16 +14,16 @@ function ChatProvider({ children }) {
     const [messagesByRoom, setMessagesByRoom] = useState({});
     const [usersByRoom, setUsersByRoom] = useState({});
     const [isRoomLoading, setIsRoomLoading] = useState({});
-    const [unreadRooms, setUnreadRooms] = useState(new Set());  // 안 읽은 메시지가 있는 방 ID를 저장할 Set state
-    // ✅ NEW: 방마다 더 불러올 메시지가 있는지 추적하는 state
+    const [unreadRooms, setUnreadRooms] = useState(new Set());
     const [hasMoreMessagesByRoom, setHasMoreMessagesByRoom] = useState({});
+    const [notifications, setNotifications] = useState([]);
     
     const stompClientsRef = useRef(new Map());
     const activeRoomIdRef = useRef(activeRoomId);
     // ✅ NEW: 개인 응답 채널의 구독 상태를 관리할 ref를 추가합니다.
     const replySubscriptionRef = useRef(null);
-    
-    // activeRoomId state가 바뀔 때마다 '전자 게시판(ref)'의 내용을 즉시 업데이트
+    const notificationSubscriptionRef = useRef(null);
+
     useEffect(() => {
         activeRoomIdRef.current = activeRoomId;
     }, [activeRoomId]);
@@ -42,9 +42,16 @@ function ChatProvider({ children }) {
         connectToRoom(newRoom.id);
     };
     
+    const onNotificationReceived = (payload) => {
+        const notification = JSON.parse(payload.body);
+        console.log("New notification received:", notification);
+        setNotifications(prev => [notification.payload, ...prev]);
+    };
+
     useEffect(() => {
-        const connectToAllMyRooms = async () => {
+        const setupConnections = async () => {
             if (!loading && user) {
+                // Connect to chat rooms
                 try {
                     const response = await axiosInstance.get('/api/my-rooms');
                     const myRooms = response.data;
@@ -53,24 +60,37 @@ function ChatProvider({ children }) {
                 } catch (error) {
                     console.error("내 채팅방 목록 가져오기 실패:", error);
                 }
+
+                // Fetch initial notifications
+                try {
+                    const response = await axiosInstance.get('/api/friends/requests/pending');
+                    setNotifications(response.data);
+                } catch (error) {
+                    console.error("보류 중인 친구 요청 가져오기 실패:", error);
+                }
+
             } else if (!loading && !user) {
-                // ✅ 로그아웃 시 또는 비로그인 상태가 확정되었을 때 모든 연결을 정리합니다.
+                // Cleanup on logout
                 stompClientsRef.current.forEach(client => client.deactivate());
                 stompClientsRef.current.clear();
                 setJoinedRooms([]);
                 setMessagesByRoom({});
                 setUsersByRoom({});
+                setNotifications([]);
             }
         };
-        connectToAllMyRooms();
+        setupConnections();
 
         return () => {
+            // Cleanup function
             stompClientsRef.current.forEach(client => client.deactivate());
             stompClientsRef.current.clear();
             setJoinedRooms([]);
             setMessagesByRoom({});
             setUsersByRoom({});
-            replySubscriptionRef.current = null; // 구독 상태 초기화
+            setNotifications([]);
+            replySubscriptionRef.current = null;
+            notificationSubscriptionRef.current = null;
         };
     }, [user, loading]);
     
@@ -114,7 +134,6 @@ function ChatProvider({ children }) {
                 client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
                 client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
                 client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
-                // ✅ MODIFIED: 아직 구독하지 않았을 때만 개인 응답 채널을 구독합니다.
                 if (!replySubscriptionRef.current) {
                     console.log("Subscribing to the user-reply topic for the first time.");
                     replySubscriptionRef.current = client.subscribe(`/user/topic/queue/reply`, (payload) => {
@@ -123,7 +142,10 @@ function ChatProvider({ children }) {
                         onMoreMessagesReceived(response);
                     });
                 }
-                // 알림 채널은 여기에 추가할 수 있습니다.
+                if (!notificationSubscriptionRef.current) {
+                    console.log("Subscribing to the notifications topic.");
+                    notificationSubscriptionRef.current = client.subscribe(`/user/${user.username}/queue/notifications`, onNotificationReceived);
+                }
 
                 axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
                     const data = response.data;
@@ -290,14 +312,32 @@ function ChatProvider({ children }) {
     const deleteRoom = async (roomId) => {
         try {
             await axiosInstance.delete(`/room/${roomId}`);
-            // 상태 업데이트: 삭제된 방을 joinedRooms 목록에서 제거
             setJoinedRooms(prev => prev.filter(room => room.id !== roomId));
-            // 웹소켓 연결 해제
             stompClientsRef.current.get(roomId)?.deactivate();
             stompClientsRef.current.delete(roomId);
         } catch (error) {
             console.error("Failed to delete room:", error);
             alert(error.response?.data?.message || "방 삭제에 실패했습니다.");
+        }
+    };
+
+    const acceptFriendRequest = async (requesterId) => {
+        try {
+            await axiosInstance.put(`/api/friends/requests/${requesterId}/accept`);
+            setNotifications(prev => prev.filter(n => n.userId !== requesterId));
+        } catch (error) {
+            console.error("Failed to accept friend request:", error);
+            alert(error.response?.data?.message || "친구 요청 수락에 실패했습니다.");
+        }
+    };
+
+    const rejectFriendRequest = async (requesterId) => {
+        try {
+            await axiosInstance.delete(`/api/friends/requests/${requesterId}/reject`);
+            setNotifications(prev => prev.filter(n => n.userId !== requesterId));
+        } catch (error) {
+            console.error("Failed to reject friend request:", error);
+            alert(error.response?.data?.message || "친구 요청 거절에 실패했습니다.");
         }
     };
 
@@ -314,8 +354,11 @@ function ChatProvider({ children }) {
         exitRoom,
         deleteRoom,
         unreadRooms,
-        hasMoreMessagesByRoom, // ✅ NEW: ChatPage에서 사용할 수 있도록 추가
+        hasMoreMessagesByRoom,
         loadMoreMessages,
+        notifications,
+        acceptFriendRequest,
+        rejectFriendRequest,
     };
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

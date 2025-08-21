@@ -1,16 +1,27 @@
-import React, { useContext } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { FaBell } from 'react-icons/fa';
 
 function Topbar() {
-  // 1. AuthContext에서 필요한 값들을 가져옵니다.
     const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal } = useContext(AuthContext);
-    const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms } = useContext(ChatContext);
+    const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms, notifications, acceptFriendRequest, rejectFriendRequest } = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();
-    
-    // ✅ 3. 현재 활성화된 방의 정보와 내 역할 정보를 찾습니다.
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [dropdownRef]);
+
     const isActiveRoomChat = location.pathname.startsWith('/chat/') && activeRoomId;
     const usersInActiveRoom = usersByRoom[activeRoomId] || [];
     const myRoleInActiveRoom = usersInActiveRoom.find(u => u.userId === user?.userId)?.role;
@@ -48,6 +59,29 @@ function Topbar() {
             <div className="topbar-auth-controls">
                 {user ? (
                     <>
+                        <div className="notification-container" ref={dropdownRef}>
+                            <button className="notification-bell" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+                                <FaBell />
+                                {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
+                            </button>
+                            {isDropdownOpen && (
+                                <div className="notification-dropdown">
+                                    {notifications.length > 0 ? (
+                                        notifications.map(n => (
+                                            <div key={n.userId} className="notification-item">
+                                                <span>{n.nickname}님이 친구 요청을 보냈습니다.</span>
+                                                <div className="notification-actions">
+                                                    <button onClick={() => acceptFriendRequest(n.userId)}>수락</button>
+                                                    <button className="danger-button" onClick={() => rejectFriendRequest(n.userId)}>거절</button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="notification-item">새로운 알림이 없습니다.</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                         <span>{user.nickname}님</span>
                         <button onClick={openProfileModal}>프로필 수정</button>
                         <button onClick={handleLogout}>로그아웃</button>

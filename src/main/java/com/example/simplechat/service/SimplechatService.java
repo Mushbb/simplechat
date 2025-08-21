@@ -4,7 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.stereotype.Service; 
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.stereotype.Service;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,6 +32,7 @@ import com.example.simplechat.model.ChatRoom;
 import com.example.simplechat.dto.*;
 import com.example.simplechat.event.*;
 import com.example.simplechat.exception.*;
+import com.example.simplechat.model.Friendship;
 import org.springframework.web.multipart.MultipartFile;
 
 
@@ -49,8 +51,10 @@ public class SimplechatService {
     private final RoomRepository roomRepository;
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
+    private final FriendshipRepository friendshipRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
+    private final SimpMessagingTemplate messagingTemplate;
     
     @Autowired
     private LinkPreviewService linkPreviewService; // LinkPreviewService 주입
@@ -524,6 +528,108 @@ public class SimplechatService {
 		// 4. 메시지 DB 저장 및 이벤트 발행
 		ChatMessage savedMessage = msgRepository.save(fileMessage);
 		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, roomId));
+	}
+
+	// =================================================================================================
+	// Friendship Management
+	// =================================================================================================
+
+	@Transactional
+	public void sendFriendRequest(long senderId, long receiverId) {
+		if (senderId == receiverId) {
+			throw new RegistrationException("BAD_REQUEST", "You cannot send a friend request to yourself.");
+		}
+		// Check if users exist
+		User sender = userRepository.findById(senderId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Sender not found."));
+		User receiver = userRepository.findById(receiverId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Receiver not found."));
+
+		// Check if a friendship already exists
+		friendshipRepository.findByUsers(senderId, receiverId).ifPresent(f -> {
+			throw new RegistrationException("CONFLICT", "Friendship or request already exists.");
+		});
+
+		Friendship newRequest = new Friendship(senderId, receiverId, "PENDING", null, 0L);
+		friendshipRepository.save(newRequest);
+
+		// Send real-time notification
+		FriendResponseDto responseDto = FriendResponseDto.from(sender, "PENDING_RECEIVED");
+		NotificationDto<FriendResponseDto> notification = new NotificationDto<>("FRIEND_REQUEST", responseDto);
+
+		messagingTemplate.convertAndSendToUser(receiver.getUsername(), "/queue/notifications", notification);
+	}
+
+	public List<FriendResponseDto> getPendingRequests(long userId) {
+		List<Friendship> requests = friendshipRepository.findIncomingPendingRequests(userId);
+		return requests.stream()
+				.map(friendship -> {
+					User requester = userRepository.findById(friendship.userId1())
+							.orElseThrow(() -> new IllegalStateException("Requester not found"));
+					return FriendResponseDto.from(requester, "PENDING_RECEIVED");
+				})
+				.collect(Collectors.toList());
+	}
+
+	public List<FriendResponseDto> getFriends(long userId) {
+		List<Friendship> friendships = friendshipRepository.findByUserIdAndStatus(userId, "ACCEPTED");
+		return friendships.stream()
+				.map(friendship -> {
+					long friendId = friendship.userId1() == userId ? friendship.userId2() : friendship.userId1();
+					User friend = userRepository.findById(friendId)
+							.orElseThrow(() -> new IllegalStateException("Friend user not found"));
+					return FriendResponseDto.from(friend, "ACCEPTED");
+				})
+				.collect(Collectors.toList());
+	}
+
+	@Transactional
+	public void acceptFriendRequest(long accepterId, long requesterId) {
+		Friendship friendship = friendshipRepository.findByUsers(accepterId, requesterId)
+				.filter(f -> f.status().equals("PENDING") && f.userId2() == accepterId)
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "No pending request found to accept."));
+
+		friendshipRepository.updateStatus(requesterId, accepterId, "ACCEPTED");
+
+		// Optionally, send a notification back to the requester
+		User accepter = userRepository.findById(accepterId).orElseThrow(() -> new IllegalStateException("Accepter not found"));
+		NotificationDto<FriendResponseDto> notification = new NotificationDto<>("FRIEND_ACCEPTED", FriendResponseDto.from(accepter, "ACCEPTED"));
+		String requesterUsername = userRepository.findById(requesterId).get().getUsername();
+		messagingTemplate.convertAndSendToUser(requesterUsername, "/queue/notifications", notification);
+	}
+
+	@Transactional
+	public void rejectFriendRequest(long rejecterId, long requesterId) {
+		Friendship friendship = friendshipRepository.findByUsers(rejecterId, requesterId)
+				.filter(f -> f.status().equals("PENDING") && f.userId2() == rejecterId)
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "No pending request found to reject."));
+
+		friendshipRepository.deleteByRequesterAndReceiver(requesterId, rejecterId);
+	}
+
+	@Transactional
+	public void removeFriend(long removerId, long friendId) {
+		Friendship friendship = friendshipRepository.findByUsers(removerId, friendId)
+				.filter(f -> f.status().equals("ACCEPTED"))
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "Friendship not found."));
+
+		friendshipRepository.delete(removerId, friendId);
+	}
+
+	public Map<String, String> getFriendshipStatus(long currentUserId, long otherUserId) {
+		if (currentUserId == otherUserId) {
+			return Map.of("status", "SELF");
+		}
+		Optional<Friendship> friendshipOpt = friendshipRepository.findByUsers(currentUserId, otherUserId);
+		String status = friendshipOpt.map(f -> {
+			if (f.status().equals("ACCEPTED")) {
+				return "FRIENDS";
+			}
+			if (f.status().equals("PENDING")) {
+				return f.userId1() == currentUserId ? "PENDING_SENT" : "PENDING_RECEIVED";
+			}
+			return "NONE"; // Should not happen if status is handled correctly
+		}).orElse("NONE");
+
+		return Map.of("status", status);
 	}
 	
 	@PreDestroy

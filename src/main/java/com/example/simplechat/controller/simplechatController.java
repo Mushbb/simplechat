@@ -241,6 +241,77 @@ public class simplechatController {
 		serv.changeNicknameInRoom(nickChangeDto);
 	}
 	
+	// =================================================================================================
+	// Friendship API
+	// =================================================================================================
+
+	@PostMapping("/api/friends/requests")
+	public ResponseEntity<Void> sendFriendRequest(@RequestBody FriendRequestDto requestDto, HttpSession session) {
+		Long senderId = (Long) session.getAttribute("userId");
+		if (senderId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		serv.sendFriendRequest(senderId, requestDto.getReceiverId());
+		return ResponseEntity.ok().build();
+	}
+
+	@GetMapping("/api/friends/requests/pending")
+	public ResponseEntity<List<FriendResponseDto>> getPendingRequests(HttpSession session) {
+		Long userId = (Long) session.getAttribute("userId");
+		if (userId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		return ResponseEntity.ok(serv.getPendingRequests(userId));
+	}
+
+	@GetMapping("/api/friends")
+	public ResponseEntity<List<FriendResponseDto>> getFriends(HttpSession session) {
+		Long userId = (Long) session.getAttribute("userId");
+		if (userId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		return ResponseEntity.ok(serv.getFriends(userId));
+	}
+
+	@PutMapping("/api/friends/requests/{requesterId}/accept")
+	public ResponseEntity<Void> acceptFriendRequest(@PathVariable Long requesterId, HttpSession session) {
+		Long accepterId = (Long) session.getAttribute("userId");
+		if (accepterId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		serv.acceptFriendRequest(accepterId, requesterId);
+		return ResponseEntity.ok().build();
+	}
+
+	@DeleteMapping("/api/friends/requests/{requesterId}/reject")
+	public ResponseEntity<Void> rejectFriendRequest(@PathVariable Long requesterId, HttpSession session) {
+		Long rejecterId = (Long) session.getAttribute("userId");
+		if (rejecterId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		serv.rejectFriendRequest(rejecterId, requesterId);
+		return ResponseEntity.noContent().build();
+	}
+
+	@DeleteMapping("/api/friends/{friendId}")
+	public ResponseEntity<Void> removeFriend(@PathVariable Long friendId, HttpSession session) {
+		Long removerId = (Long) session.getAttribute("userId");
+		if (removerId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		serv.removeFriend(removerId, friendId);
+		return ResponseEntity.noContent().build();
+	}
+
+	@GetMapping("/api/friends/status/{otherUserId}")
+	public ResponseEntity<Map<String, String>> getFriendshipStatus(@PathVariable Long otherUserId, HttpSession session) {
+		Long currentUserId = (Long) session.getAttribute("userId");
+		if (currentUserId == null) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+		}
+		return ResponseEntity.ok(serv.getFriendshipStatus(currentUserId, otherUserId));
+	}
+
 	@MessageMapping("/chat.getMessageList")
 	@SendToUser("/topic/queue/reply")
 	public ChatMessageListDto getMessageList(ChatMessageListRequestDto msgListDto) {
