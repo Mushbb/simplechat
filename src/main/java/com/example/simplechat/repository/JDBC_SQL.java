@@ -104,9 +104,11 @@ public class JDBC_SQL {
 	            	SelectSql += Cols+", ";
 	            SelectSql = SelectSql.substring(0, SelectSql.length()-2);
 	            SelectSql += " FROM "+DB_Utils.TableNameFromInsert(sqlQuery)+" ";
-	            SelectSql += "WHERE "+returnCols[0]+" = "+result.get(returnCols[0]);
+	            SelectSql += "WHERE "+returnCols[0]+" = ?";
 	            
 	            statement = connection.prepareStatement(SelectSql);
+	            statement.setObject(1, result.get(returnCols[0]));
+	            
 	            ResultSet resultSet = statement.executeQuery();
 	            ResultSetMetaData rsmd = resultSet.getMetaData();
 	            int columnCount = rsmd.getColumnCount();

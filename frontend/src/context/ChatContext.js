@@ -14,16 +14,12 @@ function ChatProvider({ children }) {
     const [messagesByRoom, setMessagesByRoom] = useState({});
     const [usersByRoom, setUsersByRoom] = useState({});
     const [isRoomLoading, setIsRoomLoading] = useState({});
-    const [unreadRooms, setUnreadRooms] = useState(new Set());  // 안 읽은 메시지가 있는 방 ID를 저장할 Set state
-    // ✅ NEW: 방마다 더 불러올 메시지가 있는지 추적하는 state
+    const [unreadRooms, setUnreadRooms] = useState(new Set());
     const [hasMoreMessagesByRoom, setHasMoreMessagesByRoom] = useState({});
     
     const stompClientsRef = useRef(new Map());
     const activeRoomIdRef = useRef(activeRoomId);
-    // ✅ NEW: 개인 응답 채널의 구독 상태를 관리할 ref를 추가합니다.
-    const replySubscriptionRef = useRef(null);
     
-    // activeRoomId state가 바뀔 때마다 '전자 게시판(ref)'의 내용을 즉시 업데이트
     useEffect(() => {
         activeRoomIdRef.current = activeRoomId;
     }, [activeRoomId]);
@@ -43,8 +39,9 @@ function ChatProvider({ children }) {
     };
     
     useEffect(() => {
-        const connectToAllMyRooms = async () => {
+        const setupConnections = async () => {
             if (!loading && user) {
+                // Connect to chat rooms
                 try {
                     const response = await axiosInstance.get('/api/my-rooms');
                     const myRooms = response.data;
@@ -53,8 +50,9 @@ function ChatProvider({ children }) {
                 } catch (error) {
                     console.error("내 채팅방 목록 가져오기 실패:", error);
                 }
+                
             } else if (!loading && !user) {
-                // ✅ 로그아웃 시 또는 비로그인 상태가 확정되었을 때 모든 연결을 정리합니다.
+                // Cleanup on logout
                 stompClientsRef.current.forEach(client => client.deactivate());
                 stompClientsRef.current.clear();
                 setJoinedRooms([]);
@@ -62,15 +60,15 @@ function ChatProvider({ children }) {
                 setUsersByRoom({});
             }
         };
-        connectToAllMyRooms();
-
+        setupConnections();
+        
         return () => {
+            // Cleanup function
             stompClientsRef.current.forEach(client => client.deactivate());
             stompClientsRef.current.clear();
             setJoinedRooms([]);
             setMessagesByRoom({});
             setUsersByRoom({});
-            replySubscriptionRef.current = null; // 구독 상태 초기화
         };
     }, [user, loading]);
     
@@ -114,17 +112,7 @@ function ChatProvider({ children }) {
                 client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
                 client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
                 client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
-                // ✅ MODIFIED: 아직 구독하지 않았을 때만 개인 응답 채널을 구독합니다.
-                if (!replySubscriptionRef.current) {
-                    console.log("Subscribing to the user-reply topic for the first time.");
-                    replySubscriptionRef.current = client.subscribe(`/user/topic/queue/reply`, (payload) => {
-                        console.log("Received a message on user-reply topic.");
-                        const response = JSON.parse(payload.body);
-                        onMoreMessagesReceived(response);
-                    });
-                }
-                // 알림 채널은 여기에 추가할 수 있습니다.
-
+                
                 axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
                     const data = response.data;
                     setUsersByRoom(prev => ({ ...prev, [roomId]: data.users || [] }));
@@ -141,11 +129,11 @@ function ChatProvider({ children }) {
                 });
             },
         });
-
+        
         client.activate();
         stompClientsRef.current.set(roomId, client);
     };
-
+    
     const onMessageReceived = (roomId, payload) => {
         // 메시지를 받았을 때, 현재 보고 있는 방이 아니면 '안 읽은 방'으로 추가
         if (roomId !== activeRoomIdRef.current) {
@@ -182,7 +170,7 @@ function ChatProvider({ children }) {
             });
         }
     }, [activeRoomId, unreadRooms]); // activeRoomId가 바뀔 때마다 실행됩니다.
-
+    
     const onUserInfoReceived = (roomId, payload) => {
         const userEvent = JSON.parse(payload.body);
         setUsersByRoom(prev => {
@@ -213,7 +201,7 @@ function ChatProvider({ children }) {
             return { ...prev, [roomId]: newUsers };
         });
     };
-
+    
     const onPreviewReceived = (roomId, payload) => {
         const preview = JSON.parse(payload.body);
         setMessagesByRoom(prev => {
@@ -224,7 +212,7 @@ function ChatProvider({ children }) {
             return { ...prev, [roomId]: updatedMessages };
         });
     };
-
+    
     const initializeChat = async () => {
         // AuthContext의 user 상태를 직접 참조합니다.
         if (!user) {
@@ -235,7 +223,7 @@ function ChatProvider({ children }) {
             // 기존 연결이 있다면 모두 해제하고 시작합니다.
             stompClientsRef.current.forEach(client => client.deactivate());
             stompClientsRef.current.clear();
-
+            
             const response = await axiosInstance.get(`${SERVER_URL}/api/my-rooms`);
             const myRooms = response.data;
             setJoinedRooms(myRooms);
@@ -290,9 +278,7 @@ function ChatProvider({ children }) {
     const deleteRoom = async (roomId) => {
         try {
             await axiosInstance.delete(`/room/${roomId}`);
-            // 상태 업데이트: 삭제된 방을 joinedRooms 목록에서 제거
             setJoinedRooms(prev => prev.filter(room => room.id !== roomId));
-            // 웹소켓 연결 해제
             stompClientsRef.current.get(roomId)?.deactivate();
             stompClientsRef.current.delete(roomId);
         } catch (error) {
@@ -300,7 +286,7 @@ function ChatProvider({ children }) {
             alert(error.response?.data?.message || "방 삭제에 실패했습니다.");
         }
     };
-
+    
     const value = {
         joinedRooms,
         activeRoomId,
@@ -314,10 +300,10 @@ function ChatProvider({ children }) {
         exitRoom,
         deleteRoom,
         unreadRooms,
-        hasMoreMessagesByRoom, // ✅ NEW: ChatPage에서 사용할 수 있도록 추가
+        hasMoreMessagesByRoom,
         loadMoreMessages,
     };
-
+    
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }
 

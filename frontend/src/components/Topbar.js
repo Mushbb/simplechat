@@ -1,16 +1,29 @@
-import React, { useContext } from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { FaBell, FaUserFriends } from 'react-icons/fa';
+import FriendListModal from './FriendListModal';
 
 function Topbar() {
-  // 1. AuthContext에서 필요한 값들을 가져옵니다.
-    const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal } = useContext(AuthContext);
-    const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms } = useContext(ChatContext);
+    const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal,
+        notifications, acceptFriendRequest, rejectFriendRequest, openFriendListModal, isFriendListModalOpen } = useContext(AuthContext);
+    const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms} = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
     
-    // ✅ 3. 현재 활성화된 방의 정보와 내 역할 정보를 찾습니다.
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [dropdownRef]);
+    
     const isActiveRoomChat = location.pathname.startsWith('/chat/') && activeRoomId;
     const usersInActiveRoom = usersByRoom[activeRoomId] || [];
     const myRoleInActiveRoom = usersInActiveRoom.find(u => u.userId === user?.userId)?.role;
@@ -42,66 +55,95 @@ function Topbar() {
         }
     };
     
-  return (
-    <header className="topbar">
-        <div className="topbar-main">
-            <div className="topbar-auth-controls">
-                {user ? (
-                    <>
-                        <span>{user.nickname}님</span>
-                        <button onClick={openProfileModal}>프로필 수정</button>
-                        <button onClick={handleLogout}>로그아웃</button>
-                        <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>
-                    </>
-                ) : (
-                    <>
-                        <button onClick={openLoginModal}>로그인</button>
-                        <button onClick={openRegisterModal}>회원가입</button>
-                    </>
-                )}
-            </div>
-            {isActiveRoomChat && (
-                <div className="room-actions">
-                    {/* 내가 방장이 아닐 때만 '방 나가기' 버튼이 보입니다. */}
-                    {myRoleInActiveRoom !== 'ADMIN' && (
-                        <button onClick={handleExitRoom}>방 나가기</button>
-                    )}
-                    {/* 내가 방장(ADMIN)일 때만 방 삭제 버튼이 보입니다. */}
-                    {myRoleInActiveRoom === 'ADMIN' && (
-                        <button onClick={handleDeleteRoom} className="danger-button">
-                            방 삭제
-                        </button>
+    return (
+        <header className="topbar">
+            <div className="topbar-main">
+                <div className="topbar-auth-controls">
+                    {user ? (
+                        <>
+                            <div className="topbar-icon-container">
+                                <button className="topbar-icon-btn" onClick={openFriendListModal}>
+                                    <FaUserFriends />
+                                </button>
+                                {isFriendListModalOpen && <FriendListModal />}
+                            </div>
+                            <div className="topbar-icon-container" ref={dropdownRef}>
+                                <button className="topbar-icon-btn notification-bell" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+                                    <FaBell />
+                                    {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
+                                </button>
+                                {isDropdownOpen && (
+                                    <div className="notification-dropdown">
+                                        {notifications.length > 0 ? (
+                                            notifications.map(n => (
+                                                <div key={n.userId} className="notification-item">
+                                                    <span>{n.nickname}님이 친구 요청을 보냈습니다.</span>
+                                                    <div className="notification-actions">
+                                                        <button onClick={() => acceptFriendRequest(n.userId)}>수락</button>
+                                                        <button className="danger-button" onClick={() => rejectFriendRequest(n.userId)}>거절</button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="notification-item">새로운 알림이 없습니다.</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <span>{user.nickname}님</span>
+                            <button onClick={openProfileModal}>프로필 수정</button>
+                            <button onClick={handleLogout}>로그아웃</button>
+                            <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={openLoginModal}>로그인</button>
+                            <button onClick={openRegisterModal}>회원가입</button>
+                        </>
                     )}
                 </div>
+                {isActiveRoomChat && (
+                    <div className="room-actions">
+                        {/* 내가 방장이 아닐 때만 '방 나가기' 버튼이 보입니다. */}
+                        {myRoleInActiveRoom !== 'ADMIN' && (
+                            <button onClick={handleExitRoom}>방 나가기</button>
+                        )}
+                        {/* 내가 방장(ADMIN)일 때만 방 삭제 버튼이 보입니다. */}
+                        {myRoleInActiveRoom === 'ADMIN' && (
+                            <button onClick={handleDeleteRoom} className="danger-button">
+                                방 삭제
+                            </button>
+                        )}
+                    </div>
+                )}
+            </div>
+            {user && (
+                <nav className="room-tabs-container">
+                    <button
+                        className={`room-tab ${location.pathname === '/' ? 'active' : ''}`}
+                        onClick={() => navigate('/')}
+                    >
+                        로비
+                    </button>
+                    {joinedRooms.map(room => {
+                        // 이 방이 안 읽은 메시지를 가지고 있다면
+                        const hasUnread = unreadRooms.has(room.id);
+                        
+                        return (
+                            <button
+                                key={room.id}
+                                // hasUnread가 true일 때 'unread' 클래스를 추가
+                                className={`room-tab ${room.id === activeRoomId ? 'active' : ''} ${hasUnread ? 'unread' : ''}`}
+                                onClick={() => handleTabClick(room.id)}
+                            >
+                                {room.name}
+                            </button>
+                        );
+                    })}
+                </nav>
             )}
-        </div>
-        {user && (
-            <nav className="room-tabs-container">
-                <button
-                    className={`room-tab ${location.pathname === '/' ? 'active' : ''}`}
-                    onClick={() => navigate('/')}
-                >
-                    로비
-                </button>
-                {joinedRooms.map(room => {
-                    // 이 방이 안 읽은 메시지를 가지고 있다면
-                    const hasUnread = unreadRooms.has(room.id);
-                    
-                    return (
-                        <button
-                            key={room.id}
-                            // hasUnread가 true일 때 'unread' 클래스를 추가
-                            className={`room-tab ${room.id === activeRoomId ? 'active' : ''} ${hasUnread ? 'unread' : ''}`}
-                            onClick={() => handleTabClick(room.id)}
-                        >
-                            {room.name}
-                        </button>
-                    );
-                })}
-            </nav>
-        )}
-    </header>
-  );
+        </header>
+    );
 }
 
 export default Topbar;

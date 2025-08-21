@@ -846,7 +846,7 @@ code {
 }
 
 .room-actions button {
-    padding: 8px 12px;
+    padding: 4px 12px;
     border-radius: 5px;
     border: 1px solid #ccc;
     background-color: #f8f9fa;
@@ -938,4 +938,212 @@ code {
 /* --- 스크롤 중 iframe 이벤트 비활성화 스타일 --- */
 .chat-message-list.is-scrolling iframe {
     pointer-events: none;
+}
+
+/* Topbar 아이콘들을 감싸는 공통 컨테이너 (위치 기준점) */
+.topbar-icon-container {
+    position: relative;
+}
+
+/* Topbar 아이콘 버튼 공통 스타일 */
+.topbar-icon-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #4a4a4a;
+    font-size: 24px;
+    transition: color 0.2s ease;
+    margin-right: 20px;
+    position: relative; /* 뱃지 위치 기준을 버튼 자체로 설정 */
+}
+
+.topbar-icon-btn:hover {
+    color: #007bff;
+}
+
+/* 알림 숫자 뱃지 스타일 */
+.notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(40%, -40%);
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+/* 👇 알림 드롭다운 위치 수정 */
+.notification-dropdown {
+    position: absolute;
+    top: 100%; /* 부모 컨테이너(.topbar-icon-container) 바로 아래 */
+    left: 0;  /* 부모 컨테이너의 오른쪽에 맞춤 */
+    margin-top: 10px;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    width: 350px;
+    z-index: 1000;
+}
+
+/* (이하 알림 드롭다운 내부 스타일은 동일) */
+.notification-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+.notification-actions button {
+    margin-left: 8px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* Topbar 아이콘 버튼 공통 스타일 */
+.topbar-icon-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #4a4a4a;
+    font-size: 24px;
+    transition: color 0.2s ease;
+    margin-right: 20px; /* 아이콘 간 간격 */
+    position: relative; /* 뱃지 위치 기준 */
+}
+
+.topbar-icon-btn:hover {
+    color: #007bff;
+}
+
+/* 알림 벨의 뱃지 위치 때문에 필요한 스타일 */
+.notification-bell .notification-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(40%, -40%);
+}
+
+/* --- 친구 목록 모달 스타일 --- */
+
+/* 모달 컨테이너를 버튼 아래에 위치하도록 변경 */
+.friend-list-modal {
+    position: absolute; /* 👈 기준점을 container로 변경 */
+    top: 100%;          /* 👈 버튼 바로 아래로 */
+    left: 0;            /* 👈 버튼 왼쪽에 맞춤 */
+    margin-top: 10px;   /* 👈 버튼과의 간격 */
+    z-index: 1000;      /* 👈 다른 요소들 위에 보이도록 */
+
+    background: white;
+    border-radius: 10px;
+    width: 220px;       /* 👈 너비 살짝 조정 */
+    max-height: 500px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid #ddd;
+}
+
+.friend-list-modal .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #eee;
+    padding: 0 15px;
+}
+
+.friend-list-modal .modal-header h2 {
+    margin: 0;
+    font-size: 15px;
+}
+
+.friend-list-modal .close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #888;
+}
+
+.friend-list-modal .modal-body {
+    overflow-y: auto;
+}
+
+.friend-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.friend-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 5px;
+    transition: background-color 0.2s;
+    position: relative;
+}
+
+.friend-item:hover {
+    background-color: #f5f5f5;
+}
+
+.friend-profile-img {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    margin-right: 8px;
+    object-fit: cover;
+}
+
+.friend-nickname {
+    font-weight: 500;
+    margin-left: 5px; /* 상태 점과의 간격 */
+    flex-grow: 1;
+}
+
+.friend-status {
+    font-size: 14px;
+    margin: 0 5px; /* 양옆 간격 */
+}
+
+.friend-status.CONNECT { color: #28a745; }
+.friend-status.DISCONNECT { color: #ccc; }
+
+.remove-friend-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 5px;
+    visibility: hidden; /* 평소에는 숨김 */
+    opacity: 0;
+    transition: opacity 0.2s, color 0.2s;
+}
+
+/* friend-item에 마우스를 올렸을 때 삭제 버튼이 보이도록 함 */
+.friend-item:hover .remove-friend-btn {
+    visibility: visible;
+    opacity: 1;
+}
+
+.remove-friend-btn:hover {
+    color: #dc3545; /* 마우스 올리면 빨간색으로 */
 }

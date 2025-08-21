@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import axiosInstance from '../api/axiosInstance';
+import { AuthContext } from '../context/AuthContext';
 
 const SERVER_URL = 'http://10.50.131.25:8080';
 
-// 모달 전체에 적용될 스타일
 const modalStyle = {
     position: 'absolute', // 부모 요소를 기준으로 절대 위치를 가짐
     width: '250px',
@@ -27,11 +28,62 @@ const closeBtnStyle = { fontSize: '24px', color: '#aaa', cursor: 'pointer', bord
 const bodyStyle = { padding: '15px' };
 const profilePicStyle = { width: '60px', height: '60px', borderRadius: '50%', marginRight: '15px' };
 const statusMsgStyle = { marginTop: '10px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px', minHeight: '40px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' };
+const footerStyle = { padding: '10px 15px', borderTop: '1px solid #eee', textAlign: 'right' };
+const actionBtnStyle = { padding: '5px 10px', border: '1px solid #ccc', borderRadius: '4px', cursor: 'pointer' };
+const disabledBtnStyle = { ...actionBtnStyle, cursor: 'not-allowed', backgroundColor: '#eee', color: '#888' };
+
 
 function UserProfileModal({ profile, onClose, position }) {
+    const { user: currentUser } = useContext(AuthContext);
+    const [friendshipStatus, setFriendshipStatus] = useState('LOADING');
+    
+    useEffect(() => {
+        if (profile && currentUser && profile.userId !== currentUser.userId) {
+            const fetchStatus = async () => {
+                try {
+                    const response = await axiosInstance.get(`/api/friends/status/${profile.userId}`);
+                    setFriendshipStatus(response.data.status);
+                } catch (error) {
+                    console.error("Failed to fetch friendship status", error);
+                    setFriendshipStatus('ERROR');
+                }
+            };
+            fetchStatus();
+        }
+    }, [profile, currentUser]);
+    
+    const handleSendRequest = async () => {
+        try {
+            await axiosInstance.post('/api/friends/requests', { receiverId: profile.userId });
+            setFriendshipStatus('PENDING_SENT');
+        } catch (error) {
+            alert(error.response?.data?.message || '친구 요청에 실패했습니다.');
+        }
+    };
+    
+    const renderActionButtons = () => {
+        if (!currentUser || !profile || currentUser.userId === profile.userId) {
+            return null; // Don't show buttons on my own profile
+        }
+        
+        switch (friendshipStatus) {
+            case 'NONE':
+                return <button style={actionBtnStyle} onClick={handleSendRequest}>친구 추가</button>;
+            case 'PENDING_SENT':
+                return <button style={disabledBtnStyle} disabled>요청 보냄</button>;
+            case 'PENDING_RECEIVED':
+                return <button style={disabledBtnStyle} disabled>요청 받음</button>;
+            case 'FRIENDS':
+                return <button style={disabledBtnStyle} disabled>친구</button>;
+            case 'LOADING':
+                return <button style={disabledBtnStyle} disabled>Loading...</button>;
+            default:
+                return null;
+        }
+    };
+    
     if (!profile) return null;
-
-    // position prop으로 받은 top, left를 스타일에 직접 적용
+    
     return (
         <div style={{ ...modalStyle, top: position.top, left: position.left }}>
             <div style={headerStyle}>
@@ -48,6 +100,9 @@ function UserProfileModal({ profile, onClose, position }) {
                 <div style={statusMsgStyle}>
                     {profile.status_msg || '(상태 메시지가 없습니다.)'}
                 </div>
+            </div>
+            <div style={footerStyle}>
+                {renderActionButtons()}
             </div>
         </div>
     );

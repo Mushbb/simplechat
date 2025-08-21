@@ -1,5 +1,7 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useRef } from 'react';
 import axiosInstance from '../api/axiosInstance';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 
 const SERVER_URL = 'http://10.50.131.25:8080';
 
@@ -11,6 +13,80 @@ function AuthProvider({ children }) {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+  const [isFriendListModalOpen, setIsFriendListModalOpen] = useState(false);
+  const [friends, setFriends] = useState([]); // 친구 목록 상태
+  
+  const stompClientRef = useRef(null);
+  
+  const openLoginModal = () => setIsLoginModalOpen(true);
+  const closeLoginModal = () => setIsLoginModalOpen(false);
+  const openRegisterModal = () => setIsRegisterModalOpen(true);
+  const closeRegisterModal = () => setIsRegisterModalOpen(false);
+  const openProfileModal = () => setIsMyProfileModalOpen(true);
+  const closeProfileModal = () => setIsMyProfileModalOpen(false);
+  const openFriendListModal = () => setIsFriendListModalOpen(true);
+  const closeFriendListModal = () => setIsFriendListModalOpen(false);
+    
+    // 알림용 웹소켓 연결 Effect
+    useEffect(() => {
+        if (user) {
+            // 1. 초기 친구 요청 목록 가져오기
+            axiosInstance.get('/api/friends/requests/pending')
+                .then(response => setNotifications(response.data))
+                .catch(error => console.error('Failed to fetch pending requests', error));
+            
+            // 2. 웹소켓 연결
+            const socket = new SockJS(`${SERVER_URL}/ws`);
+            const stompClient = new Client({
+                webSocketFactory: () => socket,
+                onConnect: () => {
+                    // 3. 사용자 전용 알림 채널 구독
+                    stompClient.subscribe(`/user/queue/notifications`, (message) => {
+                        const notification = JSON.parse(message.body);
+                        if (notification.type === 'FRIEND_REQUEST') {
+                            const friendRequest = notification.payload;
+                            setNotifications(prev =>
+                                prev.find(n => n.userId === friendRequest.userId) ? prev : [...prev, friendRequest]
+                            );
+                        }
+                    });
+                },
+            });
+            stompClient.activate();
+            stompClientRef.current = stompClient;
+            
+            // 4. 로그아웃 시 연결 해제
+            return () => {
+                if (stompClient?.active) {
+                    stompClient.deactivate();
+                }
+            };
+        } else {
+            // 로그아웃 시 알림 비우기
+            setNotifications([]);
+        }
+    }, [user]);
+    
+    const acceptFriendRequest = async (requesterId) => {
+        try {
+            await axiosInstance.put(`/api/friends/requests/${requesterId}/accept`);
+            alert('친구 요청을 수락했습니다.');
+            setNotifications(prev => prev.filter(n => n.userId !== requesterId));
+        } catch (error) {
+            alert('친구 요청 수락에 실패했습니다.');
+        }
+    };
+    
+    const rejectFriendRequest = async (requesterId) => {
+        try {
+            await axiosInstance.delete(`/api/friends/requests/${requesterId}/reject`);
+            alert('친구 요청을 거절했습니다.');
+            setNotifications(prev => prev.filter(n => n.userId !== requesterId));
+        } catch (error) {
+            alert('친구 요청 거절에 실패했습니다.');
+        }
+    };
 
   // 앱이 처음 시작될 때 세션을 확인하는 로직
   useEffect(() => {
@@ -31,13 +107,22 @@ function AuthProvider({ children }) {
     };
     checkSession();
   }, []); // 컴포넌트가 처음 마운트될 때 한 번만 실행
-
-  const openLoginModal = () => setIsLoginModalOpen(true);
-  const closeLoginModal = () => setIsLoginModalOpen(false);
-  const openRegisterModal = () => setIsRegisterModalOpen(true);
-  const closeRegisterModal = () => setIsRegisterModalOpen(false);
-  const openProfileModal = () => setIsMyProfileModalOpen(true);
-  const closeProfileModal = () => setIsMyProfileModalOpen(false);
+    
+  // 👇 친구 삭제 함수 추가
+  const removeFriend = async (friendId) => {
+    if (!window.confirm("정말로 친구를 삭제하시겠습니까?")) {
+        return;
+    }
+    try {
+        await axiosInstance.delete(`/api/friends/${friendId}`);
+        // 상태에서 삭제된 친구를 제거
+        setFriends(prevFriends => prevFriends.filter(f => f.userId !== friendId));
+        alert("친구를 삭제했습니다.");
+    } catch (error) {
+        console.error("Failed to remove friend:", error);
+        alert("친구 삭제에 실패했습니다.");
+    }
+  };
 
   const login = async (username, password) => {
     try {
@@ -143,6 +228,15 @@ function AuthProvider({ children }) {
         openProfileModal, // 추가
         closeProfileModal, // 추가
         updateUser,
+        notifications,
+        acceptFriendRequest,
+        rejectFriendRequest,
+        isFriendListModalOpen,
+        openFriendListModal,
+        closeFriendListModal,
+        friends, // friends 상태 전달
+        setFriends, // setFriends 함수 전달
+        removeFriend, // removeFriend 함수 전달
     };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
