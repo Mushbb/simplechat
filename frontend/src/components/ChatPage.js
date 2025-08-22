@@ -11,7 +11,7 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 
 function ChatPage() {
     const { roomId } = useParams();
-    const { user } = useContext(AuthContext);
+    const { user, openFriendListModal, closeFriendListModal, friendModalConfig, openUserProfileModal } = useContext(AuthContext);
     const { setActiveRoomId, messagesByRoom, usersByRoom, joinedRooms, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom } = useContext(ChatContext);
 
     // --- UI 상호작용을 위한 Local State ---
@@ -38,7 +38,7 @@ function ChatPage() {
     const roomName = joinedRooms.find(r => r.id === currentRoomId)?.name || '';
     const messages = messagesByRoom[currentRoomId] || [];
     const users = usersByRoom[currentRoomId] || [];
-    // ✅ NEW: 사용자 목록을 정렬하는 로직을 추가합니다.
+    // 사용자 목록을 정렬하는 로직
     const sortedUsers = [...users].sort((a, b) => {
         // 1. 접속 상태로 정렬 (온라인이 위로)
         if (a.conn === 'CONNECT' && b.conn !== 'CONNECT') return -1;
@@ -56,15 +56,6 @@ function ChatPage() {
     // ✅ NEW: 현재 방에 더 불러올 메시지가 있는지 확인하는 변수
     // 아직 값이 설정되지 않았다면 기본값으로 true를 사용합니다.
     const hasMoreMessages = hasMoreMessagesByRoom[currentRoomId] !== false;
-    
-    // ✅ MODIFIED: 'stuck loading' 버그를 해결하기 위한 useEffect
-    // 이전에 제안했던 prevMessageCountRef 로직을 이 방식으로 대체하거나 통합합니다.
-    useEffect(() => {
-        // 로딩 중 상태인데, 더 이상 불러올 메시지가 없다고 판명되면 로딩 상태를 해제합니다.
-        if (isFetchingMore && !hasMoreMessages) {
-            setIsFetchingMore(false);
-        }
-    }, [isFetchingMore, hasMoreMessages]);
     
     // ✅ addFiles 함수를 useCallback으로 감싸줍니다.
     const addFiles = useCallback((newFiles) => {
@@ -84,6 +75,45 @@ function ChatPage() {
             textareaRef.current?.focus();
         });
     }, []); // 의존성 배열이 비어있어도 괜찮습니다. (setFilesToUpload는 항상 동일)
+    
+    const handleInviteFriend = async (friend) => {
+        try {
+            // 1. 서버에 친구를 방으로 초대하는 API를 호출합니다.
+            //    요청 주소: /room/{roomId}/invite
+            //    요청 내용: { userId: 초대할 친구의 ID }
+            await axiosInstance.post(`/room/${roomId}/invite`, { userId: friend.userId });
+            
+            // 2. API 호출이 성공하면 알림을 띄웁니다.
+            alert(`${friend.nickname}님을 방에 초대했습니다!`);
+            
+            // 3. 작업이 끝났으므로 친구 목록 모달을 닫습니다.
+            closeFriendListModal();
+            
+        } catch (error) {
+            // 4. API 호출이 실패하면 서버가 보낸 에러 메시지를 띄웁니다.
+            //    (예: "이미 참여하고 있는 사용자입니다.")
+            const errorMessage = error.response?.data?.message || '초대에 실패했습니다. 다시 시도해주세요.';
+            alert(errorMessage);
+            console.error("Failed to invite friend:", error);
+        }
+    };
+    
+    const handleOpenInviteModal = () => {
+        friendModalConfig.isOpen = true;
+        openFriendListModal({
+            title: '친구 초대하기',
+            onFriendClick: handleInviteFriend
+        });
+    };
+    
+    // ✅ MODIFIED: 'stuck loading' 버그를 해결하기 위한 useEffect
+    // 이전에 제안했던 prevMessageCountRef 로직을 이 방식으로 대체하거나 통합합니다.
+    useEffect(() => {
+        // 로딩 중 상태인데, 더 이상 불러올 메시지가 없다고 판명되면 로딩 상태를 해제합니다.
+        if (isFetchingMore && !hasMoreMessages) {
+            setIsFetchingMore(false);
+        }
+    }, [isFetchingMore, hasMoreMessages]);
     
     // ✅ 탭 전환 시 스크롤을 맨 아래로 내리는 전용 Effect를 추가합니다.
     useEffect(() => {
@@ -275,17 +305,16 @@ function ChatPage() {
         
         // 컨테이너를 기준으로 모달이 표시될 상대 위치를 계산합니다.
         const position = {
-            // li의 top에서 컨테이너의 top을 빼서 상대적인 top 위치를 구합니다.
-            top: liRect.top - containerRect.top,
-            // li의 왼쪽에 컨테이너 왼쪽 위치를 빼고, li의 너비만큼 더해 오른쪽에 표시합니다.
-            left: liRect.left - containerRect.left + liRect.width + 10,
+            top: liRect.top,
+            left: liRect.left,
         };
-        setModalPosition(position);
+        // setModalPosition(position);
         
         try {
             const response = await axiosInstance.get(`/user/${clickedUserId}/profile`);
-            setSelectedProfile(response.data);
-            setIsProfileModalOpen(true);
+            openUserProfileModal(response.data, position);
+            // setSelectedProfile(response.data);
+            // setIsProfileModalOpen(true);
         } catch (error) {
             console.error('프로필 정보를 가져오는 데 실패했습니다:', error);
             alert('프로필 정보를 가져오는 데 실패했습니다.');
@@ -329,6 +358,7 @@ function ChatPage() {
                             </li>
                         ))}
                     </ul>
+                    <button onClick={handleOpenInviteModal}>친구 초대</button>
                     <div className="nickname-editor">
                         <input type="text" value={myNickname} onChange={(e) => setMyNickname(e.target.value)} onBlur={handleNicknameUpdate}
                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleNicknameUpdate(); e.target.blur(); }}}/>

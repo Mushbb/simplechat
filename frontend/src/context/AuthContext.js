@@ -14,8 +14,16 @@ function AuthProvider({ children }) {
   const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [notifications, setNotifications] = useState([]);
-  const [isFriendListModalOpen, setIsFriendListModalOpen] = useState(false);
+  
   const [friends, setFriends] = useState([]); // 친구 목록 상태
+  const [friendModalConfig, setFriendModalConfig] = useState({
+        isOpen: false,
+        title: '친구 목록', // 모달의 제목
+        onFriendClick: null, // 친구를 클릭했을 때 실행할 함수
+  });
+  const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
   
   const stompClientRef = useRef(null);
   
@@ -25,8 +33,26 @@ function AuthProvider({ children }) {
   const closeRegisterModal = () => setIsRegisterModalOpen(false);
   const openProfileModal = () => setIsMyProfileModalOpen(true);
   const closeProfileModal = () => setIsMyProfileModalOpen(false);
-  const openFriendListModal = () => setIsFriendListModalOpen(true);
-  const closeFriendListModal = () => setIsFriendListModalOpen(false);
+  const openFriendListModal = ({ title, onFriendClick }) => {
+        setFriendModalConfig({
+            isOpen: true,
+            title: title || '친구 목록', // 제목이 없으면 기본값 사용
+            onFriendClick: onFriendClick,
+        });
+  };
+  const closeFriendListModal = () => {
+        setFriendModalConfig({ isOpen: false, title: '친구 목록', onFriendClick: null });
+  };
+    const openUserProfileModal = (profileData, position) => {
+        setSelectedProfile(profileData);
+        setModalPosition(position);
+        setIsUserProfileModalOpen(true);
+    };
+    
+    const closeUserProfileModal = () => {
+        setIsUserProfileModalOpen(false);
+        setSelectedProfile(null);
+    };
     
     // 알림용 웹소켓 연결 Effect
     useEffect(() => {
@@ -44,10 +70,22 @@ function AuthProvider({ children }) {
                     // 3. 사용자 전용 알림 채널 구독
                     stompClient.subscribe(`/user/queue/notifications`, (message) => {
                         const notification = JSON.parse(message.body);
+                        
                         if (notification.type === 'FRIEND_REQUEST') {
                             const friendRequest = notification.payload;
                             setNotifications(prev =>
                                 prev.find(n => n.userId === friendRequest.userId) ? prev : [...prev, friendRequest]
+                            );
+                        } else if (notification.type === 'PRESENCE_UPDATE') {
+                            const { userId, isOnline } = notification.payload;
+                            
+                            // setFriends 함수를 사용해 친구 목록의 특정 친구 상태만 업데이트
+                            setFriends(prevFriends =>
+                                prevFriends.map(friend =>
+                                    friend.userId === userId
+                                        ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' } // ID가 같으면 conn 상태 업데이트
+                                        : friend // 다르면 그대로 유지
+                                )
                             );
                         }
                     });
@@ -231,12 +269,17 @@ function AuthProvider({ children }) {
         notifications,
         acceptFriendRequest,
         rejectFriendRequest,
-        isFriendListModalOpen,
+        friendModalConfig,
         openFriendListModal,
         closeFriendListModal,
         friends, // friends 상태 전달
         setFriends, // setFriends 함수 전달
         removeFriend, // removeFriend 함수 전달
+        isUserProfileModalOpen,
+        selectedProfile,
+        modalPosition,
+        openUserProfileModal,
+        closeUserProfileModal,
     };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

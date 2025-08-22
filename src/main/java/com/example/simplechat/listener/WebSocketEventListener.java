@@ -33,6 +33,8 @@ public class WebSocketEventListener {
     @EventListener
     public void handleSessionSubscribeEvent(SessionSubscribeEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        if( headerAccessor.getSessionAttributes().get("room_id") == null )
+        	return;
         String destination = headerAccessor.getDestination();
 
         // 사용자가 /topic/{roomId}/public 또는 /users 토픽을 구독할 때를 입장 시점으로 간주
@@ -54,7 +56,7 @@ public class WebSocketEventListener {
     @EventListener
     public void handleSessionDisconnectEvent(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-
+        
         String sessionId = headerAccessor.getSessionId();
         Long userid = Long.valueOf((String)headerAccessor.getSessionAttributes().get("user_id"));
         Long roomid = Long.valueOf((String)headerAccessor.getSessionAttributes().get("room_id"));

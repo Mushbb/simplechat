@@ -633,6 +633,40 @@ public class SimplechatService {
 		return Map.of("status", status);
 	}
 	
+	@Transactional
+    public void inviteUserToRoom(Long roomId, Long inviterId, Long inviteeId) {
+        // 1. 초대하는 사람(inviter)이 해당 방에 있는지 먼저 확인 (권한 체크)
+        if (!roomUserRepository.exists(inviterId, roomId)) {
+            throw new RegistrationException("FORBIDDEN", "초대 권한이 없습니다.");
+        }
+
+        // 2. 초대받는 사람(invitee)이 이미 방에 있는지 확인
+        if (roomUserRepository.exists(inviteeId, roomId)) {
+            throw new RegistrationException("CONFLICT", "이미 참여하고 있는 사용자입니다.");
+        }
+
+        // 3. 초대받는 사람의 User 객체를 가져옵니다 (닉네임 등이 필요)
+        User invitee = userRepository.findById(inviteeId)
+                .orElseThrow(() -> new RegistrationException("NOT_FOUND", "초대할 사용자를 찾을 수 없습니다."));
+
+        // 4. 사용자를 방에 추가합니다 ('MEMBER' 역할로).
+        roomUserRepository.save(inviteeId, roomId, invitee.getNickname(), "MEMBER");
+
+        // 5. 방에 있는 모든 사용자에게 새로운 멤버가 입장했음을 알립니다.
+        //    (기존의 입장/퇴장 이벤트 시스템을 재활용)
+        eventPublisher.publishEvent(new UserEnteredRoomEvent(this, invitee, roomId, UserEventDto.UserType.MEMBER));
+        
+     // 1. 초대된 방의 상세 정보를 조회합니다.
+        ChatRoomListDto roomDto = roomRepository.findRoomDtoById(roomId)
+                .orElseThrow(() -> new IllegalStateException("Room DTO not found after creation"));
+
+        // 2. "FORCED_JOIN" 타입의 특별 알림을 생성합니다.
+        NotificationDto<ChatRoomListDto> notification = new NotificationDto<>("FORCED_JOIN", roomDto);
+
+        // 3. 초대받은 사용자(invitee)에게만 개인 큐로 알림을 보냅니다.
+        messagingTemplate.convertAndSendToUser(invitee.getUsername(), "/queue/notifications", notification);
+    }
+	
 	@PreDestroy
 	public void closeScanner() { sc.close(); }
 	

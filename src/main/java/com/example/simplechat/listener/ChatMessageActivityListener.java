@@ -64,7 +64,24 @@ public class ChatMessageActivityListener {
     public void handleUserEnteredRoom(UserEnteredRoomEvent event) {
     	User user = event.getUser();
     	Long roomId = event.getRoomId();
-    	UserEventDto userDto = new UserEventDto(EventType.ENTER, user.getId(), user.getNickname(), event.getUserType());
+    	
+        // 1. 사용자의 프로필 이미지 URL을 가져와서 전체 URL 경로를 만듭니다.
+        String imageUrl = user.getProfile_image_url();
+        String fullProfileImageUrl;
+        if (imageUrl == null || imageUrl.isBlank()) {
+            fullProfileImageUrl = profileStaticUrlPrefix + "/default.png";
+        } else {
+            fullProfileImageUrl = profileStaticUrlPrefix + "/" + imageUrl;
+        }
+    	
+    	// 2. 수정된 DTO 생성자에 fullProfileImageUrl을 추가하여 전달합니다.
+    	UserEventDto userDto = new UserEventDto(
+            EventType.ENTER, 
+            user.getId(), 
+            user.getNickname(), 
+            event.getUserType(), 
+            fullProfileImageUrl
+        );
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
@@ -83,7 +100,7 @@ public class ChatMessageActivityListener {
     	Long userId = event.getUserId();
     	Long roomId = event.getRoomId();
     	EventType eventType = event.getEventType();
-    	UserEventDto userDto = new UserEventDto(eventType, userId, null, null);
+    	UserEventDto userDto = new UserEventDto(eventType, userId, null, null, null);
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {
@@ -103,7 +120,7 @@ public class ChatMessageActivityListener {
     	Long roomId = event.getRoomId();
     	String newNickname = event.getNewNickname();
     	
-    	UserEventDto userDto = new UserEventDto(EventType.NICK_CHANGE, userId, newNickname, null);
+    	UserEventDto userDto = new UserEventDto(EventType.NICK_CHANGE, userId, newNickname, null, null);
     	
         // 1. 웹소켓으로 메시지 브로드캐스트
         try {

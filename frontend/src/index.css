@@ -14,7 +14,7 @@ code {
 
 .topbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background-color: #fff; border-bottom: 1px solid #ddd; }
 .topbar-logo { color: #333; text-decoration: none; }
-.topbar-auth-controls button { margin-left: 10px; }
+.topbar-auth-controls button { height: 25px; margin-left: 10px; }
 .danger-button { background-color: #dc3545; color: white; border-color: #dc3545; }
 
 /* --- chat.html에서 가져온 스타일 --- */
@@ -397,6 +397,10 @@ code {
     font-size: 1em;
 }
 
+[data-id="user-list-panel"] button {
+    margin-top: auto;
+}
+
 .panel-title {
     padding-bottom: 10px; /* 제목 텍스트와 선 사이의 간격 */
     border-bottom: 2px solid #000; /* 연한 회색의 1px 실선 */
@@ -739,6 +743,9 @@ code {
 }
 .topbar-auth-controls {
     display: flex;
+}
+.auth-controls-btn{
+    padding-left: 150px;
 }
 .topbar-logo {
     margin: 0;
@@ -1146,4 +1153,8 @@ code {
 
 .remove-friend-btn:hover {
     color: #dc3545; /* 마우스 올리면 빨간색으로 */
+}
+
+.no-friends {
+    padding-left: 20px;
 }

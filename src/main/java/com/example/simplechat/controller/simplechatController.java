@@ -312,6 +312,22 @@ public class simplechatController {
 		}
 		return ResponseEntity.ok(serv.getFriendshipStatus(currentUserId, otherUserId));
 	}
+	
+	@PostMapping("/room/{roomId}/invite")
+    public ResponseEntity<Void> inviteUserToRoom(
+            @PathVariable("roomId") Long roomId,
+            @RequestBody InviteRequestDto inviteDto,
+            HttpSession session) {
+        
+        Long inviterId = (Long) session.getAttribute("userId");
+        if (inviterId == null) {
+            throw new RegistrationException("UNAUTHORIZED", "로그인이 필요합니다.");
+        }
+
+        serv.inviteUserToRoom(roomId, inviterId, inviteDto.userId());
+
+        return ResponseEntity.ok().build(); // 성공 시 200 OK 응답
+    }
 
 	
 	@MessageMapping("/chat.getMessageList")

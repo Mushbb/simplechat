@@ -229,6 +229,27 @@ public class RoomRepository {
 				.collect(Collectors.toList());
 	}
 	
+	public Optional<ChatRoomListDto> findRoomDtoById(Long roomId) {
+        String sql = "SELECT r.id, r.name, r.room_type, u.nickname as owner_name, " +
+                     "(SELECT COUNT(*) FROM chat_room_users cru WHERE cru.room_id = r.id) as user_count " +
+                     "FROM chat_rooms r JOIN users u ON r.owner_id = u.id " +
+                     "WHERE r.id = ?";
+        List<Map<String, Object>> rows = jdbcsql.executeSelect(sql, new Object[]{roomId});
+        if (rows.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, Object> row = rows.get(0);
+        return Optional.of(new ChatRoomListDto(
+            (Long) row.get("id"),
+            (String) row.get("name"),
+            (String) row.get("room_type"),
+            (String) row.get("owner_name"),
+            ((Number) row.get("user_count")).intValue(),
+            0, // connected_users는 클라이언트에서 관리하므로 0으로 설정
+            true // 초대되었으므로 isMember는 true
+        ));
+    }
+	
 	public long count() {
 		String sql = "SELECT COUNT(*) FROM chat_rooms";
 		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, null);

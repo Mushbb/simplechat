@@ -12,7 +12,7 @@ import FriendListModal from './components/FriendListModal';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
-    const { isLoginModalOpen, isRegisterModalOpen, isMyProfileModalOpen, isFriendListModalOpen } = useContext(AuthContext);
+    const { isLoginModalOpen, isRegisterModalOpen, isMyProfileModalOpen, friendModalConfig } = useContext(AuthContext);
 
   return (
     <div className="app-container">

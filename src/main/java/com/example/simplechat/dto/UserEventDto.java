@@ -16,7 +16,8 @@ public record UserEventDto(
     EventType eventType,
     Long userId,
     String nickname,
-    UserType role
+    UserType role,
+    String profileImageUrl
 ) {
     /**
      * 사용자 이벤트의 종류를 나타내는 열거형입니다.

@@ -8,7 +8,7 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 const ChatContext = createContext();
 
 function ChatProvider({ children }) {
-    const { user, loading } = useContext(AuthContext);
+    const { user, loading, registerNotificationHandler } = useContext(AuthContext);
     const [joinedRooms, setJoinedRooms] = useState([]);
     const [activeRoomId, setActiveRoomId] = useState(null);
     const [messagesByRoom, setMessagesByRoom] = useState({});
@@ -179,6 +179,7 @@ function ChatProvider({ children }) {
             let newUsers = [...currentUsers];
             switch (userEvent.eventType) {
                 case 'ENTER':
+                case 'ROOM_IN':
                     if (userIndex === -1) {
                         newUsers.push({
                             userId: userEvent.userId,
@@ -193,6 +194,10 @@ function ChatProvider({ children }) {
                     break;
                 case 'EXIT':
                     if (userIndex !== -1) newUsers[userIndex].conn = 'DISCONNECT';
+                    break;
+                case 'ROOM_OUT':
+                case 'ROOM_DELETED':
+                    newUsers = currentUsers.filter(u => u.userId !== userEvent.userId);
                     break;
                 case 'NICK_CHANGE':
                     if (userIndex !== -1) newUsers[userIndex] = { ...newUsers[userIndex], nickname: userEvent.nickname };

@@ -1,13 +1,15 @@
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
+import axiosInstance from '../api/axiosInstance';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBell, FaUserFriends } from 'react-icons/fa';
 import FriendListModal from './FriendListModal';
 
 function Topbar() {
     const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal,
-        notifications, acceptFriendRequest, rejectFriendRequest, openFriendListModal, isFriendListModalOpen } = useContext(AuthContext);
+        notifications, acceptFriendRequest, rejectFriendRequest, openFriendListModal, friendModalConfig,
+        openUserProfileModal } = useContext(AuthContext);
     const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms} = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();
@@ -27,6 +29,29 @@ function Topbar() {
     const isActiveRoomChat = location.pathname.startsWith('/chat/') && activeRoomId;
     const usersInActiveRoom = usersByRoom[activeRoomId] || [];
     const myRoleInActiveRoom = usersInActiveRoom.find(u => u.userId === user?.userId)?.role;
+    
+    const handleProfileClick = async (friend, event) => {
+        const liRect = event.currentTarget.getBoundingClientRect();
+        const position = { top: liRect.top, left: liRect.right - 50 };
+        
+        try {
+            // 전체 프로필 정보를 API로 가져옵니다 (상세 정보 포함).
+            const response = await axiosInstance.get(`/user/${friend.userId}/profile`);
+            // AuthContext의 전역 함수를 호출하여 프로필 모달을 엽니다.
+            openUserProfileModal(response.data, position);
+        } catch (error) {
+            console.error('프로필 정보를 가져오는 데 실패했습니다:', error);
+            alert('프로필 정보를 가져오는 데 실패했습니다.');
+        }
+    };
+    
+    const handleOpenFriendList = () => {
+        // 👇 모달을 열 때, '어떤 제목으로', '어떤 기능을' 실행할지 알려줍니다.
+        openFriendListModal({
+            title: '친구 목록',
+            onFriendClick: handleProfileClick
+        });
+    };
     
     const handleTabClick = (roomId) => {
         setActiveRoomId(roomId); // Context에 현재 활성화된 방이 무엇인지 알립니다.
@@ -62,10 +87,10 @@ function Topbar() {
                     {user ? (
                         <>
                             <div className="topbar-icon-container">
-                                <button className="topbar-icon-btn" onClick={openFriendListModal}>
+                                <button className="topbar-icon-btn" onClick={handleOpenFriendList}>
                                     <FaUserFriends />
                                 </button>
-                                {isFriendListModalOpen && <FriendListModal />}
+                                {friendModalConfig.isOpen && <FriendListModal />}
                             </div>
                             <div className="topbar-icon-container" ref={dropdownRef}>
                                 <button className="topbar-icon-btn notification-bell" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
@@ -90,10 +115,12 @@ function Topbar() {
                                     </div>
                                 )}
                             </div>
-                            <span>{user.nickname}님</span>
-                            <button onClick={openProfileModal}>프로필 수정</button>
-                            <button onClick={handleLogout}>로그아웃</button>
-                            <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>
+                            <div className="auth-controls-btn">
+                                <span>{user.nickname}님</span>
+                                <button onClick={openProfileModal}>프로필 수정</button>
+                                <button onClick={handleLogout}>로그아웃</button>
+                                <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>
+                            </div>
                         </>
                     ) : (
                         <>
