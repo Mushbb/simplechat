@@ -4,8 +4,10 @@ import com.example.simplechat.dto.NotificationDto;
 import com.example.simplechat.dto.PresenceChangeDto;
 import com.example.simplechat.model.Friendship;
 import com.example.simplechat.model.User;
+import com.example.simplechat.model.Notification;
 import com.example.simplechat.repository.UserRepository;
 import com.example.simplechat.repository.FriendshipRepository;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -13,6 +15,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.messaging.SessionConnectEvent;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -81,18 +84,31 @@ public class PresenceService {
     private void notifyPresenceChange(User user, boolean isOnline) {
         // 1. 상태가 변경된 사용자의 친구 목록을 가져옵니다.
         List<Friendship> friendships = friendshipRepository.findByUserIdAndStatus(user.getId(), Friendship.Status.ACCEPTED);
-        
-        // 2. 알림 메시지 DTO를 생성합니다.
-        PresenceChangeDto payload = new PresenceChangeDto(user.getId(), user.getNickname(), isOnline);
-        NotificationDto<PresenceChangeDto> notification = new NotificationDto<>("PRESENCE_UPDATE", payload);
 
-        // 3. 각 친구에게 개인 큐로 알림을 보냅니다.
-        friendships.forEach(friendship -> {
-            long friendId = friendship.getUserId1() == user.getId() ? friendship.getUserId2() : friendship.getUserId1();
-            userRepository.findById(friendId).ifPresent(friendUser -> {
-                messagingTemplate.convertAndSendToUser(friendUser.getUsername(), "/queue/notifications", notification);
+        // 👈 변경: 새로운 NotificationDto 형식으로 알림 메시지 생성
+        try {
+            // 2. 전송할 payload 객체 생성
+            PresenceChangeDto payload = new PresenceChangeDto(user.getId(), user.getNickname(), isOnline);
+            // ObjectMapper를 사용해 payload를 JSON 문자열로 변환
+            String metadata = new ObjectMapper().writeValueAsString(payload);
+
+            // 3. 새로운 DTO 빌더를 사용하여 알림 객체 생성
+            NotificationDto notification = NotificationDto.builder()
+                .type(Notification.NotificationType.PRESENCE_UPDATE.name())
+                .metadata(metadata)
+                .build();
+
+            // 4. 각 친구에게 개인 큐로 알림을 보냅니다.
+            friendships.forEach(friendship -> {
+                long friendId = friendship.getUserId1() == user.getId() ? friendship.getUserId2() : friendship.getUserId1();
+                userRepository.findById(friendId).ifPresent(friendUser -> {
+                    messagingTemplate.convertAndSendToUser(friendUser.getUsername(), "/queue/notifications", notification);
+                });
             });
-        });
+        } catch (Exception e) {
+            // JSON 변환 실패 시 로그를 남기거나 예외 처리를 합니다.
+            System.err.println("Failed to create presence notification: " + e.getMessage());
+        }
     }
     
     /**

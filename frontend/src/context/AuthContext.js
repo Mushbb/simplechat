@@ -1,7 +1,9 @@
-import React, { createContext, useState, useEffect, useRef } from 'react';
+import React, { createContext, useState, useEffect, useRef, useCallback } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { toast } from 'react-toastify';                  // ✨ 신규: toast 함수 import
+import NotificationToast from '../components/NotificationToast'; // ✨ 신규: 방금 만든 컴포넌트 import
 
 const SERVER_URL = 'http://10.50.131.25:8080';
 
@@ -20,11 +22,16 @@ function AuthProvider({ children }) {
         isOpen: false,
         title: '친구 목록', // 모달의 제목
         onFriendClick: null, // 친구를 클릭했을 때 실행할 함수
+        position: { top: 0, left: 0 } // ✨ config 객체에 position을 포함
   });
   const [isUserProfileModalOpen, setIsUserProfileModalOpen] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
   
+  const roomJoinHandlerRef = useRef(null);
+  const registerRoomJoinHandler = useCallback((handler) => {
+    roomJoinHandlerRef.current = handler;
+  }, []);
   const stompClientRef = useRef(null);
   
   const openLoginModal = () => setIsLoginModalOpen(true);
@@ -33,19 +40,30 @@ function AuthProvider({ children }) {
   const closeRegisterModal = () => setIsRegisterModalOpen(false);
   const openProfileModal = () => setIsMyProfileModalOpen(true);
   const closeProfileModal = () => setIsMyProfileModalOpen(false);
-  const openFriendListModal = ({ title, onFriendClick }) => {
-        setFriendModalConfig({
-            isOpen: true,
-            title: title || '친구 목록', // 제목이 없으면 기본값 사용
-            onFriendClick: onFriendClick,
-        });
-  };
-  const closeFriendListModal = () => {
-        setFriendModalConfig({ isOpen: false, title: '친구 목록', onFriendClick: null });
-  };
+  const closeFriendListModal = useCallback(() => { // 👈 useCallback으로 감싸기
+      setFriendModalConfig({ isOpen: false, title: '친구 목록', onFriendClick: null });
+  }, []);
+    // 👈 변경: 함수 이름을 toggleFriendListModal로 바꾸고 토글 로직 추가
+    const toggleFriendListModal = useCallback(({ title, onFriendClick, position }) => {
+        // 만약 모달이 이미 열려 있다면, 닫기만 함
+        if (friendModalConfig.isOpen) {
+            closeFriendListModal();
+        } else { // 모달이 닫혀 있다면, 열기
+            setFriendModalConfig({
+                isOpen: true,
+                title: title || '친구 목록',
+                onFriendClick: onFriendClick,
+                position: position // 여기에 저장!
+            });
+        }
+    }, [friendModalConfig.isOpen, closeFriendListModal]); // 의존성 배열 추가
+    
+    // ✨ 신규/변경: UserProfileModal을 여닫는 함수
     const openUserProfileModal = (profileData, position) => {
         setSelectedProfile(profileData);
-        setModalPosition(position);
+        if (position) {
+            setModalPosition(position);
+        }
         setIsUserProfileModalOpen(true);
     };
     
@@ -57,36 +75,46 @@ function AuthProvider({ children }) {
     // 알림용 웹소켓 연결 Effect
     useEffect(() => {
         if (user) {
-            // 1. 초기 친구 요청 목록 가져오기
-            axiosInstance.get('/api/friends/requests/pending')
+            // 👈 변경: 통합 알림 API 호출
+            axiosInstance.get('/api/notifications')
                 .then(response => setNotifications(response.data))
-                .catch(error => console.error('Failed to fetch pending requests', error));
+                .catch(error => console.error('Failed to fetch notifications', error));
             
-            // 2. 웹소켓 연결
             const socket = new SockJS(`${SERVER_URL}/ws`);
             const stompClient = new Client({
                 webSocketFactory: () => socket,
                 onConnect: () => {
-                    // 3. 사용자 전용 알림 채널 구독
                     stompClient.subscribe(`/user/queue/notifications`, (message) => {
                         const notification = JSON.parse(message.body);
                         
-                        if (notification.type === 'FRIEND_REQUEST') {
-                            const friendRequest = notification.payload;
-                            setNotifications(prev =>
-                                prev.find(n => n.userId === friendRequest.userId) ? prev : [...prev, friendRequest]
-                            );
-                        } else if (notification.type === 'PRESENCE_UPDATE') {
-                            const { userId, isOnline } = notification.payload;
+                        if (notification.type === 'PRESENCE_UPDATE') {
+                            // 👈 변경: notification.metadata를 파싱하여 payload를 얻음
+                            const payload = JSON.parse(notification.metadata);
+                            const { userId, isOnline } = payload;
                             
-                            // setFriends 함수를 사용해 친구 목록의 특정 친구 상태만 업데이트
                             setFriends(prevFriends =>
                                 prevFriends.map(friend =>
                                     friend.userId === userId
-                                        ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' } // ID가 같으면 conn 상태 업데이트
-                                        : friend // 다르면 그대로 유지
+                                        ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' }
+                                        : friend
                                 )
                             );
+                        } else {
+                            // 그 외 DB에 저장되는 알림들 (친구 요청, 방 초대)
+                            setNotifications(prev =>
+                                prev.find(n => n.notificationId === notification.notificationId) ? prev : [notification, ...prev]
+                            );
+                            // ✨ 2. 화면에 토스트 알림 띄우기
+                            toast(({ closeToast }) => (
+                                <NotificationToast
+                                    notification={notification}
+                                    onAccept={acceptNotification}
+                                    onReject={rejectNotification}
+                                    closeToast={closeToast}
+                                />
+                            ), {
+                                toastId: notification.notificationId // 중복 방지를 위한 고유 ID
+                            });
                         }
                     });
                 },
@@ -94,35 +122,45 @@ function AuthProvider({ children }) {
             stompClient.activate();
             stompClientRef.current = stompClient;
             
-            // 4. 로그아웃 시 연결 해제
-            return () => {
-                if (stompClient?.active) {
-                    stompClient.deactivate();
-                }
-            };
+            return () => { if (stompClient?.active) stompClient.deactivate(); };
         } else {
-            // 로그아웃 시 알림 비우기
             setNotifications([]);
         }
     }, [user]);
     
-    const acceptFriendRequest = async (requesterId) => {
+    // ✨ 신규: 통합 알림 수락 함수
+    const acceptNotification = async (notification) => {
         try {
-            await axiosInstance.put(`/api/friends/requests/${requesterId}/accept`);
-            alert('친구 요청을 수락했습니다.');
-            setNotifications(prev => prev.filter(n => n.userId !== requesterId));
+            await axiosInstance.put(`/api/notifications/${notification.notificationId}/accept`);
+            alert('요청을 수락했습니다.');
+            setNotifications(prev => prev.filter(n => n.notificationId !== notification.notificationId));
+            
+            // ✨ 신규: 수락한 것이 방 초대라면 roomId를 반환
+            if (notification.type === 'ROOM_INVITATION') {
+                if (roomJoinHandlerRef.current) {
+                    const metadata = JSON.parse(notification.metadata);
+                    const newRoom = { id: metadata.roomId, name: metadata.roomName };
+                    roomJoinHandlerRef.current(newRoom);
+                }
+                // 성공적으로 처리 후 roomId 반환
+                const metadata = JSON.parse(notification.metadata);
+                return metadata.roomId;
+            }
+            return null; // 방 초대가 아니면 null 반환
         } catch (error) {
-            alert('친구 요청 수락에 실패했습니다.');
+            alert('요청 수락에 실패했습니다.');
+            console.error(error);
         }
     };
     
-    const rejectFriendRequest = async (requesterId) => {
+    // ✨ 신규: 통합 알림 거절 함수
+    const rejectNotification = async (notificationId) => {
         try {
-            await axiosInstance.delete(`/api/friends/requests/${requesterId}/reject`);
-            alert('친구 요청을 거절했습니다.');
-            setNotifications(prev => prev.filter(n => n.userId !== requesterId));
+            await axiosInstance.delete(`/api/notifications/${notificationId}/reject`);
+            alert('요청을 거절했습니다.');
+            setNotifications(prev => prev.filter(n => n.notificationId !== notificationId));
         } catch (error) {
-            alert('친구 요청 거절에 실패했습니다.');
+            alert('요청 거절에 실패했습니다.');
         }
     };
 
@@ -266,11 +304,8 @@ function AuthProvider({ children }) {
         openProfileModal, // 추가
         closeProfileModal, // 추가
         updateUser,
-        notifications,
-        acceptFriendRequest,
-        rejectFriendRequest,
         friendModalConfig,
-        openFriendListModal,
+        toggleFriendListModal,
         closeFriendListModal,
         friends, // friends 상태 전달
         setFriends, // setFriends 함수 전달
@@ -280,6 +315,10 @@ function AuthProvider({ children }) {
         modalPosition,
         openUserProfileModal,
         closeUserProfileModal,
+        notifications, // 👈 변경
+        acceptNotification, // ✨ 신규
+        rejectNotification, // ✨ 신규
+        registerRoomJoinHandler, // ✨ 신규
     };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

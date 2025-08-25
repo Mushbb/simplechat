@@ -255,15 +255,6 @@ public class simplechatController {
 		return ResponseEntity.ok().build();
 	}
 
-	@GetMapping("/api/friends/requests/pending")
-	public ResponseEntity<List<FriendResponseDto>> getPendingRequests(HttpSession session) {
-		Long userId = (Long) session.getAttribute("userId");
-		if (userId == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-		}
-		return ResponseEntity.ok(serv.getPendingRequests(userId));
-	}
-
 	@GetMapping("/api/friends")
 	public ResponseEntity<List<FriendResponseDto>> getFriends(HttpSession session) {
 		Long userId = (Long) session.getAttribute("userId");
@@ -271,27 +262,6 @@ public class simplechatController {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
 		return ResponseEntity.ok(serv.getFriends(userId));
-	}
-
-	@PutMapping("/api/friends/requests/{requesterId}/accept")
-	public ResponseEntity<Void> acceptFriendRequest(@PathVariable("requesterId") Long requesterId, HttpSession session) {
-		Long accepterId = (Long) session.getAttribute("userId");
-		if (accepterId == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-		}
-		serv.acceptFriendRequest(accepterId, requesterId);
-		
-		return ResponseEntity.ok().build();
-	}
-
-	@DeleteMapping("/api/friends/requests/{requesterId}/reject")
-	public ResponseEntity<Void> rejectFriendRequest(@PathVariable("requesterId") Long requesterId, HttpSession session) {
-		Long rejecterId = (Long) session.getAttribute("userId");
-		if (rejecterId == null) {
-			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-		}
-		serv.rejectFriendRequest(rejecterId, requesterId);
-		return ResponseEntity.noContent().build();
 	}
 
 	@DeleteMapping("/api/friends/{friendId}")
@@ -313,7 +283,7 @@ public class simplechatController {
 		return ResponseEntity.ok(serv.getFriendshipStatus(currentUserId, otherUserId));
 	}
 	
-	@PostMapping("/room/{roomId}/invite")
+    @PostMapping("/room/{roomId}/invite")
     public ResponseEntity<Void> inviteUserToRoom(
             @PathVariable("roomId") Long roomId,
             @RequestBody InviteRequestDto inviteDto,
@@ -326,9 +296,40 @@ public class simplechatController {
 
         serv.inviteUserToRoom(roomId, inviterId, inviteDto.userId());
 
-        return ResponseEntity.ok().build(); // 성공 시 200 OK 응답
+        return ResponseEntity.ok().build();
     }
 
+    // ✨ 신규: 통합 알림 목록 조회 API
+    @GetMapping("/api/notifications")
+    public ResponseEntity<List<NotificationDto>> getNotifications(HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        return ResponseEntity.ok(serv.getPendingNotifications(userId));
+    }
+
+    // ✨ 신규: 통합 알림 수락 API
+    @PutMapping("/api/notifications/{notificationId}/accept")
+    public ResponseEntity<Void> acceptNotification(@PathVariable("notificationId") Long notificationId, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        serv.acceptNotification(notificationId, userId);
+        return ResponseEntity.ok().build();
+    }
+    
+    // ✨ 신규: 통합 알림 거절 API
+    @DeleteMapping("/api/notifications/{notificationId}/reject")
+    public ResponseEntity<Void> rejectNotification(@PathVariable("notificationId") Long notificationId, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        serv.rejectNotification(notificationId, userId);
+        return ResponseEntity.noContent().build();
+    }
 	
 	@MessageMapping("/chat.getMessageList")
 	@SendToUser("/topic/queue/reply")

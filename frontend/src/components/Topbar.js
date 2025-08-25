@@ -8,13 +8,15 @@ import FriendListModal from './FriendListModal';
 
 function Topbar() {
     const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal,
-        notifications, acceptFriendRequest, rejectFriendRequest, openFriendListModal, friendModalConfig,
+        notifications, acceptNotification, rejectNotification, toggleFriendListModal, friendModalConfig,
         openUserProfileModal } = useContext(AuthContext);
     const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms} = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    
     const dropdownRef = useRef(null);
+    const friendIconRef = useRef(null);
     
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -32,7 +34,7 @@ function Topbar() {
     
     const handleProfileClick = async (friend, event) => {
         const liRect = event.currentTarget.getBoundingClientRect();
-        const position = { top: liRect.top, left: liRect.right - 50 };
+        const position = { top: liRect.top, left: liRect.right + 5 };
         
         try {
             // 전체 프로필 정보를 API로 가져옵니다 (상세 정보 포함).
@@ -46,10 +48,17 @@ function Topbar() {
     };
     
     const handleOpenFriendList = () => {
-        // 👇 모달을 열 때, '어떤 제목으로', '어떤 기능을' 실행할지 알려줍니다.
-        openFriendListModal({
+        // 아이콘 버튼의 위치 계산
+        const rect = friendIconRef.current.getBoundingClientRect();
+        
+        // 👈 변경: openFriendListModal 호출 시 위치 정보 전달
+        toggleFriendListModal({
             title: '친구 목록',
-            onFriendClick: handleProfileClick
+            onFriendClick: handleProfileClick, // 기존 프로필 클릭 로직
+            position: {
+                top: rect.bottom, // 아이콘 바로 아래 5px 지점
+                left: rect.left - 90     // 아이콘 왼쪽 끝에 맞춤
+            }
         });
     };
     
@@ -80,6 +89,16 @@ function Topbar() {
         }
     };
     
+    // ✨ 신규: 수락 버튼 클릭 시 실행될 새로운 핸들러
+    const handleAcceptNotification = async (notification) => {
+        const roomId = await acceptNotification(notification);
+        // 만약 acceptNotification 함수가 roomId를 반환했다면
+        if (roomId) {
+            // 해당 채팅방 URL로 페이지를 이동시킵니다.
+            navigate(`/chat/${roomId}`);
+        }
+    };
+    
     return (
         <header className="topbar">
             <div className="topbar-main">
@@ -87,7 +106,11 @@ function Topbar() {
                     {user ? (
                         <>
                             <div className="topbar-icon-container">
-                                <button className="topbar-icon-btn" onClick={handleOpenFriendList}>
+                                <button ref={friendIconRef}
+                                        className="topbar-icon-btn"
+                                        onClick={handleOpenFriendList}
+                                        data-modal-toggle="friendlist"
+                                >
                                     <FaUserFriends />
                                 </button>
                                 {friendModalConfig.isOpen && <FriendListModal />}
@@ -100,12 +123,14 @@ function Topbar() {
                                 {isDropdownOpen && (
                                     <div className="notification-dropdown">
                                         {notifications.length > 0 ? (
+                                            // 👈 변경: 새로운 notifications 배열을 렌더링
                                             notifications.map(n => (
-                                                <div key={n.userId} className="notification-item">
-                                                    <span>{n.nickname}님이 친구 요청을 보냈습니다.</span>
+                                                <div key={n.notificationId} className="notification-item">
+                                                    <span>{n.content}</span>
                                                     <div className="notification-actions">
-                                                        <button onClick={() => acceptFriendRequest(n.userId)}>수락</button>
-                                                        <button className="danger-button" onClick={() => rejectFriendRequest(n.userId)}>거절</button>
+                                                        {/* 👈 변경: 통합 함수 호출 */}
+                                                        <button onClick={() => handleAcceptNotification(n)}>수락</button>
+                                                        <button className="danger-button" onClick={() => rejectNotification(n.notificationId)}>거절</button>
                                                     </div>
                                                 </div>
                                             ))

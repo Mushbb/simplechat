@@ -11,7 +11,7 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 
 function ChatPage() {
     const { roomId } = useParams();
-    const { user, openFriendListModal, closeFriendListModal, friendModalConfig, openUserProfileModal } = useContext(AuthContext);
+    const { user, toggleFriendListModal, closeFriendListModal, friendModalConfig, openUserProfileModal } = useContext(AuthContext);
     const { setActiveRoomId, messagesByRoom, usersByRoom, joinedRooms, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom } = useContext(ChatContext);
 
     // --- UI 상호작용을 위한 Local State ---
@@ -33,6 +33,7 @@ function ChatPage() {
     const fileInputRef = useRef(null);
     const scrollContainerRef = useRef(null);
     const prevScrollHeightRef = useRef(null);
+    const inviteButtonRef = useRef(null);
 
     const currentRoomId = Number(roomId);
     const roomName = joinedRooms.find(r => r.id === currentRoomId)?.name || '';
@@ -99,10 +100,17 @@ function ChatPage() {
     };
     
     const handleOpenInviteModal = () => {
-        friendModalConfig.isOpen = true;
-        openFriendListModal({
+        // 버튼의 위치 계산
+        const rect = inviteButtonRef.current.getBoundingClientRect();
+        
+        // 👈 변경: openFriendListModal 호출 시 위치 정보 전달
+        toggleFriendListModal({
             title: '친구 초대하기',
-            onFriendClick: handleInviteFriend
+            onFriendClick: handleInviteFriend, // 기존 초대 로직
+            position: {
+                top: rect.top - 350,  // 버튼 위치를 기준으로 Y 좌표 조정 (필요시 값 변경)
+                left: rect.left - 50 // 버튼 위치를 기준으로 X 좌표 조정 (필요시 값 변경)
+            }
         });
     };
     
@@ -358,7 +366,11 @@ function ChatPage() {
                             </li>
                         ))}
                     </ul>
-                    <button onClick={handleOpenInviteModal}>친구 초대</button>
+                    <button
+                        ref={inviteButtonRef}
+                        onClick={handleOpenInviteModal}
+                        data-modal-toggle="friendlist"
+                    >친구 초대</button>
                     <div className="nickname-editor">
                         <input type="text" value={myNickname} onChange={(e) => setMyNickname(e.target.value)} onBlur={handleNicknameUpdate}
                                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleNicknameUpdate(); e.target.blur(); }}}/>

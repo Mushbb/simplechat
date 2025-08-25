@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,8 @@ public class SimplechatService {
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
     private final FriendshipRepository friendshipRepository;
+    private final NotificationRepository notificationRepository;
+    
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
     private final SimpMessagingTemplate messagingTemplate;
@@ -543,26 +546,17 @@ public class SimplechatService {
 			throw new RegistrationException("CONFLICT", "Friendship or request already exists.");
 		});
 
-		Friendship newRequest = new Friendship(senderId, receiverId, Friendship.Status.PENDING, null, 0);
-		friendshipRepository.save(newRequest);
+        // 👈 변경: Friendship 테이블 대신 Notification 테이블에 저장
+        String content = sender.getNickname() + "님이 친구 요청을 보냈습니다.";
+        Notification notification = new Notification(receiverId, Notification.NotificationType.FRIEND_REQUEST, content, senderId, null);
+        notificationRepository.save(notification);
 
-		// Send real-time notification
-		FriendResponseDto responseDto = FriendResponseDto.from(sender, "PENDING_RECEIVED", null);
-		NotificationDto<FriendResponseDto> notification = new NotificationDto<>("FRIEND_REQUEST", responseDto);
-
-		messagingTemplate.convertAndSendToUser(receiver.getUsername(), "/queue/notifications", notification);
-	}
-
-	public List<FriendResponseDto> getPendingRequests(long userId) {
-		List<Friendship> requests = friendshipRepository.findIncomingPendingRequests(userId);
-		
-		return requests.stream()
-				.map(friendship -> {
-					User requester = userRepository.findById(friendship.getUserId1())
-							.orElseThrow(() -> new IllegalStateException("Requester not found"));
-					return FriendResponseDto.from(requester, "PENDING_RECEIVED", null);
-				})
-				.collect(Collectors.toList());
+        // 👈 변경: 실시간 알림 전송 (새 DTO 사용)
+        messagingTemplate.convertAndSendToUser(
+            receiver.getUsername(),
+            "/queue/notifications",
+            NotificationDto.from(notification)
+        );
 	}
 
 	public List<FriendResponseDto> getFriends(long userId) {
@@ -576,34 +570,10 @@ public class SimplechatService {
 					String url = friend.getProfile_image_url();
 					friend.setProfile_image_url(url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png");
 					FriendResponseDto.ConnectType conn = presenceService.isUserOnline(friendId) ? FriendResponseDto.ConnectType.CONNECT : FriendResponseDto.ConnectType.DISCONNECT;
-					System.out.println(conn.name());
+
 					return FriendResponseDto.from(friend, "ACCEPTED", conn);
 				})
 				.collect(Collectors.toList());
-	}
-
-	@Transactional
-	public void acceptFriendRequest(long accepterId, long requesterId) {
-		Friendship friendship = friendshipRepository.findByUsers(accepterId, requesterId)
-				.filter(f -> f.getStatus().name().equals("PENDING") && f.getUserId2() == accepterId)
-				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "No pending request found to accept."));
-		
-		friendshipRepository.updateStatus(requesterId, accepterId, "ACCEPTED");
-
-		// Optionally, send a notification back to the requester
-		User accepter = userRepository.findById(accepterId).orElseThrow(() -> new IllegalStateException("Accepter not found"));
-		NotificationDto<FriendResponseDto> notification = new NotificationDto<>("FRIEND_ACCEPTED", FriendResponseDto.from(accepter, "ACCEPTED", null));
-		String requesterUsername = userRepository.findById(requesterId).get().getUsername();
-		messagingTemplate.convertAndSendToUser(requesterUsername, "/queue/notifications", notification);
-	}
-
-	@Transactional
-	public void rejectFriendRequest(long rejecterId, long requesterId) {
-		Friendship friendship = friendshipRepository.findByUsers(rejecterId, requesterId)
-				.filter(f -> f.getStatus().name().equals("PENDING") && f.getUserId2() == rejecterId)
-				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "No pending request found to reject."));
-		
-		friendshipRepository.deleteByRequesterAndReceiver(requesterId, rejecterId);
 	}
 
 	@Transactional
@@ -635,38 +605,91 @@ public class SimplechatService {
 	
 	@Transactional
     public void inviteUserToRoom(Long roomId, Long inviterId, Long inviteeId) {
-        // 1. 초대하는 사람(inviter)이 해당 방에 있는지 먼저 확인 (권한 체크)
+		User inviter = userRepository.findById(inviterId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Inviter not found."));
+        User invitee = userRepository.findById(inviteeId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Invitee not found."));
+        ChatRoom room = roomRepository.findById(roomId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Room not found."));
+
         if (!roomUserRepository.exists(inviterId, roomId)) {
             throw new RegistrationException("FORBIDDEN", "초대 권한이 없습니다.");
         }
-
-        // 2. 초대받는 사람(invitee)이 이미 방에 있는지 확인
         if (roomUserRepository.exists(inviteeId, roomId)) {
             throw new RegistrationException("CONFLICT", "이미 참여하고 있는 사용자입니다.");
         }
-
-        // 3. 초대받는 사람의 User 객체를 가져옵니다 (닉네임 등이 필요)
-        User invitee = userRepository.findById(inviteeId)
-                .orElseThrow(() -> new RegistrationException("NOT_FOUND", "초대할 사용자를 찾을 수 없습니다."));
-
-        // 4. 사용자를 방에 추가합니다 ('MEMBER' 역할로).
-        roomUserRepository.save(inviteeId, roomId, invitee.getNickname(), "MEMBER");
-
-        // 5. 방에 있는 모든 사용자에게 새로운 멤버가 입장했음을 알립니다.
-        //    (기존의 입장/퇴장 이벤트 시스템을 재활용)
-        eventPublisher.publishEvent(new UserEnteredRoomEvent(this, invitee, roomId, UserEventDto.UserType.MEMBER));
         
-     // 1. 초대된 방의 상세 정보를 조회합니다.
-        ChatRoomListDto roomDto = roomRepository.findRoomDtoById(roomId)
-                .orElseThrow(() -> new IllegalStateException("Room DTO not found after creation"));
+        String content = inviter.getNickname() + "님이 '" + room.getName() + "' 방에 초대했습니다.";
+        
+        // ✨ 신규: metadata에 초대한 사람과 방 정보를 JSON 형태로 저장
+        String metadata;
+        try {
+            metadata = new ObjectMapper().writeValueAsString(Map.of(
+                "inviterId", inviter.getId(),
+                "inviterNickname", inviter.getNickname(),
+                "roomId", room.getId(),
+                "roomName", room.getName()
+            ));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize metadata", e);
+        }
 
-        // 2. "FORCED_JOIN" 타입의 특별 알림을 생성합니다.
-        NotificationDto<ChatRoomListDto> notification = new NotificationDto<>("FORCED_JOIN", roomDto);
-
-        // 3. 초대받은 사용자(invitee)에게만 개인 큐로 알림을 보냅니다.
-        messagingTemplate.convertAndSendToUser(invitee.getUsername(), "/queue/notifications", notification);
+        Notification notification = new Notification(inviteeId, Notification.NotificationType.ROOM_INVITATION, content, roomId, metadata);
+        notificationRepository.save(notification);
+        
+        messagingTemplate.convertAndSendToUser(
+            invitee.getUsername(),
+            "/queue/notifications",
+            NotificationDto.from(notification)
+        );
     }
 	
+    public List<NotificationDto> getPendingNotifications(long userId) {
+        return notificationRepository.findByReceiverId(userId)
+            .stream()
+            .map(NotificationDto::from)
+            .collect(Collectors.toList());
+    }
+	
+    @Transactional
+    public void acceptNotification(Long notificationId, Long userId) {
+        Notification notification = notificationRepository.findById(notificationId)
+            .orElseThrow(() -> new RegistrationException("NOT_FOUND", "알림을 찾을 수 없습니다."));
+
+        if (!notification.getReceiverId().equals(userId)) {
+            throw new RegistrationException("FORBIDDEN", "권한이 없습니다.");
+        }
+
+        switch (notification.getNotificationType()) {
+            case FRIEND_REQUEST:
+                long requesterId = notification.getRelatedEntityId();
+                // Friendship 테이블에 ACCEPTED 상태로 저장
+                Friendship friendship = new Friendship(requesterId, userId, Friendship.Status.ACCEPTED, null, 0);
+                friendshipRepository.save(friendship);
+                break;
+
+            case ROOM_INVITATION:
+                long roomId = notification.getRelatedEntityId();
+                User user = userRepository.findById(userId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "User not found."));
+                // room_user 테이블에 저장 (실제 방 참여)
+                roomUserRepository.save(userId, roomId, user.getNickname(), "MEMBER");
+                // 방에 이벤트 발행
+                eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId, UserEventDto.UserType.MEMBER));
+                break;
+        }
+        // 처리된 알림 삭제
+        notificationRepository.deleteById(notificationId);
+    }
+    
+    @Transactional
+    public void rejectNotification(Long notificationId, Long userId) {
+        Notification notification = notificationRepository.findById(notificationId)
+            .orElseThrow(() -> new RegistrationException("NOT_FOUND", "알림을 찾을 수 없습니다."));
+
+        if (!notification.getReceiverId().equals(userId)) {
+            throw new RegistrationException("FORBIDDEN", "권한이 없습니다.");
+        }
+        // 알림 삭제
+        notificationRepository.deleteById(notificationId);
+    }
+    
 	@PreDestroy
 	public void closeScanner() { sc.close(); }
 	

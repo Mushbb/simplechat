@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useRef, useEffect } from 'react';
+import React, { createContext, useState, useContext, useRef, useEffect, useCallback } from 'react';
 import { AuthContext } from './AuthContext';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
@@ -8,7 +8,7 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 const ChatContext = createContext();
 
 function ChatProvider({ children }) {
-    const { user, loading, registerNotificationHandler } = useContext(AuthContext);
+    const { user, loading, registerRoomJoinHandler  } = useContext(AuthContext);
     const [joinedRooms, setJoinedRooms] = useState([]);
     const [activeRoomId, setActiveRoomId] = useState(null);
     const [messagesByRoom, setMessagesByRoom] = useState({});
@@ -24,19 +24,21 @@ function ChatProvider({ children }) {
         activeRoomIdRef.current = activeRoomId;
     }, [activeRoomId]);
     
-    const joinRoomAndConnect = (newRoom) => {
-        // 이미 명단에 있으면 아무것도 하지 않음
+    const joinRoomAndConnect = useCallback((newRoom) => { // ✨ useCallback으로 감싸기
         if (joinedRooms.some(room => room.id === newRoom.id)) {
             console.log(`Room #${newRoom.id} is already in the list.`);
             return;
         }
-        
-        // 1. lifeguard의 명단(joinedRooms state)에 새로운 방을 추가
         setJoinedRooms(prevRooms => [...prevRooms, newRoom]);
-        
-        // 2. 해당 방의 웹소켓 연결 및 초기화 시작
         connectToRoom(newRoom.id);
-    };
+    }, [joinedRooms]); // ✨ 의존성 배열 추가
+    
+    // ✨ 신규: AuthContext에 방 참여 핸들러 등록
+    useEffect(() => {
+        if (registerRoomJoinHandler) {
+            registerRoomJoinHandler(joinRoomAndConnect);
+        }
+    }, [registerRoomJoinHandler, joinRoomAndConnect]);
     
     useEffect(() => {
         const setupConnections = async () => {

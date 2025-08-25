@@ -998,13 +998,13 @@ code {
     border: 1px solid #ddd;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    width: 350px;
+    width: 370px;
     z-index: 1000;
 }
 
 /* (이하 알림 드롭다운 내부 스타일은 동일) */
 .notification-item {
-    padding: 12px 15px;
+    padding: 30px 15px;
     border-bottom: 1px solid #eee;
     display: flex;
     justify-content: space-between;
