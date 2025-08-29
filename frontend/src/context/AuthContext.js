@@ -9,7 +9,7 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 
 const AuthContext = createContext();
 
-function AuthProvider({ children }) {
+function AuthProvider({ children, navigate }) {
   const [user, setUser] = useState(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -232,7 +232,25 @@ function AuthProvider({ children }) {
       setUser(null);
     }
   };
-
+    
+    // ✨ 1. 연결 끊김 시 호출될 강제 로그아웃 함수를 새로 만듭니다.
+    const forceLogout = useCallback(() => {
+        if (window.location.pathname === '/') {
+            return;
+        }
+        
+        // 이미 로그아웃 상태이면 아무것도 하지 않음
+        if (!user) return;
+        
+        console.error("서버와의 모든 연결이 끊어져 강제 로그아웃됩니다.");
+        toast.error("서버와의 연결이 끊겼습니다. 다시 로그인해주세요.");
+        
+        // 기존 로그아웃 함수를 호출하여 상태를 정리
+        logout();
+        window.location.href = '/';
+        
+    }, [user]); // user 상태에 의존
+  
     // ✅ 회원가입 함수 추가
     const register = async (username, nickname, password) => {
         try {
@@ -319,6 +337,7 @@ function AuthProvider({ children }) {
         acceptNotification, // ✨ 신규
         rejectNotification, // ✨ 신규
         registerRoomJoinHandler, // ✨ 신규
+        forceLogout,
     };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

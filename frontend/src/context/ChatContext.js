@@ -8,7 +8,8 @@ const SERVER_URL = 'http://10.50.131.25:8080';
 const ChatContext = createContext();
 
 function ChatProvider({ children }) {
-    const { user, loading, registerRoomJoinHandler  } = useContext(AuthContext);
+    const { user, loading, registerRoomJoinHandler, forceLogout } = useContext(AuthContext);
+    
     const [joinedRooms, setJoinedRooms] = useState([]);
     const [activeRoomId, setActiveRoomId] = useState(null);
     const [messagesByRoom, setMessagesByRoom] = useState({});
@@ -19,19 +20,50 @@ function ChatProvider({ children }) {
     
     const stompClientsRef = useRef(new Map());
     const activeRoomIdRef = useRef(activeRoomId);
+    const joiningRoomRef = useRef(null);
     
     useEffect(() => {
         activeRoomIdRef.current = activeRoomId;
     }, [activeRoomId]);
     
-    const joinRoomAndConnect = useCallback((newRoom) => { // ✨ useCallback으로 감싸기
-        if (joinedRooms.some(room => room.id === newRoom.id)) {
-            console.log(`Room #${newRoom.id} is already in the list.`);
+    const joinRoomAndConnect = useCallback(async (newRoom) => {
+        // 이미 참여한 방인지 먼저 확인 (이것은 중복 탭 생성과는 다른 문제입니다)
+        const isAlreadyMember = joinedRooms.some(room => room.id === newRoom.id);
+        if (isAlreadyMember) {
+            console.log(`[ChatContext] 이미 참여한 방 #${newRoom.id} 입니다.`);
             return;
         }
-        setJoinedRooms(prevRooms => [...prevRooms, newRoom]);
-        connectToRoom(newRoom.id);
-    }, [joinedRooms]); // ✨ 의존성 배열 추가
+        
+        // "잠금 장치"를 확인합니다. 다른 곳에서 이미 이 방에 참여하는 중이라면, 중복 실행을 막습니다.
+        if (joiningRoomRef.current === newRoom.id) {
+            console.warn(`[ChatContext] #${newRoom.id} 방에 이미 참여하는 작업이 진행 중입니다.`);
+            return;
+        }
+        
+        try {
+            // ✨ 3. 참여 작업을 시작하기 직전에 "잠금"을 겁니다.
+            joiningRoomRef.current = newRoom.id;
+            
+            // 웹소켓 연결 및 데이터 로딩을 기다립니다.
+            await connectToRoom(newRoom.id);
+            
+            // 모든 작업이 성공적으로 끝나면, joinedRooms 상태를 안전하게 업데이트합니다.
+            setJoinedRooms(prevRooms => {
+                // 혹시 모를 중복을 한 번 더 확인하고 추가합니다.
+                if (prevRooms.some(room => room.id === newRoom.id)) {
+                    return prevRooms;
+                }
+                return [...prevRooms, newRoom];
+            });
+            
+        } catch (error) {
+            console.error(`[ChatContext] #${newRoom.id} 방 참여 실패:`, error);
+            throw error; // 실패했음을 LobbyPage에 알려줍니다.
+        } finally {
+            // ✨ 4. 작업이 성공하든 실패하든, 마지막에는 반드시 "잠금"을 해제합니다.
+            joiningRoomRef.current = null;
+        }
+    }, [joinedRooms]); // LobbyPage에서 최신 joinedRooms를 참조해야 하므로 의존성 배열 유지
     
     // ✨ 신규: AuthContext에 방 참여 핸들러 등록
     useEffect(() => {
@@ -102,38 +134,59 @@ function ChatProvider({ children }) {
     };
     
     const connectToRoom = (roomId) => {
-        if (!user || stompClientsRef.current.has(roomId)) return;
-        
-        setIsRoomLoading(prev => ({ ...prev, [roomId]: true }));
-        
-        const client = new Client({
-            webSocketFactory: () => new SockJS(`${SERVER_URL}/ws`),
-            connectHeaders: { user_id: String(user.userId), room_id: String(roomId) },
-            onConnect: options => {
-                console.log(`Room #${roomId}: 웹소켓 연결 성공`);
-                client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
-                client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
-                client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
-                
-                axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
-                    const data = response.data;
-                    setUsersByRoom(prev => ({ ...prev, [roomId]: data.users || [] }));
-                    setMessagesByRoom(prev => ({ ...prev, [roomId]: [...(data.messages || [])].reverse() }));
+        return new Promise((resolve, reject) => {
+            if (!user || stompClientsRef.current.has(roomId)) return;
+            
+            setIsRoomLoading(prev => ({ ...prev, [roomId]: true }));
+            
+            const client = new Client({
+                webSocketFactory: () => new SockJS(`${SERVER_URL}/ws`),
+                connectHeaders: { user_id: String(user.userId), room_id: String(roomId) },
+                reconnectDelay: 0,
+                onConnect: options => {
+                    console.log(`Room #${roomId}: 웹소켓 연결 성공`);
+                    client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
+                    client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
+                    client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
                     
-                    // ✅ NEW: 방에 처음 입장할 때는 기본적으로 더 불러올 메시지가 있다고 가정합니다.
-                    // (만약 처음부터 메시지가 20개 미만이면 false로 설정하는 최적화도 가능합니다.)
-                    const initialMessages = response.data.messages || [];
-                    setHasMoreMessagesByRoom(prev => ({ ...prev, [roomId]: initialMessages.length >= 20 }));
-                    
-                }).finally(() => {
-                    // ✅ 3. API 호출이 성공하든 실패하든 끝나면 로딩 상태를 false로 설정
-                    setIsRoomLoading(prev => ({ ...prev, [roomId]: false }));
-                });
-            },
+                    axiosInstance.get(`/room/${roomId}/init?lines=20`).then(response => {
+                        const data = response.data;
+                        setUsersByRoom(prev => ({ ...prev, [roomId]: data.users || [] }));
+                        setMessagesByRoom(prev => ({ ...prev, [roomId]: [...(data.messages || [])].reverse() }));
+                        
+                        // ✅ NEW: 방에 처음 입장할 때는 기본적으로 더 불러올 메시지가 있다고 가정합니다.
+                        // (만약 처음부터 메시지가 20개 미만이면 false로 설정하는 최적화도 가능합니다.)
+                        const initialMessages = response.data.messages || [];
+                        setHasMoreMessagesByRoom(prev => ({ ...prev, [roomId]: initialMessages.length >= 20 }));
+                        resolve(); // 성공 신호!
+                    }).catch(error => {
+                        console.error(`#${roomId} 방 초기화 데이터 로딩 실패:`, error);
+                        reject(error); // 실패 신호!
+                    }).finally(() => {
+                        // ✅ 3. API 호출이 성공하든 실패하든 끝나면 로딩 상태를 false로 설정
+                        setIsRoomLoading(prev => ({ ...prev, [roomId]: false }));
+                    });
+                }
+            });
+            client.onDisconnect = () => {
+                console.error(`Room #${roomId}: 웹소켓 연결이 끊어졌습니다.`);
+                forceLogout();
+            };
+            
+            client.onStompError = (frame) => {
+                console.error('STOMP Error:', frame.headers['message'], frame.body);
+                forceLogout();
+                reject(new Error(frame.headers['message']));
+            };
+            
+            client.onWebSocketError = (error) => {
+                console.error('WebSocket Error:', error);
+                forceLogout();
+            };
+            
+            client.activate();
+            stompClientsRef.current.set(roomId, client);
         });
-        
-        client.activate();
-        stompClientsRef.current.set(roomId, client);
     };
     
     const onMessageReceived = (roomId, payload) => {

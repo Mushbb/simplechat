@@ -28,7 +28,7 @@ const roomActionsStyle = {
 function LobbyPage() {
   const [rooms, setRooms] = useState([]);
   const { user, openLoginModal, loading  } = useContext(AuthContext);
-    const { setActiveRoomId, initializeChat, usersByRoom, joinRoomAndConnect } = useContext(ChatContext);
+    const { setActiveRoomId, initializeChat, usersByRoom, joinRoomAndConnect, joinedRooms } = useContext(ChatContext);
     const navigate = useNavigate();
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -45,24 +45,31 @@ function LobbyPage() {
   // 방 입장 처리 함수 - async/await 추가
     
     const handleEnterRoom = async (room) => {
-        let password = ''; // ✅ 1. password 변수를 먼저 선언합니다.
+        // ✨ 2. "들어가기 전에" 내가 이미 참여한 방인지 확인합니다.
+        const isAlreadyMember = joinedRooms.some(joinedRoom => joinedRoom.id === room.id);
         
-        // ✅ 2. 비밀방이고, 아직 멤버가 아닐 경우에만 비밀번호를 물어봅니다.
+        if (isAlreadyMember) {
+            console.log(`이미 참여한 방 #${room.id} 입니다. 바로 이동합니다.`);
+            // 이미 멤버라면, 아무것도 할 필요 없이 그냥 그 방으로 이동만 합니다.
+            navigate(`/chat/${room.id}`);
+            return; // 함수 종료
+        }
+        
+        // --- 아래는 기존 로직과 동일 (멤버가 아닐 경우에만 실행됨) ---
+        let password = '';
         if (room.roomType === 'PRIVATE' && !room.isMember) {
             password = prompt('비밀번호를 입력하세요:');
-            if (password === null) { // 사용자가 '취소'를 누르면 함수를 종료합니다.
+            if (password === null) {
                 return;
             }
         }
         
         try {
-            // ✅ 3. prompt로 입력받았거나, 공개방이어서 빈 값인 password를 전송합니다.
             await axiosInstance.post(`/room/${room.id}/users`, { password });
             
-            // API 호출이 성공하면, Context에 새로운 방 정보를 알리고 연결을 시작합니다.
-            joinRoomAndConnect(room);
+            // 이제 joinRoomAndConnect는 중복 걱정 없이 안전하게 호출할 수 있습니다.
+            await joinRoomAndConnect(room);
             
-            // 채팅방으로 이동합니다.
             navigate(`/chat/${room.id}`);
             
         } catch (error) {

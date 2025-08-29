@@ -56,7 +56,8 @@ function Topbar() {
             title: '친구 목록',
             onFriendClick: handleProfileClick, // 기존 프로필 클릭 로직
             position: {
-                top: rect.bottom, // 아이콘 바로 아래 5px 지점
+                mode: 'absolute',
+                top: rect.bottom - 10, // 아이콘 바로 아래 5px 지점
                 left: rect.left - 90     // 아이콘 왼쪽 끝에 맞춤
             }
         });

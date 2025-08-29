@@ -70,9 +70,13 @@ function FriendListModal() {
 	// ✨ 신규: 모달에 적용할 스타일 객체
 	// modalPosition에 값이 있을 때만 top, left 스타일을 적용합니다.
 	const modalStyle = friendModalConfig.isOpen && friendModalConfig.position ? {
-		top: `${friendModalConfig.position.top}px`,
+		position: friendModalConfig.position.mode || 'absolute',
+		top: friendModalConfig.position.top ? `${friendModalConfig.position.top}px` : 'auto',
+		bottom: friendModalConfig.position.bottom ? `${friendModalConfig.position.bottom}px` : 'auto',
 		left: `${friendModalConfig.position.left}px`,
-	} : {};
+	} : {
+		display: 'none'
+	};
 	
 	return (
 		<>

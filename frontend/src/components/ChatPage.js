@@ -34,6 +34,7 @@ function ChatPage() {
     const scrollContainerRef = useRef(null);
     const prevScrollHeightRef = useRef(null);
     const inviteButtonRef = useRef(null);
+    const messagesEndRef = useRef(null);
 
     const currentRoomId = Number(roomId);
     const roomName = joinedRooms.find(r => r.id === currentRoomId)?.name || '';
@@ -108,8 +109,9 @@ function ChatPage() {
             title: '친구 초대하기',
             onFriendClick: handleInviteFriend, // 기존 초대 로직
             position: {
-                top: rect.top - 350,  // 버튼 위치를 기준으로 Y 좌표 조정 (필요시 값 변경)
-                left: rect.left - 50 // 버튼 위치를 기준으로 X 좌표 조정 (필요시 값 변경)
+                mode: 'fixed',
+                bottom: window.innerHeight - rect.top + 5,  // 버튼 위치를 기준으로 Y 좌표 조정 (필요시 값 변경)
+                left: rect.left - 10 // 버튼 위치를 기준으로 X 좌표 조정 (필요시 값 변경)
             }
         });
     };
@@ -123,21 +125,21 @@ function ChatPage() {
         }
     }, [isFetchingMore, hasMoreMessages]);
     
-    // ✅ 탭 전환 시 스크롤을 맨 아래로 내리는 전용 Effect를 추가합니다.
-    useEffect(() => {
-        // setTimeout을 사용하여 브라우저가 이미지 렌더링을 시작할 시간을 줍니다.
-        // 딜레이를 0으로 주어도, 실행 순서를 한 틱 뒤로 미루는 효과가 있습니다.
-        const timer = setTimeout(() => {
-            const container = scrollContainerRef.current;
-            if (container) {
-                container.scrollTop = container.scrollHeight;
-            }
-        }, 50); // 아주 짧은 딜레이 (0~100ms)
-
-        // 다른 방으로 이동하기 전에 타이머를 정리합니다 (메모리 누수 방지)
-        return () => clearTimeout(timer);
-
-    }, [roomId]); // ✅ 오직 roomId가 바뀔 때(탭을 전환할 때)만 실행됩니다.
+    // // ✅ 탭 전환 시 스크롤을 맨 아래로 내리는 전용 Effect를 추가합니다.
+    // useEffect(() => {
+    //     // setTimeout을 사용하여 브라우저가 이미지 렌더링을 시작할 시간을 줍니다.
+    //     // 딜레이를 0으로 주어도, 실행 순서를 한 틱 뒤로 미루는 효과가 있습니다.
+    //     const timer = setTimeout(() => {
+    //         const container = scrollContainerRef.current;
+    //         if (container) {
+    //             container.scrollTop = container.scrollHeight;
+    //         }
+    //     }, 50); // 아주 짧은 딜레이 (0~100ms)
+    //
+    //     // 다른 방으로 이동하기 전에 타이머를 정리합니다 (메모리 누수 방지)
+    //     return () => clearTimeout(timer);
+    //
+    // }, [roomId]); // ✅ 오직 roomId가 바뀔 때(탭을 전환할 때)만 실행됩니다.
 
     // --- Effects ---
     useEffect(() => {
@@ -178,6 +180,45 @@ function ChatPage() {
             container.scrollTop = container.scrollHeight;
         }
     }, [messages]); // messages 배열이 변경될 때마다 실행
+    
+    // ✨ 3. 메시지 목록이 변경될 때마다 맨 아래로 스크롤하는 새로운 useEffect를 추가합니다.
+    useEffect(() => {
+        // isFetchingMore가 true일 때는 (이전 메시지를 불러올 때) 자동 스크롤하지 않습니다.
+        if (isFetchingMore) return;
+        
+        // messagesEndRef.current가 가리키는 DOM 요소(맨 끝의 앵커)가 보이도록 스크롤합니다.
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, isFetchingMore]); // messages 배열이 바뀔 때마다 실행됩니다.
+    
+    // ✨ 2. '맨 아래로 스크롤'을 위한 최종 해결책: MutationObserver
+    useEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+        
+        // 스크롤을 맨 아래로 내리는 함수
+        const scrollToBottom = () => {
+            messagesEndRef.current?.scrollIntoView();
+        };
+        
+        // DOM의 변화를 감지할 '감시자'를 생성합니다.
+        const observer = new MutationObserver((mutations) => {
+            // isFetchingMore가 아닐 때만 (즉, 새 메시지가 왔을 때만) 스크롤합니다.
+            if (!isFetchingMore) {
+                setTimeout(function(){scrollToBottom();}, 100);
+            }
+        });
+        
+        // 감시자에게 어떤 변화를 감지할지 알려주고, 감시를 시작합니다.
+        // childList: 자식 요소(메시지)의 추가/삭제를 감지
+        // subtree: 자식 요소 내부의 변화(이미지 로딩 완료 등)까지 모두 감지
+        observer.observe(container, { childList: true, subtree: true });
+        
+        // 컴포넌트가 사라지거나, 방이 바뀔 때 감시를 중단하여 메모리 누수를 방지합니다.
+        return () => {
+            observer.disconnect();
+        };
+        // 👈 roomId와 isFetchingMore에만 의존하도록 변경
+    }, [roomId, isFetchingMore]);
     
     useEffect(() => {
         if (user && users.length > 0) {
@@ -398,6 +439,7 @@ function ChatPage() {
                                 )}
                                 {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px' }}>이전 메시지 로딩 중...</div>}
                                 {messages.map((msg, index) => <ChatMessage key={msg.messageId || `msg-${index}`} message={msg} />)}
+                                <div ref={messagesEndRef} />
                             </>
                         )}
                     </div>

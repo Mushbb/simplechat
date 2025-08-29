@@ -1,6 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter } from 'react-router-dom';
+import { HashRouter } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext'; // 1. AuthProvider를 import 합니다.
 import { ChatProvider } from './context/ChatContext';
 import './index.css';
@@ -12,9 +12,9 @@ root.render(
   <React.StrictMode>
     <AuthProvider> {/* 2. BrowserRouter를 AuthProvider로 감싸줍니다. */}
         <ChatProvider>
-          <BrowserRouter>
+          <HashRouter>
             <App />
-          </BrowserRouter>
+          </HashRouter>
         </ChatProvider>
     </AuthProvider>
   </React.StrictMode>

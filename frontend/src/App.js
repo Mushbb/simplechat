@@ -16,8 +16,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 function App() {
     const { isLoginModalOpen, isRegisterModalOpen, isMyProfileModalOpen, friendModalConfig,
         isUserProfileModalOpen, selectedProfile, modalPosition, closeUserProfileModal} = useContext(AuthContext);
-
-  return (
+    
+    return (
     <div className="app-container">
         {/* 모달 렌더링 */}
         {isLoginModalOpen && <AuthModal />}
