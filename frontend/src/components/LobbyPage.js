@@ -4,8 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
 import CreateRoomModal from './CreateRoomModal';
 import axiosInstance from '../api/axiosInstance';
-
-const SERVER_URL = 'http://10.50.131.25:8080';
+const SERVER_URL = axiosInstance.getUri();
 
 // 간단한 리스트 아이템 스타일
 const listItemStyle = {

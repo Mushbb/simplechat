@@ -8,6 +8,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
+document.title = "SimpleChat";
 root.render(
   <React.StrictMode>
     <AuthProvider> {/* 2. BrowserRouter를 AuthProvider로 감싸줍니다. */}

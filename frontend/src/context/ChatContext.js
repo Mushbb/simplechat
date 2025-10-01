@@ -3,7 +3,7 @@ import { AuthContext } from './AuthContext';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axiosInstance from '../api/axiosInstance';
-const SERVER_URL = 'http://10.50.131.25:8080';
+const SERVER_URL = axiosInstance.getUri();
 
 const ChatContext = createContext();
 

@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
-
-const SERVER_URL = 'http://10.50.131.25:8080';
+import axiosInstance from "../api/axiosInstance";
+const SERVER_URL = axiosInstance.getUri();
 
 // ✅ NEW: 개별 유튜브 영상의 표시 상태(썸네일/플레이어)를 관리하는 컴포넌트
 const YouTubePlayer = ({ videoId, initialUrl }) => {

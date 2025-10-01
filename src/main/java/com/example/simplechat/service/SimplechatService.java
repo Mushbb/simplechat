@@ -85,7 +85,6 @@ public class SimplechatService {
         System.out.println("System user '" + this.systemUser.getNickname() + "' cached successfully.");
     }
     
-	@Scheduled(fixedRate = 1000)
 	public void serverChat() {
 		String input = sc.nextLine();
 		ChatMessage newMsg;

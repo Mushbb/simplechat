@@ -4,8 +4,7 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { toast } from 'react-toastify';                  // ✨ 신규: toast 함수 import
 import NotificationToast from '../components/NotificationToast'; // ✨ 신규: 방금 만든 컴포넌트 import
-
-const SERVER_URL = 'http://10.50.131.25:8080';
+const SERVER_URL = axiosInstance.getUri();
 
 const AuthContext = createContext();
 
@@ -168,13 +167,11 @@ function AuthProvider({ children, navigate }) {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const response = await fetch(`${SERVER_URL}/auth/session`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
+          // ✨ 수정 후 axiosInstance 코드
+          const response = await axiosInstance.get('/auth/session');
+            // axios는 reponse.ok 체크가 내장되어 있고, json() 변환도 자동으로 해줍니다.
+            // 상태 코드가 2xx가 아니면 자동으로 catch 블록으로 에러를 던집니다.
+          setUser(response.data);
       } catch (error) {
         console.error('Session check failed:', error);
       } finally {
@@ -202,23 +199,10 @@ function AuthProvider({ children, navigate }) {
 
   const login = async (username, password) => {
     try {
-      const response = await fetch(`${SERVER_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ username, password }),
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        setUser(userData);
+        const response = await axiosInstance.post('/auth/login', { username, password });
+        setUser(response.data);
         closeLoginModal();
-      } else {
-        const errorData = await response.json();
-        alert(errorData.message || '로그인에 실패했습니다.');
-      }
+        
     } catch (error) {
       console.error('Login failed:', error);
       alert('로그인 중 오류가 발생했습니다.');
@@ -227,7 +211,7 @@ function AuthProvider({ children, navigate }) {
 
   const logout = async () => {
     try {
-      await fetch(`${SERVER_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+      await axiosInstance.post('/auth/logout');
     } finally {
       setUser(null);
     }

@@ -53,7 +53,7 @@ public class simplechatController {
 	    session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
 	    
 		session.setAttribute("userId", registered.getId());
-		session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
+		session.setMaxInactiveInterval(180 * 60); // 180분 동안 비활성 시 세션 만료
 		
 		return new LoginResponseDto(
 			registered.getId(),
@@ -78,7 +78,7 @@ public class simplechatController {
         session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, securityContext);
         
 		session.setAttribute("userId", loggedIn.getId());
-		session.setMaxInactiveInterval(30 * 60); // 30분 동안 비활성 시 세션 만료
+		session.setMaxInactiveInterval(180 * 60); // 180분 동안 비활성 시 세션 만료
 		
 		return new LoginResponseDto(
 			loggedIn.getId(),

@@ -50,3 +50,7 @@ src/main/resources/static/htdocs/session.js
 *.png
 *.jpg
 *.jpg
+/frontend/src/node_modules
+/htdocs
+miniweb.exe
+*.jar

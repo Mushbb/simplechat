@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Spring Boot 서버 주소
-const SERVER_BASE_URL = 'http://10.50.131.25:8080';
+const SERVER_BASE_URL = 'https://simplechat-kopo307-app-bzeyf7e4hhcegbhy.koreacentral-01.azurewebsites.net';
 
 const axiosInstance = axios.create({
     baseURL: SERVER_BASE_URL,

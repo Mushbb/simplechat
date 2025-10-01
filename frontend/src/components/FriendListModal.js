@@ -1,8 +1,7 @@
 import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import axiosInstance from '../api/axiosInstance';
-
-const SERVER_URL = 'http://10.50.131.25:8080';
+const SERVER_URL = axiosInstance.getUri();
 
 function FriendListModal() {
 	const { closeFriendListModal, friends, setFriends, removeFriend, friendModalConfig,
