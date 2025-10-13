@@ -485,6 +485,43 @@ code {
     flex: 1;
     display: flex;
     min-width: 0;
+    position: relative; /* 토글 버튼의 위치 기준점 */
+}
+
+/* --- 채팅 패널 헤더 (토글 버튼 등을 담는 컨테이너) --- */
+.chat-panel-header {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    z-index: 10;
+    display: flex; /* 자식 요소들을 가로로 정렬 */
+    align-items: center;
+    gap: 10px; /* 버튼 사이의 간격 */
+}
+
+.toggle-user-list-btn {
+    display: none; /* 데스크톱에서는 기본적으로 숨김 */
+    background: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+    color: #555;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+}
+
+.toggle-user-list-btn:hover {
+    background-color: #e0e0e0;
+}
+
+/* 모바일 화면에서만 토글 버튼을 표시 */
+@media (max-width: 768px) {
+    .toggle-user-list-btn {
+        display: flex;
+    }
 }
 
 /* --- 공용 모달 스타일 --- */
@@ -497,8 +534,11 @@ code {
     background-color: rgba(0, 0, 0, 0.6);
     display: flex;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start; /* 1. 세로 정렬 기준을 '상단'으로 변경 */
     z-index: 1000;
+    overflow-y: auto; /* 2. 모달이 길어질 경우 오버레이를 스크롤 */
+    padding-top: 10vh; /* 3. 화면 상단에서 10% 정도 간격을 줌 */
+    padding-bottom: 5vh;
 }
 
 .modal-content {
@@ -507,7 +547,9 @@ code {
     padding: 30px 40px;
     border-radius: 8px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    width: 300px;
+    width: 90%; /* 4. 너비를 유연하게 변경 */
+    max-width: 450px; /* 5. 최대 너비 지정 */
+    box-sizing: border-box;
 }
 
 .modal-close-btn {
@@ -639,7 +681,7 @@ code {
     gap: 15px; /* 카드 사이의 간격 */
 }
 
-/* li 태그를 '카드' 형태로 디자인 */
+/* li 태그를 '카드' 형태로 디자인 (데스크톱 기본) */
 .room-list-item {
     width: 220px;
     height: 110px;
@@ -651,7 +693,8 @@ code {
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
+    position: relative;
 }
 
 .room-list-item:hover {
@@ -664,13 +707,13 @@ code {
 }
 
 .room-info {
+    padding-right: 40px;
 }
 
 .room-name {
     font-size: 1.2em;
     font-weight: bold;
     margin-bottom: 5px;
-    /* 이름이 너무 길면 ...으로 표시 */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -686,14 +729,14 @@ code {
 }
 .room-name,
 .room-owner {
-    display: block; /* ✅ 각 요소를 블록 레벨로 만들어 줄바꿈되도록 합니다. */
+    display: block;
 }
-/* ✅ 3. 카드 하단부(인원수, 버튼) 레이아웃 조정 */
+
+/* 카드 우측 상단부 (인원수) */
 .room-meta {
-    display: flex;
-    justify-content: space-between; /* 양쪽 끝으로 분산 */
-    align-items: center;
-    width: 100%; /* 너비를 100%로 설정하여 정렬 */
+    position: absolute;
+    top: 12px;
+    right: 12px;
 }
 
 .room-count {
@@ -702,11 +745,11 @@ code {
 }
 
 .room-count.online {
-    color: #28a745; /* 활기찬 느낌을 주는 초록색 */
+    color: #28a745;
     font-weight: bold;
     display: flex;
     align-items: center;
-    gap: 5px; /* 아이콘과 숫자 사이의 간격 */
+    gap: 5px;
 }
 
 .no-rooms {
@@ -714,6 +757,34 @@ code {
     padding: 20px;
     text-align: center;
     width: 100%;
+}
+
+/* --- 반응형 웹: 모바일 환경 --- */
+/* 화면 너비가 768px 이하일 때 적용될 스타일 */
+@media (max-width: 768px) {
+    .room-list-item {
+        width: 160px; /* 모바일에서 더 작게 */
+        height: 85px;
+        padding: 10px;
+    }
+
+    .room-name {
+        font-size: 1em; /* 모바일에서 폰트 살짝 작게 */
+        margin-bottom: 4px;
+    }
+
+    .room-owner {
+        font-size: 0.8em; /* 모바일에서 폰트 살짝 작게 */
+    }
+
+    .room-meta {
+        top: 10px;
+        right: 10px;
+    }
+
+    .room-count {
+        font-size: 0.9em;
+    }
 }
 
 /* --- 방 생성 모달 라디오 버튼 스타일 --- */
@@ -728,7 +799,7 @@ code {
     flex-direction: column; /* 자식들을 가로로 정렬 */
     justify-content: space-between; /* 자식들을 양쪽 끝으로 분산 */
     align-items: center; /* 세로 중앙 정렬 */
-    padding: 0 20px; /* 상하 패딩은 0, 좌우 패딩은 20px */
+    padding: 0; /* 불필요한 좌우 여백 제거 */
     border-bottom: 1px solid #ddd;
     background-color: #fff;
 }
@@ -743,9 +814,12 @@ code {
 }
 .topbar-auth-controls {
     display: flex;
+    width: 100%; /* 너비를 100%로 채워서 자식 요소 정렬의 기준이 되도록 함 */
+    align-items: center; /* 세로 중앙 정렬 추가 */
 }
 .auth-controls-btn{
-    padding-left: 150px;
+    white-space: nowrap; /* 내부 요소(버튼, 닉네임)들이 줄바꿈되지 않도록 강제 */
+    margin-left: auto; /* 이 버튼 그룹만 오른쪽으로 밀어냄 */
 }
 .topbar-logo {
     margin: 0;

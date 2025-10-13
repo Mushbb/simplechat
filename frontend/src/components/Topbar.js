@@ -10,7 +10,7 @@ function Topbar() {
     const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal,
         notifications, acceptNotification, rejectNotification, toggleFriendListModal, friendModalConfig,
         openUserProfileModal } = useContext(AuthContext);
-    const { joinedRooms, activeRoomId, setActiveRoomId, exitRoom, deleteRoom, usersByRoom, unreadRooms} = useContext(ChatContext);
+    const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms} = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -27,10 +27,6 @@ function Topbar() {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [dropdownRef]);
-    
-    const isActiveRoomChat = location.pathname.startsWith('/chat/') && activeRoomId;
-    const usersInActiveRoom = usersByRoom[activeRoomId] || [];
-    const myRoleInActiveRoom = usersInActiveRoom.find(u => u.userId === user?.userId)?.role;
     
     const handleProfileClick = async (friend, event) => {
         const liRect = event.currentTarget.getBoundingClientRect();
@@ -72,22 +68,6 @@ function Topbar() {
     const handleLogout = async () => {
         await logout(); // 기존의 logout 함수를 호출해서 상태를 변경하고
         navigate('/');  // 작업이 끝나면 로비로 이동시킵니다.
-    };
-    
-    // ✅ 4. 방 나가기 핸들러
-    const handleExitRoom = () => {
-        if (window.confirm("정말로 이 방에서 나가시겠습니까?")) {
-            exitRoom(activeRoomId);
-            navigate('/'); // 로비로 이동
-        }
-    };
-    
-    // ✅ 5. 방 삭제 핸들러
-    const handleDeleteRoom = () => {
-        if (window.confirm("정말로 이 방을 삭제하시겠습니까? 모든 대화 내용이 사라집니다.")) {
-            deleteRoom(activeRoomId);
-            navigate('/'); // 로비로 이동
-        }
     };
     
     // ✨ 신규: 수락 버튼 클릭 시 실행될 새로운 핸들러
@@ -155,20 +135,6 @@ function Topbar() {
                         </>
                     )}
                 </div>
-                {isActiveRoomChat && (
-                    <div className="room-actions">
-                        {/* 내가 방장이 아닐 때만 '방 나가기' 버튼이 보입니다. */}
-                        {myRoleInActiveRoom !== 'ADMIN' && (
-                            <button onClick={handleExitRoom}>방 나가기</button>
-                        )}
-                        {/* 내가 방장(ADMIN)일 때만 방 삭제 버튼이 보입니다. */}
-                        {myRoleInActiveRoom === 'ADMIN' && (
-                            <button onClick={handleDeleteRoom} className="danger-button">
-                                방 삭제
-                            </button>
-                        )}
-                    </div>
-                )}
             </div>
             {user && (
                 <nav className="room-tabs-container">

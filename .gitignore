@@ -54,3 +54,4 @@ src/main/resources/static/htdocs/session.js
 /htdocs
 miniweb.exe
 *.jar
+/src/main/resources
