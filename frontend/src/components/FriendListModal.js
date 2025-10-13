@@ -8,7 +8,32 @@ function FriendListModal() {
 		openUserProfileModal, closeUserProfileModal, selectedProfile, modalPosition } = useContext(AuthContext);
 	const [loading, setLoading] = useState(true);
 	const modalRef = useRef(null);
-	
+	// ✅ 1. 보정된 위치를 저장할 새로운 state 추가
+	const [correctedPosition, setCorrectedPosition] = useState(null);
+
+	// ✅ 2. 모달 위치를 화면 경계에 맞게 보정하는 useEffect 추가
+	useEffect(() => {
+		if (friendModalConfig.isOpen && friendModalConfig.position && modalRef.current) {
+			const modal = modalRef.current;
+			const { left, top, bottom } = friendModalConfig.position;
+			let newLeft = left;
+
+			// 화면 왼쪽 경계 체크
+			if (newLeft < 0) {
+				newLeft = 8; // 화면 왼쪽에 너무 붙지 않도록 약간의 여백(8px)을 줍니다.
+			}
+
+			// 화면 오른쪽 경계 체크
+			if (newLeft + modal.offsetWidth > window.innerWidth) {
+				newLeft = window.innerWidth - modal.offsetWidth - 8; // 화면 오른쪽에도 여백(8px)을 줍니다.
+			}
+
+			setCorrectedPosition({ left: newLeft, top, bottom, mode: friendModalConfig.position.mode });
+		} else {
+			setCorrectedPosition(null); // 모달이 닫히면 위치 정보 초기화
+		}
+	}, [friendModalConfig.isOpen, friendModalConfig.position]); // 모달이 열리거나 위치가 바뀔 때마다 실행
+
 	// --- 바깥 클릭 시 닫기 기능 ---
 	useEffect(() => {
 		const handleClickOutside = (event) => {
@@ -66,13 +91,14 @@ function FriendListModal() {
 		removeFriend(friendId);
 	};
 	
-	// ✨ 신규: 모달에 적용할 스타일 객체
-	// modalPosition에 값이 있을 때만 top, left 스타일을 적용합니다.
-	const modalStyle = friendModalConfig.isOpen && friendModalConfig.position ? {
-		position: friendModalConfig.position.mode || 'absolute',
-		top: friendModalConfig.position.top ? `${friendModalConfig.position.top}px` : 'auto',
-		bottom: friendModalConfig.position.bottom ? `${friendModalConfig.position.bottom}px` : 'auto',
-		left: `${friendModalConfig.position.left}px`,
+	// ✅ 3. 보정된 위치(correctedPosition)를 사용하여 스타일 객체 생성
+	const modalStyle = friendModalConfig.isOpen && correctedPosition ? {
+		position: correctedPosition.mode || 'absolute',
+		top: correctedPosition.top ? `${correctedPosition.top}px` : 'auto',
+		bottom: correctedPosition.bottom ? `${correctedPosition.bottom}px` : 'auto',
+		left: `${correctedPosition.left}px`,
+		// 초기 렌더링 시 위치 계산 전까지는 보이지 않도록 처리
+		visibility: correctedPosition ? 'visible' : 'hidden',
 	} : {
 		display: 'none'
 	};

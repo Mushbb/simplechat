@@ -160,41 +160,25 @@ function ChatPage() {
     useLayoutEffect(() => {
         const container = scrollContainerRef.current;
         if (!container) return;
-        
+
         if (isFetchingMore) {
+            // 이전 메시지 로딩이 완료된 시점.
+            // 스크롤 위치를 보존한 후, 로딩 상태를 해제합니다.
             container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
             setIsFetchingMore(false);
         } else {
-            container.scrollTop = container.scrollHeight;
-        }
-    }, [messages]);
-    
-    useEffect(() => {
-        if (isFetchingMore) return;
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages, isFetchingMore]);
-    
-    useEffect(() => {
-        const container = scrollContainerRef.current;
-        if (!container) return;
-        
-        const scrollToBottom = () => {
-            messagesEndRef.current?.scrollIntoView();
-        };
-        
-        const observer = new MutationObserver((mutations) => {
-            if (!isFetchingMore) {
-                setTimeout(function(){scrollToBottom();}, 100);
+            // 새 메시지 수신 또는 초기 로딩 시점.
+            // 스크롤이 맨 아래 근처에 있었을 때만 맨 아래로 이동시킵니다.
+            // prevScrollHeightRef.current가 null이면 초기 로딩이므로 무조건 맨 아래로 갑니다.
+            const wasAtBottom = prevScrollHeightRef.current ? (container.scrollTop + container.clientHeight >= prevScrollHeightRef.current - 20) : true;
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
             }
-        });
-        
-        observer.observe(container, { childList: true, subtree: true });
-        
-        return () => {
-            observer.disconnect();
-        };
-    }, [roomId, isFetchingMore]);
-    
+        }
+        // 다음 렌더링을 위해 현재 스크롤 높이를 기록합니다.
+        prevScrollHeightRef.current = container.scrollHeight;
+    }, [messages]);
+
     useEffect(() => {
         if (user && users.length > 0) {
             const me = users.find(u => u.userId === user.userId);
@@ -223,23 +207,25 @@ function ChatPage() {
             e.preventDefault();
             if (filesToUpload.length > 0) {
                 handleFileUpload();
-            } else {
-                handleSendMessage(e);
             }
+        } else {
+            handleSendMessage(e);
         }
     };
-    
-const handleScroll = () => {
+
+    const handleScroll = () => {
         setIsUserScrolling(true);
         clearTimeout(scrollTimeoutRef.current);
         scrollTimeoutRef.current = setTimeout(() => {
             setIsUserScrolling(false);
         }, 150);
-        
+
         const container = scrollContainerRef.current;
-        const hasMoreMessages = hasMoreMessagesByRoom[currentRoomId] !== false;
-        // [수정] scrollTop이 0에 매우 가까울 때를 감지하도록 조건을 완화합니다.
-        if (container && container.scrollTop < 1 && !isFetchingMore && hasMoreMessages) {
+        const hasMore = hasMoreMessagesByRoom[currentRoomId] !== false;
+
+        if (container && container.scrollTop < 1 && !isFetchingMore && hasMore) {
+            // 현재 스크롤 높이를 저장하고, 로딩 상태를 true로 설정합니다.
+            // 로딩 상태 해제는 useLayoutEffect에서 처리합니다.
             prevScrollHeightRef.current = container.scrollHeight;
             setIsFetchingMore(true);
             loadMoreMessages(currentRoomId);

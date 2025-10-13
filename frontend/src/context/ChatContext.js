@@ -145,6 +145,8 @@ function ChatProvider({ children }) {
                 reconnectDelay: 0,
                 onConnect: options => {
                     console.log(`Room #${roomId}: 웹소켓 연결 성공`);
+                    // ✅ FIX: @SendToUser가 보내는 이전 메시지 목록을 수신하기 위한 구독
+                    client.subscribe('/user/topic/queue/reply', (payload) => onMoreMessagesReceived(JSON.parse(payload.body)));
                     client.subscribe(`/topic/${roomId}/public`, (payload) => onMessageReceived(roomId, payload));
                     client.subscribe(`/topic/${roomId}/users`, (payload) => onUserInfoReceived(roomId, payload));
                     client.subscribe(`/topic/${roomId}/previews`, (payload) => onPreviewReceived(roomId, payload));
