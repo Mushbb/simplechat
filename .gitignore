@@ -55,3 +55,4 @@ src/main/resources/static/htdocs/session.js
 miniweb.exe
 *.jar
 /src/main/resources
+/frontend/npm-v10.2.4
