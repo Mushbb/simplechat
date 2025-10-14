@@ -4,6 +4,7 @@ import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
 import ChatMessage from './ChatMessage';
 import UserProfileModal from './UserProfileModal';
+import { toast } from 'react-toastify';
 import { IoSend } from "react-icons/io5";
 import { FaUsers } from 'react-icons/fa';
 import axiosInstance from '../api/axiosInstance';
@@ -106,11 +107,11 @@ function ChatPage() {
     const handleInviteFriend = async (friend) => {
         try {
             await axiosInstance.post(`/room/${roomId}/invite`, { userId: friend.userId });
-            alert(`${friend.nickname}님을 방에 초대했습니다!`);
+            toast.success(`${friend.nickname}님을 방에 초대했습니다!`);
             closeFriendListModal();
         } catch (error) {
             const errorMessage = error.response?.data?.message || '초대에 실패했습니다. 다시 시도해주세요.';
-            alert(errorMessage);
+            toast.error(errorMessage);
             console.error("Failed to invite friend:", error);
         }
     };
@@ -259,7 +260,7 @@ function ChatPage() {
             try {
                 await axiosInstance.post(`/room/${currentRoomId}/file`, formData);
             } catch (error) {
-                alert(`${item.file.name} 업로드에 실패했습니다.`);
+                toast.error(`${item.file.name} 업로드에 실패했습니다.`);
                 break;
             }
         }
@@ -311,7 +312,7 @@ function ChatPage() {
             openUserProfileModal(response.data, position);
         } catch (error) {
             console.error('프로필 정보를 가져오는 데 실패했습니다:', error);
-            alert('프로필 정보를 가져오는 데 실패했습니다.');
+            toast.error('프로필 정보를 가져오는 데 실패했습니다.');
         }
     };
     const handleRemoveFile = (fileToRemove) => {

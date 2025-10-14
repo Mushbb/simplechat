@@ -534,11 +534,25 @@ code {
     background-color: rgba(0, 0, 0, 0.6);
     display: flex;
     justify-content: center;
-    align-items: flex-start; /* 1. 세로 정렬 기준을 '상단'으로 변경 */
+    align-items: center; /* 데스크톱: Flexbox로 중앙 정렬 */
     z-index: 1000;
-    overflow-y: auto; /* 2. 모달이 길어질 경우 오버레이를 스크롤 */
-    padding-top: 10vh; /* 3. 화면 상단에서 10% 정도 간격을 줌 */
-    padding-bottom: 5vh;
+    overflow-y: auto;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+
+/* 모바일 화면(가상 키보드가 나타날 가능성이 높은 환경)에 대한 미디어 쿼리 */
+@media (max-width: 768px) {
+    .modal-overlay {
+        /* 모바일에서는 flex 정렬을 사용하지 않고, 내부 스크롤을 허용 */
+        display: block;
+        padding: 1rem;
+    }
+
+    .modal-content {
+        /* 상단에 고정된 마진을 주고, 수평 중앙 정렬 */
+        margin: 3rem auto 0 auto;
+    }
 }
 
 .modal-content {
