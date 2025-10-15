@@ -687,6 +687,42 @@ public class SimplechatService {
         // 처리된 알림 삭제
         notificationRepository.deleteById(notificationId);
     }
+
+	private void sendFriendUpdateNotification(User targetUser, User friendUser, String updateType) {
+		String friendProfileUrl = friendUser.getProfile_image_url();
+		friendProfileUrl = (friendProfileUrl != null && !friendProfileUrl.isBlank())
+			? profileStaticUrlPrefix + "/" + friendProfileUrl
+			: profileStaticUrlPrefix + "/default.png";
+
+		FriendResponseDto.ConnectType conn = presenceService.isUserOnline(friendUser.getId())
+			? FriendResponseDto.ConnectType.CONNECT
+			: FriendResponseDto.ConnectType.DISCONNECT;
+
+		FriendResponseDto friendDto = new FriendResponseDto(
+			friendUser.getId(),
+			friendUser.getUsername(), // 올바른 필드: username
+			friendUser.getNickname(),   // 올바른 필드: nickname
+			friendProfileUrl,
+			"ACCEPTED",
+			conn
+		);
+
+		// WebSocket을 통해 특정 사용자에게만 알림 전송
+		try {
+			String payload = new ObjectMapper().writeValueAsString(Map.of(
+				"type", updateType, // 예: "FRIEND_ADDED" 또는 "FRIEND_ACCEPTED"
+				"friend", friendDto
+			));
+			messagingTemplate.convertAndSendToUser(
+				targetUser.getUsername(),
+				"/queue/notifications",
+				payload
+			);
+		} catch (Exception e) {
+			// 직렬화 실패 시 예외 처리
+			throw new RuntimeException("Failed to serialize friend update notification", e);
+		}
+	}
     
     @Transactional
     public void rejectNotification(Long notificationId, Long userId) {

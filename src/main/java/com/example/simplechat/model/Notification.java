@@ -14,7 +14,9 @@ public class Notification {
     public enum NotificationType {
         FRIEND_REQUEST,
         ROOM_INVITATION,
-        PRESENCE_UPDATE
+        PRESENCE_UPDATE,
+		FRIEND_ACCEPTED,
+		FRIEND_ADDED
     }
 
     private Long id;

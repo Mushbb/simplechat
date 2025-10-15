@@ -84,36 +84,50 @@ function AuthProvider({ children, navigate }) {
                 webSocketFactory: () => socket,
                 onConnect: () => {
                     stompClient.subscribe(`/user/queue/notifications`, (message) => {
-                        const notification = JSON.parse(message.body);
-                        
-                        if (notification.type === 'PRESENCE_UPDATE') {
-                            // 👈 변경: notification.metadata를 파싱하여 payload를 얻음
-                            const payload = JSON.parse(notification.metadata);
-                            const { userId, isOnline } = payload;
-                            
-                            setFriends(prevFriends =>
-                                prevFriends.map(friend =>
-                                    friend.userId === userId
-                                        ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' }
-                                        : friend
-                                )
-                            );
-                        } else {
-                            // 그 외 DB에 저장되는 알림들 (친구 요청, 방 초대)
-                            setNotifications(prev =>
-                                prev.find(n => n.notificationId === notification.notificationId) ? prev : [notification, ...prev]
-                            );
-                            // ✨ 2. 화면에 토스트 알림 띄우기
-                            toast(({ closeToast }) => (
-                                <NotificationToast
-                                    notification={notification}
-                                    onAccept={acceptNotification}
-                                    onReject={rejectNotification}
-                                    closeToast={closeToast}
-                                />
-                            ), {
-                                toastId: notification.notificationId // 중복 방지를 위한 고유 ID
+                        const data = JSON.parse(message.body);
+
+                        // 새로운 친구 추가/수락 알림 처리 (별도 포맷)
+                        if (data.type === 'FRIEND_ADDED' || data.type === 'FRIEND_ACCEPTED') {
+                            setFriends(prevFriends => {
+                                // 중복 추가 방지
+                                if (prevFriends.some(f => f.userId === data.friend.userId)) {
+                                    return prevFriends;
+                                }
+                                return [...prevFriends, data.friend];
                             });
+                            toast.info(`${data.friend.nickname}님과 친구가 되었습니다.`);
+                        }
+                        // 기존 NotificationDto 포맷 처리 (친구 요청, 접속 상태, 방 초대 등)
+                        else if (data.notificationId) {
+                            const notification = data;
+
+                            if (notification.type === 'PRESENCE_UPDATE') {
+                                const payload = JSON.parse(notification.metadata);
+                                const { userId, isOnline } = payload;
+                                setFriends(prevFriends =>
+                                    prevFriends.map(friend =>
+                                        friend.userId === userId
+                                            ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' }
+                                            : friend
+                                    )
+                                );
+                            } else { // FRIEND_REQUEST, ROOM_INVITATION 등
+                                setNotifications(prev =>
+                                    prev.find(n => n.notificationId === notification.notificationId) ? prev : [notification, ...prev]
+                                );
+                                toast(({ closeToast }) => (
+                                    <NotificationToast
+                                        notification={notification}
+                                        onAccept={acceptNotification}
+                                        onReject={rejectNotification}
+                                        closeToast={closeToast}
+                                    />
+                                ), {
+                                    toastId: notification.notificationId
+                                });
+                            }
+                        } else {
+                            console.error("Unknown notification format received:", data);
                         }
                     });
                 },
