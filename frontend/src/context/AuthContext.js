@@ -131,7 +131,7 @@ function AuthProvider({ children, navigate }) {
     const acceptNotification = async (notification) => {
         try {
             await axiosInstance.put(`/api/notifications/${notification.notificationId}/accept`);
-            alert('요청을 수락했습니다.');
+            toast.info('요청을 수락했습니다.');
             setNotifications(prev => prev.filter(n => n.notificationId !== notification.notificationId));
             
             // ✨ 신규: 수락한 것이 방 초대라면 roomId를 반환
@@ -147,7 +147,7 @@ function AuthProvider({ children, navigate }) {
             }
             return null; // 방 초대가 아니면 null 반환
         } catch (error) {
-            alert('요청 수락에 실패했습니다.');
+            toast.error('요청 수락에 실패했습니다.');
             console.error(error);
         }
     };
@@ -156,10 +156,10 @@ function AuthProvider({ children, navigate }) {
     const rejectNotification = async (notificationId) => {
         try {
             await axiosInstance.delete(`/api/notifications/${notificationId}/reject`);
-            alert('요청을 거절했습니다.');
+            toast.info('요청을 거절했습니다.');
             setNotifications(prev => prev.filter(n => n.notificationId !== notificationId));
         } catch (error) {
-            alert('요청 거절에 실패했습니다.');
+            toast.error('요청 거절에 실패했습니다.');
         }
     };
 

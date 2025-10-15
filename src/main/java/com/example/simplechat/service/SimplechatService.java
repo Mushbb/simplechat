@@ -658,11 +658,22 @@ public class SimplechatService {
 
         switch (notification.getNotificationType()) {
             case FRIEND_REQUEST:
-                long requesterId = notification.getRelatedEntityId();
-                // Friendship 테이블에 ACCEPTED 상태로 저장
-                Friendship friendship = new Friendship(requesterId, userId, Friendship.Status.ACCEPTED, null, 0);
-                friendshipRepository.save(friendship);
-                break;
+				long requesterId = notification.getRelatedEntityId();
+				User requester = userRepository.findById(requesterId)
+					.orElseThrow(() -> new RegistrationException("NOT_FOUND", "Requester not found."));
+				User accepter = userRepository.findById(userId)
+					.orElseThrow(() -> new RegistrationException("NOT_FOUND", "Accepter not found."));
+
+				// Friendship 테이블에 ACCEPTED 상태로 저장
+				Friendship friendship = new Friendship(requesterId, userId, Friendship.Status.ACCEPTED, null, 0);
+				friendshipRepository.save(friendship);
+
+				// 알림을 보낸 사람에게: 상대방이 요청을 수락했음을 알림
+				sendFriendUpdateNotification(requester, accepter, "FRIEND_ACCEPTED");
+
+				// 알림을 받은 사람(수락한 사람)에게: 새로운 친구가 추가되었음을 알림
+				sendFriendUpdateNotification(accepter, requester, "FRIEND_ADDED");
+				break;
 
             case ROOM_INVITATION:
                 long roomId = notification.getRelatedEntityId();
