@@ -79,8 +79,12 @@ function LobbyPage() {
 
   const handleCreateRoom = async (roomData) => {
         try {
-            // roomData는 모달에서 받은 { roomName, roomType, password } 객체입니다.
-            const response = await axiosInstance.post(`/room/create`, roomData);
+            const roomRequestData = {
+                roomName: roomData.roomName,
+                roomType: roomData.isPrivate ? 'PRIVATE' : 'PUBLIC',
+                password: roomData.password
+            };
+            const response = await axiosInstance.post(`/room/create`, roomRequestData);
             const newRoomId = response.data;
             setIsCreateModalOpen(false); // 모달 닫기
             alert('새로운 방이 생성되었습니다!');

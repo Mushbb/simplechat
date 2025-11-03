@@ -208,9 +208,9 @@ function ChatPage() {
             e.preventDefault();
             if (filesToUpload.length > 0) {
                 handleFileUpload();
+            } else {
+                handleSendMessage(e);
             }
-        } else {
-            handleSendMessage(e);
         }
     };
 
