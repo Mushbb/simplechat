@@ -54,17 +54,28 @@ tasks.withType(NpmTask) {
 
 // 4. 'npm run build'에 해당하는 'npm_run_build' 작업도 플러그인이 자동으로 생성합니다.
 
-// 5. 빌드된 프론트엔드 파일을 'src/main/resources/static'으로 복사하는 작업 정의
-//    자동 생성된 npm_run_build 작업에 의존하도록 수정합니다.
-task copyFrontend(type: Copy, dependsOn: 'npm_run_build') {
-    // 복사하기 전에 기존 static 폴더를 깨끗하게 비웁니다.
-    delete fileTree('src/main/resources/static') {
-        include '**/*'
-    }
+// 5. 'npm_run_build' 작업에 입력과 출력을 명시하여 변경이 있을 때만 실행되도록 설정
+tasks.named('npm_run_build') {
+    inputs.dir file("${project.projectDir}/frontend/src")
+    inputs.dir file("${project.projectDir}/frontend/public")
+    inputs.file file("${project.projectDir}/frontend/package.json")
+    inputs.file file("${project.projectDir}/frontend/package-lock.json")
+    outputs.dir file("${project.projectDir}/frontend/build")
+}
+
+// 6. 빌드된 프론트엔드 파일을 'src/main/resources/static'으로 복사하는 작업 정의
+//    'npm_run_build' 작업이 변경되었을 때만 실행됩니다.
+task copyFrontend(type: Copy) {
+    dependsOn 'npm_run_build'
     from "${project.projectDir}/frontend/build"
     into 'src/main/resources/static'
 }
 
-// 6. Spring Boot의 리소스 처리 작업(processResources)이 실행되기 전에
-//    반드시 프론트엔드 복사 작업(copyFrontend)이 먼저 완료되도록 의존성 설정
+// 7. Spring Boot의 리소스 처리 작업(processResources)이 실행되기 전에
+//    프론트엔드 복사 작업(copyFrontend)이 먼저 완료되도록 의존성 설정
 processResources.dependsOn copyFrontend
+
+// 8. 'clean' 작업 시 프론트엔드 빌드 폴더와 static 폴더도 함께 정리
+tasks.named('clean', Delete) {
+    delete "${project.projectDir}/frontend/build", "${project.projectDir}/src/main/resources/static"
+}

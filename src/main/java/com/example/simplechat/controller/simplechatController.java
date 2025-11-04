@@ -330,6 +330,27 @@ public class simplechatController {
         serv.rejectNotification(notificationId, userId);
         return ResponseEntity.noContent().build();
     }
+
+    // ✨ 신규: 관리자 명령어 실행 API
+    @PostMapping("/api/admin/command")
+    public ResponseEntity<Map<String, String>> executeAdminCommand(@RequestBody Map<String, String> payload, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        // 관리자(userId=0)가 아니면 접근 거부
+        if (userId == null || userId != 0) {
+            throw new RegistrationException("FORBIDDEN", "관리자만 사용할 수 있는 기능입니다.");
+        }
+
+        String command = payload.get("command");
+        if (command == null || command.isBlank()) {
+            throw new RegistrationException("BAD_REQUEST", "실행할 명령어를 입력해주세요.");
+        }
+
+        // 서비스에 명령어 실행을 위임하고 결과를 받음
+        String result = serv.executeAdminCommand(command);
+
+        // 실행 결과를 클라이언트에 반환
+        return ResponseEntity.ok(Map.of("message", result));
+    }
 	
 	@MessageMapping("/chat.getMessageList")
 	@SendToUser("/topic/queue/reply")

@@ -14,7 +14,6 @@ function AuthProvider({ children, navigate }) {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [isMyProfileModalOpen, setIsMyProfileModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [notifications, setNotifications] = useState([]);
   
   const [friends, setFriends] = useState([]); // 친구 목록 상태
   const [friendModalConfig, setFriendModalConfig] = useState({
@@ -27,10 +26,6 @@ function AuthProvider({ children, navigate }) {
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
   
-  const roomJoinHandlerRef = useRef(null);
-  const registerRoomJoinHandler = useCallback((handler) => {
-    roomJoinHandlerRef.current = handler;
-  }, []);
   const stompClientRef = useRef(null);
   
   const openLoginModal = () => setIsLoginModalOpen(true);
@@ -71,112 +66,6 @@ function AuthProvider({ children, navigate }) {
         setSelectedProfile(null);
     };
     
-    // 알림용 웹소켓 연결 Effect
-    useEffect(() => {
-        if (user) {
-            // 👈 변경: 통합 알림 API 호출
-            axiosInstance.get('/api/notifications')
-                .then(response => setNotifications(response.data))
-                .catch(error => console.error('Failed to fetch notifications', error));
-            
-            const socket = new SockJS(`${SERVER_URL}/ws`);
-            const stompClient = new Client({
-                webSocketFactory: () => socket,
-                onConnect: () => {
-                    stompClient.subscribe(`/user/queue/notifications`, (message) => {
-                        const data = JSON.parse(message.body);
-
-                        // 새로운 친구 추가/수락 알림 처리 (별도 포맷)
-                        if (data.type === 'FRIEND_ADDED' || data.type === 'FRIEND_ACCEPTED') {
-                            setFriends(prevFriends => {
-                                // 중복 추가 방지
-                                if (prevFriends.some(f => f.userId === data.friend.userId)) {
-                                    return prevFriends;
-                                }
-                                return [...prevFriends, data.friend];
-                            });
-                            toast.info(`${data.friend.nickname}님과 친구가 되었습니다.`);
-                        }
-                        // 기존 NotificationDto 포맷 처리 (친구 요청, 접속 상태, 방 초대 등)
-                        else if (data.notificationId) {
-                            const notification = data;
-
-                            if (notification.type === 'PRESENCE_UPDATE') {
-                                const payload = JSON.parse(notification.metadata);
-                                const { userId, isOnline } = payload;
-                                setFriends(prevFriends =>
-                                    prevFriends.map(friend =>
-                                        friend.userId === userId
-                                            ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' }
-                                            : friend
-                                    )
-                                );
-                            } else { // FRIEND_REQUEST, ROOM_INVITATION 등
-                                setNotifications(prev =>
-                                    prev.find(n => n.notificationId === notification.notificationId) ? prev : [notification, ...prev]
-                                );
-                                toast(({ closeToast }) => (
-                                    <NotificationToast
-                                        notification={notification}
-                                        onAccept={acceptNotification}
-                                        onReject={rejectNotification}
-                                        closeToast={closeToast}
-                                    />
-                                ), {
-                                    toastId: notification.notificationId
-                                });
-                            }
-                        } else {
-                            console.error("Unknown notification format received:", data);
-                        }
-                    });
-                },
-            });
-            stompClient.activate();
-            stompClientRef.current = stompClient;
-            
-            return () => { if (stompClient?.active) stompClient.deactivate(); };
-        } else {
-            setNotifications([]);
-        }
-    }, [user]);
-    
-    // ✨ 신규: 통합 알림 수락 함수
-    const acceptNotification = async (notification) => {
-        try {
-            await axiosInstance.put(`/api/notifications/${notification.notificationId}/accept`);
-            toast.info('요청을 수락했습니다.');
-            setNotifications(prev => prev.filter(n => n.notificationId !== notification.notificationId));
-            
-            // ✨ 신규: 수락한 것이 방 초대라면 roomId를 반환
-            if (notification.type === 'ROOM_INVITATION') {
-                if (roomJoinHandlerRef.current) {
-                    const metadata = JSON.parse(notification.metadata);
-                    const newRoom = { id: metadata.roomId, name: metadata.roomName };
-                    roomJoinHandlerRef.current(newRoom);
-                }
-                // 성공적으로 처리 후 roomId 반환
-                const metadata = JSON.parse(notification.metadata);
-                return metadata.roomId;
-            }
-            return null; // 방 초대가 아니면 null 반환
-        } catch (error) {
-            toast.error('요청 수락에 실패했습니다.');
-            console.error(error);
-        }
-    };
-    
-    // ✨ 신규: 통합 알림 거절 함수
-    const rejectNotification = async (notificationId) => {
-        try {
-            await axiosInstance.delete(`/api/notifications/${notificationId}/reject`);
-            toast.info('요청을 거절했습니다.');
-            setNotifications(prev => prev.filter(n => n.notificationId !== notificationId));
-        } catch (error) {
-            toast.error('요청 거절에 실패했습니다.');
-        }
-    };
-
   // 앱이 처음 시작될 때 세션을 확인하는 로직
   useEffect(() => {
     const checkSession = async () => {
@@ -302,8 +191,11 @@ function AuthProvider({ children, navigate }) {
         }
     };
 
+    const isAdmin = user?.userId === 0;
+
     // Context로 전달할 값들
     const value = {
+        isAdmin, // 추가
         user,
         loading,
         login,
@@ -331,10 +223,6 @@ function AuthProvider({ children, navigate }) {
         modalPosition,
         openUserProfileModal,
         closeUserProfileModal,
-        notifications, // 👈 변경
-        acceptNotification, // ✨ 신규
-        rejectNotification, // ✨ 신규
-        registerRoomJoinHandler, // ✨ 신규
         forceLogout,
     };
 

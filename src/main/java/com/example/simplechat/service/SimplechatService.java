@@ -13,6 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -68,6 +73,52 @@ public class SimplechatService {
     private String profileStaticUrlPrefix;
     @Value("${file.chat-static-url-prefix}")
     private String chatStaticUrlPrefix;
+
+    @Value("${file.profile-upload-dir}")
+    private String profileUploadDir;
+
+    @Value("${file.chat-upload-dir}")
+    private String chatUploadDir;
+
+    @Value("${file.retention-days}")
+    private long retentionDays;
+
+    @Scheduled(cron = "0 0 0 * * ?") // 매일 자정에 실행
+    public void cleanupOldFiles() {
+        System.out.println("Starting scheduled cleanup of old files...");
+        long retentionMillis = retentionDays * 24 * 60 * 60 * 1000;
+        long cutoffTime = System.currentTimeMillis() - retentionMillis;
+
+        // deleteOldFiles(profileUploadDir, cutoffTime); // 프로필 사진은 삭제 대상에서 제외
+        deleteOldFiles(chatUploadDir, cutoffTime);
+
+        System.out.println("Scheduled cleanup of old files finished.");
+    }
+
+    private void deleteOldFiles(String directoryPath, long cutoffTime) {
+        try {
+            Path directory = Paths.get(directoryPath);
+            if (Files.exists(directory) && Files.isDirectory(directory)) {
+                Files.walk(directory)
+                    .filter(Files::isRegularFile)
+                    .forEach(file -> {
+                        try {
+                            if (Files.getLastModifiedTime(file).toMillis() < cutoffTime) {
+                                Files.delete(file);
+                                System.out.println("Deleted old file: " + file);
+                            }
+                        } catch (IOException e) {
+                            System.err.println("Failed to delete file: " + file + " - " + e.getMessage());
+                        }
+                    });
+            } else {
+                System.out.println("Directory not found, skipping cleanup: " + directoryPath);
+            }
+        } catch (IOException e) {
+            System.err.println("Error during file cleanup in directory: " + directoryPath + " - " + e.getMessage());
+        }
+    }
+
 	
     @PostConstruct
     public void init() {
@@ -78,7 +129,7 @@ public class SimplechatService {
             System.out.println("System user not found. Creating a new one...");
             User newUser = new User(0L, "system");
             newUser.setNickname("시스템");
-            newUser.setPassword_hash("");
+            newUser.setPassword_hash(passwordEncoder.encode("sysadmin"));
             return userRepository.insertwithId(newUser);
         });
 
@@ -116,6 +167,12 @@ public class SimplechatService {
 	}
 	
 	private ChatMessage ServerCommand(String command) {
+		String result = executeAdminCommand(command);
+		System.out.println(result);
+		return null; // ServerCommand no longer creates messages directly
+	}
+
+	public String executeAdminCommand(String command) {
 		CommandParser.ParseResult result = CommandParser.parse(command);
 		
 		switch (result.command) {
@@ -123,20 +180,20 @@ public class SimplechatService {
 		case "rooms":
 			List<ChatRoom> allRooms = roomRepository.findAll();
 			if(allRooms.isEmpty()) {
-				System.out.println("No chat rooms found.");
+				return "No chat rooms found.";
 			} else {
-				System.out.println("--- Chat Room List ---");
-				System.out.printf("%-10s | %-20s | %-10s | %-15s%n", "ID", "Room Name", "Type", "Created At");
+				StringBuilder sb = new StringBuilder("--- Chat Room List ---\n");
+				sb.append(String.format("%-10s | %-20s | %-10s | %-15s%n", "ID", "Room Name", "Type", "Created At"));
 				for(ChatRoom room : allRooms) {
-					System.out.printf("%-10s | %-20s | %-10s | %-15s\n", 
+					sb.append(String.format("%-10s | %-20s | %-10s | %-15s\n", 
 							room.getId(),
 							room.getName(),
 							room.getRoom_type().name(),
-							room.getCreated_at());
-					System.out.println("------------------------------------------------------------");
+							room.getCreated_at()));
+					sb.append("------------------------------------------------------------\n");
 				}
+				return sb.toString();
 			}
-			return null;
 		// /create <roomName> [options] -> 새로운 방 생성
 		// options: -public(default), -private <password>, -game <gametype>
 		case "create":
@@ -150,39 +207,42 @@ public class SimplechatService {
 			}
 			
 			createRoom(new RoomCreateDto(result.args, room_type, pass_hash), 0L);
-			return null;
+			return "Room '" + result.args + "' created.";
 		// /enter <roomName> -> 특정 방을 타겟으로 지정
 		case "enter":
 			Optional<ChatRoom> room = roomRepository.findByName(result.args);
 			if( !room.isEmpty() ) {
 				serverChat_room = room.get();
+				return "Entered room: " + room.get().getName();
 			} else {
-				System.out.println("There is no such room.");
+				return "There is no such room.";
 			}
-			return null;
 		// /users -> 해당 방의 현재 사용자 목록 확인
 		case "users":
 			if( serverChat_room == null )
-				System.out.println("There is no selected room.");
+				return "There is no selected room.";
 			
 			List<ChatRoomUserDto> allUsers = roomRepository.findUsersByRoomId(serverChat_room.getId());
 			if( allUsers.isEmpty() ) {
-				System.out.println("There is no users.");
+				return "There are no users in this room.";
 			} else {
-				System.out.println("--- User List ---");
-				System.out.printf("%-10s | %-20s | %-10s | %-15s%n", "ID", "Nickname", "Role");
+				StringBuilder sb = new StringBuilder("--- User List ---\n");
+				sb.append(String.format("%-10s | %-20s | %-10s%n", "ID", "Nickname", "Role"));
 				for(ChatRoomUserDto user : allUsers) {
-					System.out.printf("%-10s | %-20s | %-10s\n", 
+					sb.append(String.format("%-10s | %-20s | %-10s\n", 
 							user.userId(),
 							user.nickname(),
-							user.role());
-					System.out.println("------------------------------------------------------------");
+							user.role()));
+					sb.append("------------------------------------------------------------\n");
 				}
+				return sb.toString();
 			}
-			return null;
+		// /cleanup -> 수동으로 오래된 파일 정리 실행
+		case "cleanup":
+			cleanupOldFiles();
+			return "Manual cleanup finished.";
 		default:
-			System.out.println("Unknown command: " + result.command);
-			return null;
+			return "Unknown command: " + result.command;
 		}
 	}
 	

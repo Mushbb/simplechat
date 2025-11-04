@@ -1,22 +1,40 @@
 import React, { useState, useContext, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
+import { NotificationContext } from '../context/NotificationContext';
 import axiosInstance from '../api/axiosInstance';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBell, FaUserFriends } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 import FriendListModal from './FriendListModal';
+import '../styles/Notifications.css';
 
 function Topbar() {
     const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal,
-        notifications, acceptNotification, rejectNotification, toggleFriendListModal, friendModalConfig,
-        openUserProfileModal } = useContext(AuthContext);
+        toggleFriendListModal, friendModalConfig, openUserProfileModal, isAdmin } = useContext(AuthContext);
+    const { notifications, acceptNotification, rejectNotification } = useContext(NotificationContext);
     const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms} = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [adminCommand, setAdminCommand] = useState('');
     
     const dropdownRef = useRef(null);
     const friendIconRef = useRef(null);
+
+    const handleAdminCommand = async (e) => {
+        e.preventDefault();
+        if (!adminCommand.trim()) return;
+
+        try {
+            const response = await axiosInstance.post('/api/admin/command', { command: adminCommand });
+            toast.success(`명령 실행 성공: ${response.data.message}`);
+            setAdminCommand('');
+        } catch (error) {
+            console.error('Admin command failed:', error);
+            toast.error(error.response?.data?.message || '명령 실행에 실패했습니다.');
+        }
+    };
     
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -136,6 +154,20 @@ function Topbar() {
                     )}
                 </div>
             </div>
+            {isAdmin && (
+                <div className="topbar-admin-bar">
+                    <form onSubmit={handleAdminCommand} style={{ display: 'flex', alignItems: 'center', padding: '5px 10px', backgroundColor: '#333' }}>
+                        <input
+                            type="text"
+                            value={adminCommand}
+                            onChange={(e) => setAdminCommand(e.target.value)}
+                            placeholder="Enter admin command..."
+                            style={{ flex: 1, marginRight: '10px' }}
+                        />
+                        <button type="submit">Execute</button>
+                    </form>
+                </div>
+            )}
             {user && (
                 <nav className="room-tabs-container">
                     <button

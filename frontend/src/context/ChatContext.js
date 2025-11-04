@@ -8,7 +8,7 @@ const SERVER_URL = axiosInstance.getUri();
 const ChatContext = createContext();
 
 function ChatProvider({ children }) {
-    const { user, loading, registerRoomJoinHandler, forceLogout } = useContext(AuthContext);
+    const { user, loading, forceLogout } = useContext(AuthContext);
     
     const [joinedRooms, setJoinedRooms] = useState([]);
     const [activeRoomId, setActiveRoomId] = useState(null);
@@ -64,14 +64,7 @@ function ChatProvider({ children }) {
             joiningRoomRef.current = null;
         }
     }, [joinedRooms]); // LobbyPage에서 최신 joinedRooms를 참조해야 하므로 의존성 배열 유지
-    
-    // ✨ 신규: AuthContext에 방 참여 핸들러 등록
-    useEffect(() => {
-        if (registerRoomJoinHandler) {
-            registerRoomJoinHandler(joinRoomAndConnect);
-        }
-    }, [registerRoomJoinHandler, joinRoomAndConnect]);
-    
+        
     useEffect(() => {
         const setupConnections = async () => {
             if (!loading && user) {
