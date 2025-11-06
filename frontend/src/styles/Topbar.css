@@ -1,0 +1,89 @@
+/* Topbar 스타일 */
+.topbar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0;
+    border-bottom: 1px solid #ddd;
+    background-color: #fff;
+}
+
+/* 상단 영역 (로고 + 인증 버튼) */
+.topbar-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.topbar-auth-controls {
+    display: flex;
+    width: 100%;
+    align-items: center;
+}
+
+.auth-controls-btn {
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.topbar-logo {
+    margin: 0;
+    color: #333;
+    text-decoration: none;
+}
+
+.topbar-logo:hover {
+    color: #333;
+    text-decoration: none;
+}
+
+/* 하단 탭 영역 컨테이너 */
+.room-tabs-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    border-top: 1px solid #eee;
+}
+
+/* 개별 룸 탭 버튼 */
+.room-tab {
+    padding: 10px 15px;
+    border: none;
+    background-color: transparent;
+    cursor: pointer;
+    font-size: 15px;
+    color: #555;
+    border-bottom: 3px solid transparent;
+}
+
+.room-tab:hover {
+    background-color: #f8f9fa;
+}
+
+/* 활성화된 탭 스타일 */
+.room-tab.active {
+    color: #007bff;
+    font-weight: bold;
+    border-bottom: 3px solid #007bff;
+}
+
+/* 안 읽은 메시지가 있는 탭 스타일 */
+.room-tab.unread {
+    position: relative;
+    font-weight: bold;
+}
+
+.room-tab.unread::after {
+    content: '';
+    position: absolute;
+    top: 10px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background-color: #007bff;
+    border-radius: 50%;
+}

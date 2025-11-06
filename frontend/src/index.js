@@ -6,6 +6,8 @@ import { ChatProvider } from './context/ChatContext';
 import { NotificationProvider } from './context/NotificationContext';
 import { FriendProvider } from './context/FriendContext';
 import { ModalProvider } from './context/ModalContext';
+import { RoomProvider } from './context/RoomContext';
+import { WebSocketProvider } from './context/WebSocketContext';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
@@ -14,19 +16,23 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 document.title = "SimpleChat";
 root.render(
   <React.StrictMode>
-    <AuthProvider>
-        <FriendProvider>
+    <HashRouter>
+      <AuthProvider>
+        <WebSocketProvider>
+          <FriendProvider>
             <ModalProvider>
-                <ChatProvider>
-                    <NotificationProvider>
-                      <HashRouter>
-                        <App />
-                      </HashRouter>
-                    </NotificationProvider>
-                </ChatProvider>
+              <ChatProvider>
+                <RoomProvider>
+                  <NotificationProvider>
+                    <App />
+                  </NotificationProvider>
+                </RoomProvider>
+              </ChatProvider>
             </ModalProvider>
-        </FriendProvider>
-    </AuthProvider>
+          </FriendProvider>
+        </WebSocketProvider>
+      </AuthProvider>
+    </HashRouter>
   </React.StrictMode>
 );
 

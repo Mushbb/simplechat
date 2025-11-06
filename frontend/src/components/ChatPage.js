@@ -2,6 +2,7 @@ import React, { useEffect, useContext, useState, useRef, useLayoutEffect, useCal
 import { useParams, useNavigate } from 'react-router-dom'; // 1. useNavigate 임포트
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
+import { RoomContext } from '../context/RoomContext'; // Import RoomContext
 import { ModalContext } from '../context/ModalContext';
 import ChatMessage from './ChatMessage';
 import UserProfileModal from './UserProfileModal';
@@ -13,11 +14,11 @@ const SERVER_URL = axiosInstance.getUri();
 
 function ChatPage() {
     const { roomId } = useParams();
-    const navigate = useNavigate(); // 2. useNavigate 훅 사용
+    const navigate = useNavigate();
     const { user } = useContext(AuthContext);
     const { openUserProfileModal, toggleFriendListModal, closeFriendListModal } = useContext(ModalContext);
-    // 3. exitRoom, deleteRoom 함수를 ChatContext에서 가져옴
-    const { setActiveRoomId, messagesByRoom, usersByRoom, joinedRooms, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom, exitRoom, deleteRoom } = useContext(ChatContext);
+    const { activeRoomId, setActiveRoomId, joinedRooms, exitRoom, deleteRoom } = useContext(RoomContext);
+    const { messagesByRoom, usersByRoom, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom } = useContext(ChatContext);
 
     // --- UI 상호작용을 위한 Local State ---
     const [newMessage, setNewMessage] = useState('');

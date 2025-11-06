@@ -4,18 +4,20 @@ import { ChatContext } from '../context/ChatContext';
 import { NotificationContext } from '../context/NotificationContext';
 import { FriendContext } from '../context/FriendContext';
 import { ModalContext } from '../context/ModalContext';
+import { RoomContext } from '../context/RoomContext';
 import axiosInstance from '../api/axiosInstance';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBell, FaUserFriends } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import FriendListModal from './FriendListModal';
 import '../styles/Notifications.css';
+import '../styles/Topbar.css';
 
 function Topbar() {
     const { user, logout, deleteAccount, isAdmin } = useContext(AuthContext);
     const { notifications, acceptNotification, rejectNotification } = useContext(NotificationContext);
     const { openLoginModal, openRegisterModal, openProfileModal, toggleFriendListModal, openUserProfileModal, friendModalConfig } = useContext(ModalContext);
-    const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms} = useContext(ChatContext);
+    const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms } = useContext(RoomContext);
     const navigate = useNavigate();
     const location = useLocation();
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
