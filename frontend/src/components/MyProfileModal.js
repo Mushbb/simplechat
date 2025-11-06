@@ -1,70 +1,77 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useContext, useEffect, useRef } from 'react';
 import { AuthContext } from '../context/AuthContext';
+import { ModalContext } from '../context/ModalContext';
 import axiosInstance from '../api/axiosInstance';
 const SERVER_URL = axiosInstance.getUri();
 
 function MyProfileModal() {
-    const { user, updateUser, closeProfileModal } = useContext(AuthContext);
-
-    const [nickname, setNickname] = useState('');
-    const [statusMessage, setStatusMessage] = useState('');
-    const [profileImageFile, setProfileImageFile] = useState(null);
-    const [previewImageUrl, setPreviewImageUrl] = useState('');
+    const { user, updateUser } = useContext(AuthContext);
+    const { closeProfileModal } = useContext(ModalContext);
+    const [nickname, setNickname] = useState(user?.nickname || '');
+    const [statusMessage, setStatusMessage] = useState(user?.status_message || '');
+    const [newImageFile, setNewImageFile] = useState(null); // newImageFile 상태 추가
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
-        const fetchProfile = async () => {
-            try {
-                const response = await axiosInstance.get(`/user/${user.userId}/profile`);
-                const profile = response.data;
-                setNickname(profile.nickname);
-                setStatusMessage(profile.status_msg || '');
-                setPreviewImageUrl(`${SERVER_URL}${profile.imageUrl}`);
-            } catch (error) { console.error("Failed to fetch profile", error); }
-        };
-        if (user) { fetchProfile(); }
+        setNickname(user?.nickname || '');
+        setStatusMessage(user?.status_message || '');
     }, [user]);
 
     const handleImageChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setProfileImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => { setPreviewImageUrl(reader.result); };
-            reader.readAsDataURL(file);
+        if (e.target.files && e.target.files[0]) {
+            setNewImageFile(e.target.files[0]);
         }
     };
 
-    const handleSubmit = async (e) => {
+    const handleUpdate = async (e) => {
         e.preventDefault();
-        await updateUser(nickname, statusMessage, profileImageFile);
+        await updateUser(nickname, statusMessage, newImageFile);
+        closeProfileModal();
     };
 
     return (
-        <div className="modal-overlay" onClick={closeProfileModal}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeProfileModal()}>
+            <div className="modal-content">
                 <button className="modal-close-btn" onClick={closeProfileModal}>&times;</button>
                 <h2>프로필 수정</h2>
-                <form onSubmit={handleSubmit}>
-                    <div className="profile-image-area">
-                        <img src={previewImageUrl} alt="Profile preview" className="profile-image-preview" />
-                        <label htmlFor="profile-image-input" className="profile-image-label">사진 변경</label>
+                <form onSubmit={handleUpdate}> {/* onSubmit 핸들러를 handleUpdate로 변경 */}
+                    <div className="form-group profile-image-area">
+                        <img
+                            src={newImageFile ? URL.createObjectURL(newImageFile) : (user?.profile_image_url || '/images/profiles/default.png')}
+                            alt="프로필 이미지"
+                            className="profile-image-preview"
+                        />
                         <input
-                            id="profile-image-input"
                             type="file"
-                            accept="image/*"
+                            ref={fileInputRef}
                             onChange={handleImageChange}
                             style={{ display: 'none' }}
+                            accept="image/*"
+                        />
+                        <label onClick={() => fileInputRef.current.click()} className="profile-image-label">
+                            이미지 변경
+                        </label>
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="nickname">닉네임</label>
+                        <input
+                            type="text"
+                            id="nickname"
+                            value={nickname}
+                            onChange={(e) => setNickname(e.target.value)}
+                            maxLength={10}
                         />
                     </div>
                     <div className="form-group">
-                        <label htmlFor="profile-nickname">닉네임</label>
-                        <input id="profile-nickname" type="text" value={nickname} onChange={(e) => setNickname(e.target.value)} />
+                        <label htmlFor="statusMessage">상태 메시지</label>
+                        <textarea
+                            id="statusMessage"
+                            value={statusMessage}
+                            onChange={(e) => setStatusMessage(e.target.value)}
+                            maxLength={50}
+                        />
                     </div>
-                    <div className="form-group">
-                        <label htmlFor="profile-status">상태 메시지</label>
-                        <textarea id="profile-status" rows="3" value={statusMessage} onChange={(e) => setStatusMessage(e.target.value)} />
-                    </div>
-                    <button type="submit" className="modal-submit-btn">저장하기</button>
+                    <button type="submit" className="modal-submit-btn">저장</button>
                 </form>
             </div>
         </div>

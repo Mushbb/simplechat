@@ -2,6 +2,7 @@ import React, { useEffect, useContext, useState, useRef, useLayoutEffect, useCal
 import { useParams, useNavigate } from 'react-router-dom'; // 1. useNavigate 임포트
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
+import { ModalContext } from '../context/ModalContext';
 import ChatMessage from './ChatMessage';
 import UserProfileModal from './UserProfileModal';
 import { toast } from 'react-toastify';
@@ -13,7 +14,8 @@ const SERVER_URL = axiosInstance.getUri();
 function ChatPage() {
     const { roomId } = useParams();
     const navigate = useNavigate(); // 2. useNavigate 훅 사용
-    const { user, toggleFriendListModal, closeFriendListModal, friendModalConfig, openUserProfileModal } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
+    const { openUserProfileModal, toggleFriendListModal, closeFriendListModal } = useContext(ModalContext);
     // 3. exitRoom, deleteRoom 함수를 ChatContext에서 가져옴
     const { setActiveRoomId, messagesByRoom, usersByRoom, joinedRooms, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom, exitRoom, deleteRoom } = useContext(ChatContext);
 
@@ -22,9 +24,6 @@ function ChatPage() {
     const [myNickname, setMyNickname] = useState('');
     const [filesToUpload, setFilesToUpload] = useState([]);
     const [isUploading, setIsUploading] = useState(false);
-    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
-    const [selectedProfile, setSelectedProfile] = useState(null);
-    const [modalPosition, setModalPosition] = useState({ top: 0, left: 0 });
     const [isDragging, setIsDragging] = useState(false);
     const [myRole, setMyRole] = useState(null);
     const [isFetchingMore, setIsFetchingMore] = useState(false);
@@ -334,9 +333,6 @@ function ChatPage() {
             onDrop={handleDrop}
         >
             <div data-id="chat-main-flex-container" className="chat-main-flex-container">
-                {isProfileModalOpen && (
-                    <UserProfileModal profile={selectedProfile} onClose={() => setIsProfileModalOpen(false)} position={modalPosition} />
-                )}
                 {isUserListVisible && (
                     <div data-id="user-list-panel" className="user-list-panel">
                         <h2 className="panel-title">{roomName}</h2>

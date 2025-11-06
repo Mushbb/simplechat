@@ -1,51 +1,36 @@
 import React, { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext'; // AuthContext를 가져옵니다.
-
-// AuthModal.js와 유사한 스타일을 사용합니다.
-const modalOverlayStyle = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-};
-
-const modalContentStyle = {
-    backgroundColor: 'white',
-    padding: '20px 40px',
-    borderRadius: '8px',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-};
-
+import { AuthContext } from '../context/AuthContext';
+import { ModalContext } from '../context/ModalContext';
 
 function RegisterModal() {
     const [username, setUsername] = useState('');
     const [nickname, setNickname] = useState('');
     const [password, setPassword] = useState('');
+    const [passwordConfirm, setPasswordConfirm] = useState(''); // passwordConfirm 상태 추가
 
-    // ✅ Context에서 register 함수와 closeModal 함수를 가져옵니다.
-    const { register, closeRegisterModal } = useContext(AuthContext);
+    const { register } = useContext(AuthContext);
+    const { closeRegisterModal } = useContext(ModalContext);
 
-    const handleSubmit = (e) => {
+    const handleRegister = async (e) => {
         e.preventDefault();
-        if (!username || !nickname || !password) {
-            alert('모든 필드를 입력해주세요.');
+        if (password !== passwordConfirm) {
+            alert("비밀번호가 일치하지 않습니다.");
             return;
         }
-        register(username, nickname, password);
+        try {
+            await register(username, nickname, password);
+            closeRegisterModal(); // 회원가입 성공 후 모달 닫기
+        } catch (error) {
+            // 에러 처리는 register 함수 내부에서 이미 처리됨
+        }
     };
 
     return (
-        <div className="modal-overlay" onClick={closeRegisterModal}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeRegisterModal()}>
+            <div className="modal-content">
                 <button className="modal-close-btn" onClick={closeRegisterModal}>&times;</button>
                 <h2>회원가입</h2>
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleRegister}> {/* onSubmit 핸들러를 handleRegister로 변경 */}
                     <div className="form-group">
                         <label htmlFor="reg-username">아이디</label>
                         <input
@@ -71,6 +56,15 @@ function RegisterModal() {
                             id="reg-password"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="passwordConfirm">비밀번호 확인</label>
+                        <input
+                            type="password"
+                            id="passwordConfirm"
+                            value={passwordConfirm}
+                            onChange={(e) => setPasswordConfirm(e.target.value)}
                         />
                     </div>
                     <button type="submit" className="modal-submit-btn">가입하기</button>

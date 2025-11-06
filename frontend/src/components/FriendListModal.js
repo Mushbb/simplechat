@@ -1,11 +1,13 @@
 import React, { createContext, useState, useEffect, useContext, useRef } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { FriendContext } from '../context/FriendContext';
+import { ModalContext } from '../context/ModalContext';
+import '../styles/Friends.css';
 import axiosInstance from '../api/axiosInstance';
 const SERVER_URL = axiosInstance.getUri();
 
 function FriendListModal() {
-	const { closeFriendListModal, friends, setFriends, removeFriend, friendModalConfig,
-		openUserProfileModal, closeUserProfileModal, selectedProfile, modalPosition } = useContext(AuthContext);
+	const { friends, setFriends, removeFriend } = useContext(FriendContext);
+	const { friendModalConfig, closeFriendListModal, openUserProfileModal } = useContext(ModalContext);
 	const [loading, setLoading] = useState(true);
 	const modalRef = useRef(null);
 	// ✅ 1. 보정된 위치를 저장할 새로운 state 추가

@@ -2,6 +2,8 @@ import React, { useState, useContext, useRef, useEffect } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
 import { NotificationContext } from '../context/NotificationContext';
+import { FriendContext } from '../context/FriendContext';
+import { ModalContext } from '../context/ModalContext';
 import axiosInstance from '../api/axiosInstance';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FaBell, FaUserFriends } from 'react-icons/fa';
@@ -10,9 +12,9 @@ import FriendListModal from './FriendListModal';
 import '../styles/Notifications.css';
 
 function Topbar() {
-    const { user, logout, deleteAccount, openLoginModal, openRegisterModal, openProfileModal,
-        toggleFriendListModal, friendModalConfig, openUserProfileModal, isAdmin } = useContext(AuthContext);
+    const { user, logout, deleteAccount, isAdmin } = useContext(AuthContext);
     const { notifications, acceptNotification, rejectNotification } = useContext(NotificationContext);
+    const { openLoginModal, openRegisterModal, openProfileModal, toggleFriendListModal, openUserProfileModal, friendModalConfig } = useContext(ModalContext);
     const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms} = useContext(ChatContext);
     const navigate = useNavigate();
     const location = useLocation();

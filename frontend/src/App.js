@@ -1,10 +1,12 @@
 import React, { useContext } from 'react';
 import './App.css';
+import './styles/Modals.css';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Topbar from './components/Topbar';
 import AuthModal from './components/AuthModal';
 import { AuthContext } from './context/AuthContext';
+import { ModalContext } from './context/ModalContext';
 import { Routes, Route } from 'react-router-dom';
 import LobbyPage from './components/LobbyPage';
 import ChatPage from './components/ChatPage';
@@ -14,8 +16,8 @@ import UserProfileModal from './components/UserProfileModal';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
-    const { isLoginModalOpen, isRegisterModalOpen, isMyProfileModalOpen, friendModalConfig,
-        isUserProfileModalOpen, selectedProfile, modalPosition, closeUserProfileModal} = useContext(AuthContext);
+    const { isLoginModalOpen, isRegisterModalOpen, isMyProfileModalOpen, 
+        isUserProfileModalOpen, selectedProfile, modalPosition, closeUserProfileModal} = useContext(ModalContext);
     
     return (
     <div className="app-container">

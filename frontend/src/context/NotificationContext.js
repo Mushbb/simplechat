@@ -6,13 +6,15 @@ import axiosInstance from '../api/axiosInstance';
 import NotificationToast from '../components/NotificationToast';
 import { AuthContext } from './AuthContext';
 import { ChatContext } from './ChatContext';
+import { FriendContext } from './FriendContext';
 
 const SERVER_URL = axiosInstance.getUri();
 const NotificationContext = createContext();
 
 function NotificationProvider({ children }) {
     const { user } = useContext(AuthContext);
-    const { setFriends, joinRoomAndConnect } = useContext(ChatContext);
+    const { joinRoomAndConnect } = useContext(ChatContext);
+    const { setFriends } = useContext(FriendContext);
     const [notifications, setNotifications] = useState([]);
     const stompClientRef = useRef(null);
 
