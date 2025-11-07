@@ -127,3 +127,30 @@
     resize: vertical;
     min-height: 80px;
 }
+
+/* --- 방 생성 모달 라디오 버튼 스타일 --- */
+.radio-group {
+    display: flex;
+    gap: 20px;
+}
+
+/* '공개방', '비밀방' 두 옵션을 감싸는 컨테이너 */
+.radio-group {
+    display: flex;         /* 자식 요소(label)들을 가로로 나열합니다. */
+    align-items: center;   /* 세로 중앙으로 정렬합니다. */
+    gap: 20px;             /* '공개방'과 '비밀방' 옵션 사이에 간격을 줍니다. */
+}
+
+/* 개별 옵션(<label>)에 대한 스타일 */
+.radio-group label {
+    display: flex;         /* 라디오 버튼과 텍스트를 가로로 나열합니다. */
+    align-items: center;   /* 라디오 버튼과 텍스트를 세로 중앙으로 정렬합니다. */
+    cursor: pointer;       /* 텍스트를 눌러도 선택되도록 커서를 변경합니다. */
+    margin: 0;             /* 불필요한 바깥 여백을 제거합니다. */
+    white-space: nowrap;   /* 텍스트가 세로로 깨지는 현상을 방지합니다. */
+}
+
+/* 라디오 버튼(<input>) 자체에 대한 스타일 */
+.radio-group input[type="radio"] {
+    margin-right: 5px;     /* 라디오 버튼과 텍스트 사이에 약간의 간격을 줍니다. */
+}

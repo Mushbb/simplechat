@@ -87,3 +87,10 @@
     background-color: #007bff;
     border-radius: 50%;
 }
+
+.danger-button { background-color: #dc3545; color: white; border-color: #dc3545; }
+
+/* Topbar 아이콘들을 감싸는 공통 컨테이너 (위치 기준점) */
+.topbar-icon-container {
+    position: relative;
+}

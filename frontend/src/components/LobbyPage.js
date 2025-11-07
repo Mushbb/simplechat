@@ -1,27 +1,35 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { RoomContext } from '../context/RoomContext';
+import { ChatContext } from '../context/ChatContext';
 import { ModalContext } from '../context/ModalContext';
 import CreateRoomModal from './CreateRoomModal';
 import axiosInstance from '../api/axiosInstance';
+import '../styles/LobbyPage.css';
 
 function LobbyPage() {
     const { user, loading } = useContext(AuthContext);
-    const { rooms, joinedRooms, joinRoomAndConnect, fetchRooms, setActiveRoomId } = useContext(RoomContext);
+    const { rawRooms, joinedRooms, joinRoomAndConnect, fetchRooms, setActiveRoomId } = useContext(RoomContext);
+    const { usersByRoom } = useContext(ChatContext); // ChatContext에서 usersByRoom 가져오기
     const { openLoginModal } = useContext(ModalContext);
     const navigate = useNavigate();
-    const location = useLocation(); // useLocation 훅 추가
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+    // 실시간 접속자 수를 포함한 최종 방 목록 계산
+    const rooms = useMemo(() => {
+        return rawRooms.map(room => ({
+            ...room,
+            connCount: usersByRoom[room.id]?.filter(u => u.conn === 'CONNECT').length || 0,
+        }));
+    }, [rawRooms, usersByRoom]);
+
     useEffect(() => {
-        // 현재 경로가 로비일 때만 데이터를 가져오고, activeRoomId를 null로 설정
-        if (location.pathname === '/') {
-            setActiveRoomId(null);
-            fetchRooms();
-        }
-    }, [location, fetchRooms, setActiveRoomId]); // location을 의존성 배열에 추가
+        setActiveRoomId(null);
+        const intervalId = setInterval(fetchRooms, 3000);
+        return () => clearInterval(intervalId);
+    }, [setActiveRoomId, fetchRooms]);
 
     const handleEnterRoom = async (room) => {
         const isAlreadyMember = joinedRooms.some(joinedRoom => joinedRoom.id === room.id);

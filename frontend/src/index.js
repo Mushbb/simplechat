@@ -1,14 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
-import { ChatProvider } from './context/ChatContext';
-import { NotificationProvider } from './context/NotificationContext';
-import { FriendProvider } from './context/FriendContext';
-import { ModalProvider } from './context/ModalContext';
-import { RoomProvider } from './context/RoomContext';
-import { WebSocketProvider } from './context/WebSocketContext';
-import './index.css';
+import { AppContextProvider } from './context/AppContext'; // 새로 만든 Provider import
+import './index.css'; // Global styles
+import './styles/ChatPage.css'; // Chat page specific styles
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
@@ -17,21 +12,9 @@ document.title = "SimpleChat";
 root.render(
   <React.StrictMode>
     <HashRouter>
-      <AuthProvider>
-        <WebSocketProvider>
-          <FriendProvider>
-            <ModalProvider>
-              <ChatProvider>
-                <RoomProvider>
-                  <NotificationProvider>
-                    <App />
-                  </NotificationProvider>
-                </RoomProvider>
-              </ChatProvider>
-            </ModalProvider>
-          </FriendProvider>
-        </WebSocketProvider>
-      </AuthProvider>
+      <AppContextProvider>
+        <App />
+      </AppContextProvider>
     </HashRouter>
   </React.StrictMode>
 );

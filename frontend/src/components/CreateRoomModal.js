@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { toast } from 'react-toastify';
+import '../styles/Modals.css';
 
 function CreateRoomModal({ onClose, onCreate }) {
     const [roomName, setRoomName] = useState('');

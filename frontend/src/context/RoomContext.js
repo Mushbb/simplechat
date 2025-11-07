@@ -8,14 +8,12 @@ const RoomContext = createContext();
 
 function RoomProvider({ children }) {
     const { user, loading } = useContext(AuthContext);
-    const { usersByRoom } = useContext(ChatContext); // Get usersByRoom from ChatContext
     const navigate = useNavigate();
 
     const [rawRooms, setRawRooms] = useState([]); // API로부터 받은 원본 방 목록
     const [activeRoomId, setActiveRoomId] = useState(null);
     const [unreadRooms, setUnreadRooms] = useState(new Set());
 
-    // API로부터 방 목록을 가져오는 함수
     const fetchRooms = useCallback(async () => {
         if (!user) return;
         try {
@@ -26,20 +24,13 @@ function RoomProvider({ children }) {
         }
     }, [user]);
 
-    // 사용자가 로그인했거나, usersByRoom 상태가 변경될 때 방 목록을 새로고침
     useEffect(() => {
-        fetchRooms();
-    }, [fetchRooms, usersByRoom]);
+        if (user) {
+            fetchRooms();
+        }
+    }, [user, fetchRooms]);
 
-    // 원본 방 목록과 실시간 사용자 수를 조합하여 최종 방 목록(rooms)을 생성
-    const rooms = useMemo(() => {
-        return rawRooms.map(room => ({
-            ...room,
-            connCount: usersByRoom[room.id]?.filter(u => u.conn === 'CONNECT').length || 0,
-        }));
-    }, [rawRooms, usersByRoom]);
-
-    const joinedRooms = useMemo(() => rooms.filter(room => room.isMember), [rooms]);
+    const joinedRooms = useMemo(() => rawRooms.filter(room => room.isMember), [rawRooms]);
 
     const joinRoomAndConnect = useCallback(async (room) => {
         const isAlreadyMember = joinedRooms.some(r => r.id === room.id);
@@ -47,7 +38,6 @@ function RoomProvider({ children }) {
             console.log(`[RoomContext] Already a member of room #${room.id}.`);
             return;
         }
-        // Optimistically add to UI, actual connection is handled by ChatContext
         setRawRooms(prev => [...prev, { ...room, isMember: true }]);
     }, [joinedRooms]);
 
@@ -84,7 +74,7 @@ function RoomProvider({ children }) {
     }, [activeRoomId, unreadRooms]);
 
     const value = {
-        rooms, // 최종적으로 계산된 방 목록
+        rawRooms, // 원본 방 목록
         joinedRooms, // 참여한 방 목록
         activeRoomId,
         setActiveRoomId,

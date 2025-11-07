@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import { IoSend } from "react-icons/io5";
 import { FaUsers } from 'react-icons/fa';
 import axiosInstance from '../api/axiosInstance';
+import '../styles/ChatPage.css'; // ChatPage specific styles
 const SERVER_URL = axiosInstance.getUri();
 
 function ChatPage() {

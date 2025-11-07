@@ -1,0 +1,143 @@
+/* --- 로비 페이지 스타일 --- */
+.lobby-container {
+    width: 100%;
+    max-width: 1200px; /* 더 넓은 최대 너비 */
+    margin: 0 auto;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.lobby-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.create-room-btn {
+    padding: 10px 15px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.room-list {
+    margin-bottom: 30px;
+}
+
+/* ✅ 1. ul 태그를 Flexbox 컨테이너로 만듭니다. */
+.room-list ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px; /* 카드 사이의 간격 */
+}
+
+/* li 태그를 '카드' 형태로 디자인 (데스크톱 기본) */
+.room-list-item {
+    width: 220px;
+    height: 110px;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    position: relative;
+}
+
+.room-list-item:hover {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transform: translateY(-3px);
+}
+
+.room-list-item.my-room {
+    border-left: 4px solid #007bff;
+}
+
+.room-info {
+    padding-right: 40px;
+}
+
+.room-name {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lock-icon {
+    margin-right: 8px;
+}
+
+.room-owner {
+    font-size: 0.85em;
+    color: #666;
+}
+.room-name,
+.room-owner {
+    display: block;
+}
+
+/* 카드 우측 상단부 (인원수) */
+.room-meta {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+}
+
+.room-count {
+    font-size: 1em;
+    font-weight: bold;
+}
+
+.room-count.online {
+    color: #28a745;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.no-rooms {
+    color: #888;
+    padding: 20px;
+    text-align: center;
+    width: 100%;
+}
+
+/* --- 반응형 웹: 모바일 환경 --- */
+/* 화면 너비가 768px 이하일 때 적용될 스타일 */
+@media (max-width: 768px) {
+    .room-list-item {
+        width: 160px; /* 모바일에서 더 작게 */
+        height: 85px;
+        padding: 10px;
+    }
+
+    .room-name {
+        font-size: 1em; /* 모바일에서 폰트 살짝 작게 */
+        margin-bottom: 4px;
+    }
+
+    .room-owner {
+        font-size: 0.8em; /* 모바일에서 폰트 살짝 작게 */
+    }
+
+    .room-meta {
+        top: 10px;
+        right: 10px;
+    }
+
+    .room-count {
+        font-size: 0.9em;
+    }
+}
