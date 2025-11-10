@@ -10,12 +10,12 @@ import { ChatProvider } from './ChatContext';
 // 논리적 순서에 따라 Provider 배열 정의
 const providers = [
   AuthProvider,
+  RoomProvider,
+  FriendProvider,
   WebSocketProvider,
   NotificationProvider,
-  ModalProvider,
-  FriendProvider,
-  RoomProvider,
   ChatProvider,
+  ModalProvider,
 ];
 
 // Provider들을 조합하는 컴포넌트

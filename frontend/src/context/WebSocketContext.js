@@ -55,15 +55,13 @@ function WebSocketProvider({ children }) {
     const initializeConnections = async () => {
         if (!user) return;
         try {
+            // This function is primarily for cleanup when user logs in/out.
+            // Room fetching is handled by RoomContext.
+            // Connection to rooms is handled by ChatContext.
             stompClientsRef.current.forEach(client => client.deactivate());
             stompClientsRef.current.clear();
-            
-            const response = await axiosInstance.get(`${SERVER_URL}/api/my-rooms`);
-            const myRooms = response.data;
-            setJoinedRooms(myRooms);
-            // Note: Connection to rooms will be initiated by ChatContext
         } catch (error) {
-            console.error("Failed to initialize connections:", error);
+            console.error("Failed to clear connections:", error);
         }
     };
 

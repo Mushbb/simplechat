@@ -1,7 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
-import { ChatContext } from './ChatContext'; // Import ChatContext
 import axiosInstance from '../api/axiosInstance';
 
 const RoomContext = createContext();

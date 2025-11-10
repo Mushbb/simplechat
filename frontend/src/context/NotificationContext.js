@@ -5,15 +5,15 @@ import { Client } from '@stomp/stompjs';
 import axiosInstance from '../api/axiosInstance';
 import NotificationToast from '../components/NotificationToast';
 import { AuthContext } from './AuthContext';
-import { ChatContext } from './ChatContext';
 import { FriendContext } from './FriendContext';
+import { RoomContext } from './RoomContext';
 
 const SERVER_URL = axiosInstance.getUri();
 const NotificationContext = createContext();
 
 function NotificationProvider({ children }) {
     const { user } = useContext(AuthContext);
-    const { joinRoomAndConnect } = useContext(ChatContext);
+    const { joinRoomAndConnect } = useContext(RoomContext);
     const { setFriends } = useContext(FriendContext);
     const [notifications, setNotifications] = useState([]);
     const stompClientRef = useRef(null);
