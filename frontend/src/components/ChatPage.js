@@ -103,7 +103,7 @@ function ChatPage() {
             setFilesToUpload(prevFiles => [...prevFiles, ...newFileObjects]);
             textareaRef.current?.focus();
         });
-    }, []); // 의존성 배열이 비어있어도 괜찮습니다. (setFilesToUpload는 항상 동일)
+    }, [textareaRef]);
     
     const handleInviteFriend = async (friend) => {
         try {
@@ -396,7 +396,14 @@ function ChatPage() {
                                     </div>
                                 )}
                                 {isFetchingMore && <div style={{ textAlign: 'center', padding: '10px' }}>이전 메시지 로딩 중...</div>}
-                                {messages.map((msg, index) => <ChatMessage key={msg.messageId || `msg-${index}`} message={msg} />)}
+                                {messages.map((msg, index) => {
+                                    const prevMsg = messages[index - 1];
+                                    const isFirstInGroup = !prevMsg || 
+                                                           prevMsg.authorId !== msg.authorId || 
+                                                           (new Date(msg.createdAt) - new Date(prevMsg.createdAt)) > 120000; // 2분 이상 차이
+                                    
+                                    return <ChatMessage key={msg.messageId || `msg-${index}`} message={msg} isFirstInGroup={isFirstInGroup} />;
+                                })}
                                 <div ref={messagesEndRef} />
                             </>
                         )}

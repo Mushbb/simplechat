@@ -49,9 +49,10 @@ const YouTubePlayer = ({ videoId, initialUrl }) => {
   );
 };
 
-const ChatMessage = ({ message }) => {
+const ChatMessage = ({ message, isFirstInGroup }) => {
   const messageBodyRef = useRef(null);
-  
+  const [isHovered, setIsHovered] = useState(false);
+
   // 텍스트를 파싱하여 링크, 이미지, 비디오, 유튜브 등을 렌더링하는 함수
   const renderAdvancedContent = (text) => {
     if (!text) return '';
@@ -139,18 +140,44 @@ const ChatMessage = ({ message }) => {
   };
   
   return (
-      <div className="chat-message-item">
-        <img src={`${SERVER_URL}${message.authorProfileImageUrl}`} alt={message.authorName} className="chat-profile-img" />
+      <div 
+        className={`chat-message-item ${isFirstInGroup ? 'is-first' : ''}`}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {isFirstInGroup && (
+          <img src={`${SERVER_URL}${message.authorProfileImageUrl}`} alt={message.authorName} className="chat-profile-img" />
+        )}
         <div className="chat-message-content">
-          <div className="chat-message-header">
-            <span className="chat-author-name">{message.authorName}</span>
-            <span className="chat-timestamp">{message.createdAt}</span>
-          </div>
+          {isFirstInGroup && (
+            <div className="chat-message-header">
+              <span className="chat-author-name">{message.authorName}</span>
+              <span className="chat-timestamp">
+                {(() => {
+                  const messageDate = new Date(message.createdAt.replace(' ', 'T') + 'Z');
+                  const today = new Date();
+                  const isToday = messageDate.getFullYear() === today.getFullYear() &&
+                                  messageDate.getMonth() === today.getMonth() &&
+                                  messageDate.getDate() === today.getDate();
+
+                  return isToday 
+                    ? messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : messageDate.toLocaleString([], { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                })()}
+              </span>
+            </div>
+          )}
           <div className="chat-message-body" ref={messageBodyRef}>
             {renderMessageContent()}
             {renderLinkPreview()}
           </div>
         </div>
+        {isHovered && (
+          <div className="message-toolbar">
+            <span className="toolbar-timestamp">{new Date(message.createdAt.replace(' ', 'T') + 'Z').toLocaleString()}</span>
+            <button className="toolbar-button">···</button>
+          </div>
+        )}
       </div>
   );
 };

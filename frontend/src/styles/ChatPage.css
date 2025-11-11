@@ -16,17 +16,68 @@ code {
 /* --- chat.html에서 가져온 스타일 --- */
 
 .chat-message-item {
+    position: relative; /* 툴바 위치의 기준점 */
     display: flex;
     align-items: flex-start; /* 상단 정렬 */
-    margin-bottom: 12px;
+    margin-top: 12px; /* 그룹 간의 기본 간격 */
+    margin-bottom: 2px;
     line-height: 1.4;
 }
+
+/* 마우스 오버 시 배경색 변경 (선택 사항) */
+.chat-message-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* 메시지 툴바 스타일 */
+.message-toolbar {
+    position: absolute;
+    top: -15px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 4px 8px;
+    font-size: 12px;
+    color: #555;
+}
+
+.toolbar-timestamp {
+    margin-right: 8px;
+    white-space: nowrap;
+}
+
+.toolbar-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0 4px;
+}
+
+/* 연속되는 메시지 (is-first가 아닌)의 상단 여백을 줄여 그룹화 */
+.chat-message-item:not(.is-first) {
+    margin-top: 2px;
+}
+
+/* 연속되는 메시지의 내용에 왼쪽 여백을 주어 수평 정렬 */
+.chat-message-item:not(.is-first) .chat-message-content {
+    margin-left: 50px; /* avatar(40px) + margin(10px) */
+}
+
 .chat-profile-img {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     margin-right: 10px;
     flex-shrink: 0; /* 이미지 크기 고정 */
+}
+
+.chat-message-header {
+    margin-bottom: 4px;
 }
 .chat-message-content {
     display: flex;

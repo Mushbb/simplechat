@@ -32,13 +32,21 @@ function RoomProvider({ children }) {
     const joinedRooms = useMemo(() => rawRooms.filter(room => room.isMember), [rawRooms]);
 
     const joinRoomAndConnect = useCallback(async (room) => {
-        const isAlreadyMember = joinedRooms.some(r => r.id === room.id);
-        if (isAlreadyMember) {
-            console.log(`[RoomContext] Already a member of room #${room.id}.`);
-            return;
-        }
-        setRawRooms(prev => [...prev, { ...room, isMember: true }]);
-    }, [joinedRooms]);
+        setRawRooms(prevRawRooms => {
+            const isAlreadyMember = prevRawRooms.some(r => r.id === room.id && r.isMember);
+            if (isAlreadyMember) {
+                console.log(`[RoomContext] Already a member of room #${room.id}.`);
+                return prevRawRooms; // 상태 변경 없음
+            }
+            // 기존 방 목록에 새 방을 추가하거나, 기존 방의 isMember를 true로 업데이트
+            const roomExists = prevRawRooms.some(r => r.id === room.id);
+            if (roomExists) {
+                return prevRawRooms.map(r => r.id === room.id ? { ...r, isMember: true } : r);
+            } else {
+                return [...prevRawRooms, { ...room, isMember: true }];
+            }
+        });
+    }, []);
 
     const exitRoom = async (roomId) => {
         try {

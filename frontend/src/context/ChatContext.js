@@ -131,6 +131,7 @@ function ChatProvider({ children }) {
         isRoomLoading,
         hasMoreMessagesByRoom,
         loadMoreMessages,
+        stompClientsRef,
     };
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
