@@ -68,29 +68,38 @@ function NotificationProvider({ children }) {
                                 prevFriends.some(f => f.userId === data.friend.userId) ? prevFriends : [...prevFriends, data.friend]
                             );
                             toast.info(`${data.friend.nickname}님과 친구가 되었습니다.`);
+                        
+                        } else if (data.type === 'PRESENCE_UPDATE') {
+                            const payload = JSON.parse(data.metadata);
+                            const { userId, isOnline } = payload;
+                            setFriends(prevFriends =>
+                                prevFriends.map(friend =>
+                                    friend.userId === userId ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' } : friend
+                                )
+                            );
+
+                        } else if (data.type === 'MENTION') {
+                            toast.info(data.content, {
+                                onClick: () => {
+                                    // 클릭 시 해당 방으로 이동하는 로직 (추후 구현)
+                                    console.log(`Room ${data.relatedEntityId}으로 이동`);
+                                }
+                            });
+
                         } else if (data.notificationId) {
                             const notification = data;
-                            if (notification.type === 'PRESENCE_UPDATE') {
-                                const payload = JSON.parse(notification.metadata);
-                                const { userId, isOnline } = payload;
-                                setFriends(prevFriends =>
-                                    prevFriends.map(friend =>
-                                        friend.userId === userId ? { ...friend, conn: isOnline ? 'CONNECT' : 'DISCONNECT' } : friend
-                                    )
-                                );
-                            } else {
-                                setNotifications(prev =>
-                                    prev.find(n => n.notificationId === notification.notificationId) ? prev : [notification, ...prev]
-                                );
-                                toast(({ closeToast }) => (
-                                    <NotificationToast
-                                        notification={notification}
-                                        onAccept={acceptNotification}
-                                        onReject={rejectNotification}
-                                        closeToast={closeToast}
-                                    />
-                                ), { toastId: notification.notificationId });
-                            }
+                            setNotifications(prev =>
+                                prev.find(n => n.notificationId === notification.notificationId) ? prev : [notification, ...prev]
+                            );
+                            toast(({ closeToast }) => (
+                                <NotificationToast
+                                    notification={notification}
+                                    onAccept={acceptNotification}
+                                    onReject={rejectNotification}
+                                    closeToast={closeToast}
+                                />
+                            ), { toastId: notification.notificationId });
+                        
                         } else {
                             console.error("Unknown notification format received:", data);
                         }

@@ -88,50 +88,61 @@ const ChatMessage = ({ message, isFirstInGroup, myRole, handleDeleteMessage, han
 
   // ... (renderAdvancedContent, renderMessageContent, renderLinkPreview 함수는 변경 없음)
   // 텍스트를 파싱하여 링크, 이미지, 비디오, 유튜브 등을 렌더링하는 함수
-  const renderAdvancedContent = (text) => {
-    if (!text) return '';
-    
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
-    const videoExtensions = ['mp4', 'webm', 'ogg'];
-    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w\-]+)/;
-    
-    return text.split(urlRegex).map((part, i) => {
-      if (part.match(urlRegex)) {
-        // ✅ MODIFIED: 유튜브 링크를 만나면 새로 만든 YouTubePlayer 컴포넌트를 사용합니다.
-        const youtubeMatch = part.match(youtubeRegex);
-        if (youtubeMatch) {
-          const videoId = youtubeMatch[1];
-          return <YouTubePlayer key={i} videoId={videoId} initialUrl={part} />;
+      const renderAdvancedContent = (text) => {
+      if (!text) return '';
+      
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+      const videoExtensions = ['mp4', 'webm', 'ogg'];
+      const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w\-]+)/;
+      const mentionRegex = /@([^\s]+)/g; // @닉네임 패턴
+  
+      const parts = text.split(urlRegex);
+      return parts.map((part, i) => {
+        if (part.match(urlRegex)) {
+          const youtubeMatch = part.match(youtubeRegex);
+          if (youtubeMatch) {
+            const videoId = youtubeMatch[1];
+            return <YouTubePlayer key={i} videoId={videoId} initialUrl={part} />;
+          }
+          
+          try {
+            const url = new URL(part);
+            const extension = url.pathname.split('.').pop().toLowerCase();
+            if (imageExtensions.includes(extension)) {
+              return (
+                  <React.Fragment key={i}>
+                    <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
+                    <img src={part} alt="이미지 링크" />
+                  </React.Fragment>
+              );
+            }
+            if (videoExtensions.includes(extension)) {
+              return (
+                  <React.Fragment key={i}>
+                    <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
+                    <video src={part} controls />
+                  </React.Fragment>
+              );
+            }
+          } catch (e) { /* 유효하지 않은 URL은 일반 링크로 처리 */ }
+          
+          return <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>;
         }
         
-        try {
-          const url = new URL(part);
-          const extension = url.pathname.split('.').pop().toLowerCase();
-          if (imageExtensions.includes(extension)) {
-            return (
-                <React.Fragment key={i}>
-                  <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
-                  <img src={part} alt="이미지 링크" />
-                </React.Fragment>
-            );
+        // 멘션 처리
+        const mentionParts = part.split(mentionRegex);
+        return mentionParts.map((mPart, j) => {
+          if (j % 2 === 1) { // 멘션된 닉네임 부분
+            const mentionedNickname = mPart;
+            const isMe = user && user.nickname === mentionedNickname;
+            return <span key={`${i}-${j}`} className={`mention-highlight ${isMe ? 'mention-me' : ''}`}>@{mentionedNickname}</span>;
           }
-          if (videoExtensions.includes(extension)) {
-            return (
-                <React.Fragment key={i}>
-                  <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
-                  <video src={part} controls />
-                </React.Fragment>
-            );
-          }
-        } catch (e) { /* 유효하지 않은 URL은 일반 링크로 처리 */ }
-        
-        return <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>;
-      }
-      return part.split('\n').map((line, j) => <React.Fragment key={`${i}-${j}`}>{line}{j < part.split('\n').length - 1 && <br />}</React.Fragment>);
-    });
-  };
-  
+          // 일반 텍스트 또는 멘션이 아닌 부분
+          return mPart.split('\n').map((line, k) => <React.Fragment key={`${i}-${j}-${k}`}>{line}{k < mPart.split('\n').length - 1 && <br />}</React.Fragment>);
+        });
+      });
+    };  
   const renderMessageContent = () => {
     const content = message.content || '';
     switch (message.messageType) {

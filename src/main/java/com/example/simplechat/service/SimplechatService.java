@@ -474,6 +474,38 @@ public class SimplechatService {
 		String AuthorName = roomUserRepository.getNickname(msgDto.authorId(), msgDto.roomId());
 		ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto, AuthorName));
 		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
+
+		// 멘션된 사용자들에게 알림 전송
+		if (msgDto.mentionedUserIds() != null && !msgDto.mentionedUserIds().isEmpty()) {
+			User author = userRepository.findById(msgDto.authorId())
+					.orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지 작성자를 찾을 수 없습니다."));
+			ChatRoom room = roomRepository.findById(msgDto.roomId())
+					.orElseThrow(() -> new RegistrationException("NOT_FOUND", "채팅방을 찾을 수 없습니다."));
+
+			for (Long mentionedUserId : msgDto.mentionedUserIds()) {
+				User mentionedUser = userRepository.findById(mentionedUserId)
+						.orElse(null); // 멘션된 사용자가 없으면 스킵
+
+				if (mentionedUser != null && !mentionedUser.getId().equals(author.getId())) { // 자기 자신 멘션 제외
+					String content = author.getNickname() + "님이 '" + room.getName() + "' 방에서 회원님을 멘션했습니다.";
+					Notification notification = new Notification(
+							mentionedUserId,
+							Notification.NotificationType.MENTION,
+							content,
+							room.getId(), // relatedEntityId를 roomId로 사용
+							null // metadata는 필요시 추가
+					);
+					notificationRepository.save(notification);
+
+					// 실시간 알림 전송
+					messagingTemplate.convertAndSendToUser(
+							mentionedUser.getUsername(),
+							"/queue/notifications",
+							NotificationDto.from(notification)
+					);
+				}
+			}
+		}
 	}
 
 	@Transactional

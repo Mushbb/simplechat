@@ -197,7 +197,26 @@ function ChatPage() {
         const messageContent = newMessage.trim();
         const client = stompClientsRef.current.get(currentRoomId);
         if (messageContent && client?.connected) {
-            const chatMessage = { roomId: currentRoomId, authorId: user.userId, content: messageContent, messageType: 'TEXT' };
+            const mentionedUserIds = [];
+            const mentionRegex = /@([^\s]+)/g; // @닉네임 패턴 찾기
+            let match;
+            const currentRoomUsers = usersByRoom[currentRoomId] || [];
+
+            while ((match = mentionRegex.exec(messageContent)) !== null) {
+                const mentionedNickname = match[1];
+                const mentionedUser = currentRoomUsers.find(u => u.nickname === mentionedNickname);
+                if (mentionedUser) {
+                    mentionedUserIds.push(mentionedUser.userId);
+                }
+            }
+
+            const chatMessage = { 
+                roomId: currentRoomId, 
+                authorId: user.userId, 
+                content: messageContent, 
+                messageType: 'TEXT',
+                mentionedUserIds: mentionedUserIds // 멘션된 사용자 ID 목록 추가
+            };
             client.publish({ destination: '/app/chat.sendMessage', body: JSON.stringify(chatMessage) });
             setNewMessage('');
         }
@@ -329,11 +348,29 @@ function ChatPage() {
         }
 
         // 현재 로그인한 유저가 ADMIN이고, 클릭된 유저가 MEMBER일 경우에만 메뉴 표시
+        const menuItems = [];
+
+        // 멘션하기 옵션은 항상 추가
+        menuItems.push({
+            label: `${clickedUser.nickname} 멘션하기`,
+            action: () => handleMentionUser(clickedUser.nickname),
+            isDanger: false,
+        });
+
         if (myRole === 'ADMIN' && clickedUser.role === 'MEMBER') {
+            menuItems.push({
+                label: `${clickedUser.nickname} 추방`,
+                action: () => handleKickUser(clickedUser.userId),
+                isDanger: true,
+            });
+        }
+        
+        if (menuItems.length > 0) {
             setContextMenu({
                 x: e.clientX,
                 y: e.clientY,
                 user: clickedUser,
+                items: menuItems,
             });
         } else {
             setContextMenu(null);
@@ -360,6 +397,15 @@ function ChatPage() {
             console.error('Failed to kick user:', error);
             toast.error(error.response?.data?.message || '추방에 실패했습니다.');
         }
+    };
+
+    const handleMentionUser = (nickname) => {
+        setNewMessage(prev => {
+            const currentText = prev.endsWith(' ') || prev.length === 0 ? prev : prev + ' ';
+            return currentText + `@${nickname} `;
+        });
+        textareaRef.current?.focus(); // 텍스트 에어리어에 포커스
+        setContextMenu(null); // 메뉴 닫기
     };
 
     const handleDeleteMessage = async (messageId) => {
@@ -425,9 +471,15 @@ function ChatPage() {
                                 className="custom-context-menu"
                                 style={{ top: contextMenu.y, left: contextMenu.x }}
                             >
-                                <div className="context-menu-item" onClick={() => handleKickUser(contextMenu.user.userId)}>
-                                    {contextMenu.user.nickname} 추방
-                                </div>
+                                {contextMenu.items.map((item, index) => (
+                                    <div
+                                        key={index}
+                                        className={`context-menu-item ${item.isDanger ? 'danger' : ''}`}
+                                        onClick={item.action}
+                                    >
+                                        {item.label}
+                                    </div>
+                                ))}
                             </div>
                         )}
                         <button

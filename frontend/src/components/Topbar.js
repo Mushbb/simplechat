@@ -128,13 +128,14 @@ function Topbar() {
                                         {notifications.length > 0 ? (
                                             // 👈 변경: 새로운 notifications 배열을 렌더링
                                             notifications.map(n => (
-                                                // 👈 변경: JSX 구조를 텍스트와 버튼 영역으로 매우 단순하게 변경합니다.
                                                 <div key={n.notificationId} className="notification-item">
                                                     <span className="notification-text">{n.content}</span>
-                                                    <div className="notification-actions">
-                                                        <button onClick={() => acceptNotification(n)}>수락</button>
-                                                        <button className="danger-button" onClick={() => rejectNotification(n.notificationId)}>거절</button>
-                                                    </div>
+                                                    {n.type !== 'MENTION' && (
+                                                        <div className="notification-actions">
+                                                            <button onClick={() => handleAcceptNotification(n)}>수락</button>
+                                                            <button className="danger-button" onClick={() => rejectNotification(n.notificationId)}>거절</button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))
                                         ) : (

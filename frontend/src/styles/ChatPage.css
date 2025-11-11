@@ -769,3 +769,17 @@ code {
     color: white;
     border-color: #007bff;
 }
+
+/* --- 멘션 강조 스타일 --- */
+.mention-highlight {
+    font-weight: bold;
+    color: #007bff; /* 파란색 */
+    background-color: #e6f7ff; /* 연한 파란색 배경 */
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.mention-highlight.mention-me {
+    color: #6a1b9a; /* 보라색 */
+    background-color: #f3e5f5; /* 연한 보라색 배경 */
+}

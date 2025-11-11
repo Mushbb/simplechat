@@ -11,13 +11,14 @@ import lombok.NoArgsConstructor;
 public class Notification {
 
     // ✨ 신규: NotificationType Enum을 내부 클래스로 정의
-    public enum NotificationType {
-        FRIEND_REQUEST,
-        ROOM_INVITATION,
-        PRESENCE_UPDATE,
+	public enum NotificationType {
+		FRIEND_REQUEST,
+		ROOM_INVITATION,
+		MENTION,
+		PRESENCE_UPDATE,
 		FRIEND_ACCEPTED,
 		FRIEND_ADDED
-    }
+	}
 
     private Long id;
     private Long receiverId;
