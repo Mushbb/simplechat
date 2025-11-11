@@ -432,6 +432,28 @@ public class SimplechatService {
 	    roomUserRepository.delete(userId, roomId);
 	    eventPublisher.publishEvent(new UserExitedRoomEvent(this, userId, roomId, UserEventDto.EventType.ROOM_OUT));
 	}
+
+	@Transactional
+	public void kickUser(Long roomId, Long kickerId, Long userIdToKick) {
+		// 1. 권한 검증
+		String kickerRole = roomUserRepository.getRole(kickerId, roomId);
+		if (!"ADMIN".equals(kickerRole)) {
+			throw new RegistrationException("FORBIDDEN", "사용자를 추방할 권한이 없습니다.");
+		}
+
+		String userToKickRole = roomUserRepository.getRole(userIdToKick, roomId);
+		if ("ADMIN".equals(userToKickRole)) {
+			throw new RegistrationException("FORBIDDEN", "관리자는 다른 관리자를 추방할 수 없습니다.");
+		}
+
+		// 2. DB에서 사용자 삭제
+		roomUserRepository.delete(userIdToKick, roomId);
+
+		// 3. 이벤트 발행
+		eventPublisher.publishEvent(new UserExitedRoomEvent(this, userIdToKick, roomId, UserEventDto.EventType.ROOM_OUT));
+		System.out.println("User " + userIdToKick + " has been kicked from room " + roomId + " by user " + kickerId);
+	}
+
 	@Transactional
 	public void changeNicknameInRoom(NickChangeDto nickChangeDto) {
 	    // (필요하다면) 닉네임 유효성 검사 (길이, 중복 등) 로직 추가
@@ -452,6 +474,66 @@ public class SimplechatService {
 		String AuthorName = roomUserRepository.getNickname(msgDto.authorId(), msgDto.roomId());
 		ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto, AuthorName));
 		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
+	}
+
+	@Transactional
+	public void deleteMessage(Long messageId, Long userId) {
+		// 1. 메시지 정보 조회
+		ChatMessage message = msgRepository.findById(messageId)
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지를 찾을 수 없습니다."));
+
+		Long roomId = message.getRoom_id();
+
+		// 2. 권한 검증
+		String userRole = roomUserRepository.getRole(userId, roomId);
+		boolean isAdmin = "ADMIN".equals(userRole);
+		boolean isAuthor = message.getAuthor_id().equals(userId);
+
+		if (!isAdmin && !isAuthor) {
+			throw new RegistrationException("FORBIDDEN", "메시지를 삭제할 권한이 없습니다.");
+		}
+
+		// 3. DB에서 메시지 삭제
+		msgRepository.deleteById(messageId);
+
+		// 4. 삭제 이벤트 발행
+		ChatMessage deleteEventMessage = new ChatMessage(messageId, roomId, ChatMessage.MsgType.DELETE);
+		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, deleteEventMessage, roomId));
+
+		System.out.println("Message " + messageId + " has been deleted by user " + userId);
+	}
+
+	@Transactional
+	public void editMessage(Long messageId, Long userId, String newContent) {
+		// 1. 메시지 정보 조회
+		ChatMessage message = msgRepository.findById(messageId)
+				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지를 찾을 수 없습니다."));
+
+		Long roomId = message.getRoom_id();
+
+		// 2. 권한 검증
+		String userRole = roomUserRepository.getRole(userId, roomId);
+		boolean isAdmin = "ADMIN".equals(userRole);
+		boolean isAuthor = message.getAuthor_id().equals(userId);
+
+		if (!isAdmin && !isAuthor) {
+			throw new RegistrationException("FORBIDDEN", "메시지를 수정할 권한이 없습니다.");
+		}
+
+		// 3. 내용이 비어있거나, 기존 내용과 같으면 수정하지 않음
+		if (newContent == null || newContent.isBlank() || newContent.equals(message.getContent())) {
+			return;
+		}
+
+		// 4. DB 업데이트
+		message.setContent(newContent);
+		message.setMsg_type(ChatMessage.MsgType.UPDATE); // 이벤트 발행을 위해 타입 변경
+		msgRepository.save(message);
+
+		// 5. 수정 이벤트 발행
+		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, message, roomId));
+
+		System.out.println("Message " + messageId + " has been edited by user " + userId);
 	}
 
 	@Transactional

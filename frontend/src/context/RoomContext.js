@@ -12,6 +12,7 @@ function RoomProvider({ children }) {
     const [rawRooms, setRawRooms] = useState([]); // API로부터 받은 원본 방 목록
     const [activeRoomId, setActiveRoomId] = useState(null);
     const [unreadRooms, setUnreadRooms] = useState(new Set());
+    const [myRole, setMyRole] = useState({}); // { [roomId]: 'ADMIN' | 'MEMBER' }
 
     const fetchRooms = useCallback(async () => {
         if (!user) return;
@@ -91,6 +92,8 @@ function RoomProvider({ children }) {
         exitRoom,
         deleteRoom,
         fetchRooms, // 로비에서 수동으로 새로고침할 수 있도록 전달
+        myRole,
+        setMyRole,
     };
 
     return (

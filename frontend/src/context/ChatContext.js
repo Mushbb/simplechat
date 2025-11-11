@@ -3,12 +3,13 @@ import { AuthContext } from './AuthContext';
 import { RoomContext } from './RoomContext';
 import { WebSocketContext } from './WebSocketContext'; // Import WebSocketContext
 import axiosInstance from '../api/axiosInstance';
+import { toast } from 'react-toastify';
 
 const ChatContext = createContext();
 
 function ChatProvider({ children }) {
     const { user, loading } = useContext(AuthContext);
-    const { joinedRooms, activeRoomId, setUnreadRooms } = useContext(RoomContext);
+    const { joinedRooms, activeRoomId, setUnreadRooms, myRole, setMyRole } = useContext(RoomContext);
     const { connectToRoom, stompClientsRef } = useContext(WebSocketContext); // Get from WebSocketContext
 
     const [messagesByRoom, setMessagesByRoom] = useState({});
@@ -35,10 +36,31 @@ function ChatProvider({ children }) {
     }, []);
 
     const onMessageReceived = useCallback((roomId, payload) => {
+        const message = JSON.parse(payload.body);
+        
+        if (message.messageType === 'DELETE') {
+            setMessagesByRoom(prev => {
+                const currentMessages = prev[roomId] || [];
+                const updatedMessages = currentMessages.filter(m => m.messageId !== message.messageId);
+                return { ...prev, [roomId]: updatedMessages };
+            });
+            return;
+        }
+
+        if (message.messageType === 'UPDATE') {
+            setMessagesByRoom(prev => {
+                const currentMessages = prev[roomId] || [];
+                const updatedMessages = currentMessages.map(m => 
+                    m.messageId === message.messageId ? { ...m, content: message.content } : m
+                );
+                return { ...prev, [roomId]: updatedMessages };
+            });
+            return;
+        }
+
         if (roomId !== activeRoomId) {
             setUnreadRooms(prev => new Set(prev).add(roomId));
         }
-        const message = JSON.parse(payload.body);
         setMessagesByRoom(prev => ({ ...prev, [roomId]: [...(prev[roomId] || []), message] }));
         setUsersByRoom(prev => {
             const currentUsers = prev[roomId] || [];
@@ -100,7 +122,15 @@ function ChatProvider({ children }) {
                         .then(() => {
                             axiosInstance.get(`/room/${room.id}/init?lines=20`).then(response => {
                                 const data = response.data;
-                                setUsersByRoom(prev => ({ ...prev, [room.id]: data.users || [] }));
+                                const users = data.users || [];
+                                setUsersByRoom(prev => ({ ...prev, [room.id]: users }));
+                                
+                                // 현재 유저의 role을 찾아서 설정
+                                const me = users.find(u => u.userId === user.userId);
+                                if (me) {
+                                    setMyRole(prev => ({ ...prev, [room.id]: me.role }));
+                                }
+
                                 setMessagesByRoom(prev => ({ ...prev, [room.id]: [...(data.messages || [])].reverse() }));
                                 const initialMessages = response.data.messages || [];
                                 setHasMoreMessagesByRoom(prev => ({ ...prev, [room.id]: initialMessages.length >= 20 }));
@@ -113,7 +143,7 @@ function ChatProvider({ children }) {
                 }
             });
         }
-    }, [user, joinedRooms, connectToRoom, onMessageReceived, onUserInfoReceived, onPreviewReceived, onMoreMessagesReceived, stompClientsRef]);
+    }, [user, joinedRooms, connectToRoom, onMessageReceived, onUserInfoReceived, onPreviewReceived, onMoreMessagesReceived, stompClientsRef, setMyRole]);
 
     const loadMoreMessages = (roomId) => {
         const client = stompClientsRef.current.get(roomId);
@@ -125,6 +155,18 @@ function ChatProvider({ children }) {
         client.publish({ destination: '/app/chat.getMessageList', body: JSON.stringify(requestDto) });
     };
 
+    const handleDeleteMessage = async (roomId, messageId) => {
+        console.log(`(구현 예정) ${roomId}번 방의 ${messageId} 메시지를 삭제합니다.`);
+        // 2단계: API 호출 로직 추가
+        // try {
+        //     await axiosInstance.delete(`/api/messages/${messageId}`);
+        //     // 성공 시 별도 처리 필요 없음. WebSocket이 이벤트를 받아 처리.
+        // } catch (error) {
+        //     console.error('Failed to delete message:', error);
+        //     toast.error(error.response?.data?.message || '메시지 삭제에 실패했습니다.');
+        // }
+    };
+
     const value = {
         messagesByRoom,
         usersByRoom,
@@ -132,6 +174,7 @@ function ChatProvider({ children }) {
         hasMoreMessagesByRoom,
         loadMoreMessages,
         stompClientsRef,
+        handleDeleteMessage,
     };
 
     return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

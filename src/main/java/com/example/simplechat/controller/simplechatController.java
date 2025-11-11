@@ -215,6 +215,15 @@ public class simplechatController {
 	    serv.exitRoom(roomId, userId);
 	}
 
+	@DeleteMapping("/api/rooms/{roomId}/users/{userId}")
+	public void kickUserFromRoom(@PathVariable("roomId") Long roomId, @PathVariable("userId") Long userIdToKick, HttpSession session) {
+		Long kickerId = (Long) session.getAttribute("userId");
+		if (kickerId == null) {
+			throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
+		}
+		serv.kickUser(roomId, kickerId, userIdToKick);
+	}
+
 	@DeleteMapping("/room/{roomId}")
 	public void deleteRoom(@PathVariable("roomId") Long roomId, HttpSession session) {
 		Long userId = (Long) session.getAttribute("userId");
@@ -350,6 +359,30 @@ public class simplechatController {
 
         // 실행 결과를 클라이언트에 반환
         return ResponseEntity.ok(Map.of("message", result));
+    }
+
+    @DeleteMapping("/api/messages/{messageId}")
+    public ResponseEntity<Void> deleteMessage(@PathVariable("messageId") Long messageId, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
+        }
+        serv.deleteMessage(messageId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/api/messages/{messageId}")
+    public ResponseEntity<Void> editMessage(
+            @PathVariable("messageId") Long messageId,
+            @RequestBody Map<String, String> payload,
+            HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
+        }
+        String newContent = payload.get("content");
+        serv.editMessage(messageId, userId, newContent);
+        return ResponseEntity.noContent().build();
     }
 	
 	@MessageMapping("/chat.getMessageList")

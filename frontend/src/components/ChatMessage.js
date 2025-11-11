@@ -1,8 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useContext, useEffect } from 'react';
 import axiosInstance from "../api/axiosInstance";
+import { AuthContext } from '../context/AuthContext';
+import { FaTrash, FaPencilAlt } from 'react-icons/fa';
+
 const SERVER_URL = axiosInstance.getUri();
 
-// ✅ NEW: 개별 유튜브 영상의 표시 상태(썸네일/플레이어)를 관리하는 컴포넌트
+// ... (YouTubePlayer 컴포넌트는 변경 없음)
 const YouTubePlayer = ({ videoId, initialUrl }) => {
   const [showVideo, setShowVideo] = useState(false);
   
@@ -49,10 +52,41 @@ const YouTubePlayer = ({ videoId, initialUrl }) => {
   );
 };
 
-const ChatMessage = ({ message, isFirstInGroup }) => {
+
+const ChatMessage = ({ message, isFirstInGroup, myRole, handleDeleteMessage, handleEditMessage }) => {
+  const { user } = useContext(AuthContext);
   const messageBodyRef = useRef(null);
   const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedContent, setEditedContent] = useState(message.content);
 
+  useEffect(() => {
+    // message.content가 외부(WebSocket)로부터 변경되었을 때,
+    // 수정 중이 아니라면 editedContent를 업데이트합니다.
+    if (!isEditing) {
+      setEditedContent(message.content);
+    }
+  }, [message.content, isEditing]);
+
+  const handleStartEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedContent(message.content); // 원래 내용으로 복구
+  };
+
+  const handleSaveEdit = () => {
+    if (editedContent.trim() === message.content) {
+        setIsEditing(false);
+        return;
+    }
+    handleEditMessage(message.messageId, editedContent.trim());
+    setIsEditing(false);
+  };
+
+  // ... (renderAdvancedContent, renderMessageContent, renderLinkPreview 함수는 변경 없음)
   // 텍스트를 파싱하여 링크, 이미지, 비디오, 유튜브 등을 렌더링하는 함수
   const renderAdvancedContent = (text) => {
     if (!text) return '';
@@ -138,7 +172,7 @@ const ChatMessage = ({ message, isFirstInGroup }) => {
         </a>
     );
   };
-  
+
   return (
       <div 
         className={`chat-message-item ${isFirstInGroup ? 'is-first' : ''}`}
@@ -168,14 +202,48 @@ const ChatMessage = ({ message, isFirstInGroup }) => {
             </div>
           )}
           <div className="chat-message-body" ref={messageBodyRef}>
-            {renderMessageContent()}
-            {renderLinkPreview()}
+            {isEditing ? (
+              <div className="message-edit-form">
+                <textarea
+                  value={editedContent}
+                  onChange={(e) => setEditedContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSaveEdit();
+                    }
+                    if (e.key === 'Escape') {
+                      handleCancelEdit();
+                    }
+                  }}
+                  autoFocus
+                />
+                <div className="edit-buttons">
+                  <button onClick={handleCancelEdit}>취소</button>
+                  <button onClick={handleSaveEdit}>저장</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {renderMessageContent()}
+                {renderLinkPreview()}
+              </>
+            )}
           </div>
         </div>
-        {isHovered && (
+        {isHovered && !isEditing && (
           <div className="message-toolbar">
             <span className="toolbar-timestamp">{new Date(message.createdAt.replace(' ', 'T') + 'Z').toLocaleString()}</span>
-            <button className="toolbar-button">···</button>
+            {(myRole === 'ADMIN' || message.authorId === user.userId) && (
+              <>
+                <button className="toolbar-button" onClick={handleStartEdit}>
+                  <FaPencilAlt />
+                </button>
+                <button className="toolbar-button" onClick={() => handleDeleteMessage(message.messageId)}>
+                  <FaTrash />
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

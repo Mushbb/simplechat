@@ -10,8 +10,19 @@ import com.example.simplechat.dto.ChatMessageRequestDto;
 @Setter
 @Getter
 public class ChatMessage {
-	public static enum MsgType {
-		TEXT, IMAGE, FILE, SYSTEM
+	public ChatMessage(Long id, Long room_id, MsgType messageType) {
+		this.id = id;
+		this.room_id = room_id;
+		this.msg_type = messageType;
+	}
+
+	public enum MsgType {
+		TEXT,
+		IMAGE,
+		VIDEO,
+		FILE,
+		DELETE,
+		UPDATE
 	}
 	
 	private Long id;

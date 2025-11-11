@@ -696,3 +696,76 @@ code {
 .chat-message-list.is-scrolling iframe {
     pointer-events: none;
 }
+
+/* Topbar 아이콘들을 감싸는 공통 컨테이너 (위치 기준점) */
+.topbar-icon-container {
+    position: relative;
+}
+
+/* --- 커스텀 컨텍스트 메뉴 스타일 --- */
+.custom-context-menu {
+    position: fixed;
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    z-index: 1000;
+    min-width: 120px;
+    padding: 5px 0;
+}
+
+.context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+}
+
+.context-menu-item:hover {
+    background-color: #f0f0f0;
+}
+
+.context-menu-item.danger {
+    color: #dc3545;
+}
+
+.context-menu-item.danger:hover {
+    background-color: #f8d7da;
+}
+
+/* --- 메시지 수정 폼 스타일 --- */
+.message-edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* textarea와 버튼 그룹 사이의 간격 */
+}
+
+.message-edit-form textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: inherit;
+    resize: vertical;
+    min-height: 40px;
+}
+
+.edit-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.edit-buttons button {
+    padding: 4px 12px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    cursor: pointer;
+}
+
+.edit-buttons button:last-child {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}

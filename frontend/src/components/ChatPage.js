@@ -301,21 +301,91 @@ function ChatPage() {
         addFiles(event.dataTransfer.files);
     };
     
-    const handleUserClick = async (clickedUserId, event) => {
+    const handleUserClick = async (clickedUser, event) => {
         const liRect = event.currentTarget.getBoundingClientRect();
-        const containerRect = event.currentTarget.closest('[data-id="chat-main-flex-container"]').getBoundingClientRect();
         const position = {
             top: liRect.top,
             left: liRect.left,
         };
         try {
-            const response = await axiosInstance.get(`/user/${clickedUserId}/profile`);
+            const response = await axiosInstance.get(`/user/${clickedUser.userId}/profile`);
             openUserProfileModal(response.data, position);
         } catch (error) {
             console.error('프로필 정보를 가져오는 데 실패했습니다:', error);
             toast.error('프로필 정보를 가져오는 데 실패했습니다.');
         }
     };
+
+    const [contextMenu, setContextMenu] = useState(null); // { x, y, user }
+    const contextMenuRef = useRef(null);
+
+    const handleUserContextMenu = (e, clickedUser) => {
+        e.preventDefault(); // 기본 컨텍스트 메뉴 방지
+
+        // 자신은 강퇴할 수 없음
+        if (clickedUser.userId === user.userId) {
+            setContextMenu(null);
+            return;
+        }
+
+        // 현재 로그인한 유저가 ADMIN이고, 클릭된 유저가 MEMBER일 경우에만 메뉴 표시
+        if (myRole === 'ADMIN' && clickedUser.role === 'MEMBER') {
+            setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                user: clickedUser,
+            });
+        } else {
+            setContextMenu(null);
+        }
+    };
+
+    // 컨텍스트 메뉴 외부 클릭 시 닫기
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
+                setContextMenu(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [contextMenu]);
+
+    const handleKickUser = async (userIdToKick) => {
+        setContextMenu(null); // 메뉴 닫기
+        try {
+            await axiosInstance.delete(`/api/rooms/${currentRoomId}/users/${userIdToKick}`);
+            toast.success("사용자를 방에서 추방했습니다.");
+        } catch (error) {
+            console.error('Failed to kick user:', error);
+            toast.error(error.response?.data?.message || '추방에 실패했습니다.');
+        }
+    };
+
+    const handleDeleteMessage = async (messageId) => {
+        if (window.confirm("이 메시지를 삭제하시겠습니까?")) {
+            try {
+                await axiosInstance.delete(`/api/messages/${messageId}`);
+                // 성공 시 별도의 UI 업데이트가 필요 없습니다.
+                // WebSocket을 통해 삭제 이벤트가 수신되어 ChatContext에서 자동으로 처리됩니다.
+            } catch (error) {
+                console.error('Failed to delete message:', error);
+                toast.error(error.response?.data?.message || '메시지 삭제에 실패했습니다.');
+            }
+        }
+    };
+
+    const handleEditMessage = async (messageId, newContent) => {
+        try {
+            await axiosInstance.put(`/api/messages/${messageId}`, { content: newContent });
+            // 성공 시 별도의 UI 업데이트가 필요 없습니다.
+            // WebSocket을 통해 수정 이벤트가 수신되어 ChatContext에서 자동으로 처리됩니다.
+        } catch (error) {
+            console.error('Failed to edit message:', error);
+            toast.error(error.response?.data?.message || '메시지 수정에 실패했습니다.');
+        }
+    };
+    
     const handleRemoveFile = (fileToRemove) => {
         setFilesToUpload(prevFiles => prevFiles.filter(item => item.file !== fileToRemove));
     };
@@ -342,12 +412,24 @@ function ChatPage() {
                         <ul className="user-list-scrollable">
                             {sortedUsers.map(u => (
                                 <li key={u.userId} className={`user-list-item ${u.userId === user.userId ? 'me' : ''} ${u.conn === 'DISCONNECT' ? 'disconnected' : ''} ${u.role === 'ADMIN' ? 'admin' : ''}`}
-                                    onClick={(event) => handleUserClick(u.userId, event)}>
+                                    onClick={(event) => handleUserClick(u, event)}
+                                    onContextMenu={(event) => handleUserContextMenu(event, u)}>
                                     <img src={`${SERVER_URL}${u.profileImageUrl}`} alt={u.nickname} className="user-list-profile-img" />
                                     <span className="user-list-nickname">{u.nickname}</span>
                                 </li>
                             ))}
                         </ul>
+                        {contextMenu && (
+                            <div
+                                ref={contextMenuRef}
+                                className="custom-context-menu"
+                                style={{ top: contextMenu.y, left: contextMenu.x }}
+                            >
+                                <div className="context-menu-item" onClick={() => handleKickUser(contextMenu.user.userId)}>
+                                    {contextMenu.user.nickname} 추방
+                                </div>
+                            </div>
+                        )}
                         <button
                             ref={inviteButtonRef}
                             onClick={handleOpenInviteModal}
@@ -402,7 +484,14 @@ function ChatPage() {
                                                            prevMsg.authorId !== msg.authorId || 
                                                            (new Date(msg.createdAt) - new Date(prevMsg.createdAt)) > 120000; // 2분 이상 차이
                                     
-                                    return <ChatMessage key={msg.messageId || `msg-${index}`} message={msg} isFirstInGroup={isFirstInGroup} />;
+                                    return <ChatMessage 
+                                                key={msg.messageId || `msg-${index}`} 
+                                                message={msg} 
+                                                isFirstInGroup={isFirstInGroup}
+                                                myRole={myRole}
+                                                handleDeleteMessage={handleDeleteMessage}
+                                                handleEditMessage={handleEditMessage}
+                                            />;
                                 })}
                                 <div ref={messagesEndRef} />
                             </>

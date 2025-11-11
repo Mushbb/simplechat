@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 
@@ -91,8 +92,9 @@ public class MessageRepository {
 	}
 	
 	private ChatMessage update(ChatMessage msg) {
-		throw new RuntimeException("Not Implemented");
-		//return msg;
+		String sql = "UPDATE chat_messages SET content = ? WHERE message_id = ?";
+		jdbcsql.executeUpdate(sql, new Object[]{msg.getContent(), msg.getId()}, null, null);
+		return msg;
 	}
 	
 	private ChatMessage mapRowToMsg(Map<String, Object> row) {
@@ -103,6 +105,21 @@ public class MessageRepository {
 		msg.setParent_msg_id((Long) row.get("parent_message_id"));
 		
 		return msg;
+	}
+
+	public Optional<ChatMessage> findById(Long messageId) {
+		String sql = "SELECT * FROM chat_messages WHERE message_id = ?";
+		List<Map<String, Object>> parsedTable = jdbcsql.executeSelect(sql, new String[]{String.valueOf(messageId)});
+		
+		if( parsedTable.isEmpty() )
+			return Optional.empty();
+		
+		return Optional.of(mapRowToMsg(parsedTable.get(0)));
+	}
+
+	public void deleteById(Long messageId) {
+		String sql = "DELETE FROM chat_messages WHERE message_id = ?";
+		jdbcsql.executeUpdate(sql, new String[]{String.valueOf(messageId)}, null, null);
 	}
 
 	public void deleteByRoomId(Long roomId) {
