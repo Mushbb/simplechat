@@ -15,7 +15,7 @@ import '../styles/Topbar.css';
 
 function Topbar() {
     const { user, logout, deleteAccount, isAdmin } = useContext(AuthContext);
-    const { notifications, acceptNotification, rejectNotification } = useContext(NotificationContext);
+    const { notifications, unreadCount, acceptNotification, rejectNotification, markNotificationsAsRead } = useContext(NotificationContext);
     const { openLoginModal, openRegisterModal, openProfileModal, toggleFriendListModal, openUserProfileModal, friendModalConfig } = useContext(ModalContext);
     const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms } = useContext(RoomContext);
     const navigate = useNavigate();
@@ -101,6 +101,22 @@ function Topbar() {
             navigate(`/chat/${roomId}`);
         }
     };
+
+    const handleBellClick = () => {
+        setIsDropdownOpen(prev => {
+            const newState = !prev;
+            if (newState && notifications.length > 0) {
+                // 드롭다운이 열릴 때, 현재 표시된 모든 알림을 읽음으로 표시
+                const notificationIdsToMarkAsRead = notifications
+                    .filter(n => !n.isRead) // 아직 읽지 않은 알림만
+                    .map(n => n.notificationId);
+                if (notificationIdsToMarkAsRead.length > 0) {
+                    markNotificationsAsRead(notificationIdsToMarkAsRead);
+                }
+            }
+            return newState;
+        });
+    };
     
     return (
         <header className="topbar">
@@ -119,16 +135,16 @@ function Topbar() {
                                 {friendModalConfig.isOpen && <FriendListModal />}
                             </div>
                             <div className="topbar-icon-container" ref={dropdownRef}>
-                                <button className="topbar-icon-btn notification-bell" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+                                <button className="topbar-icon-btn notification-bell" onClick={handleBellClick}>
                                     <FaBell />
-                                    {notifications.length > 0 && <span className="notification-badge">{notifications.length}</span>}
+                                    {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
                                 </button>
                                 {isDropdownOpen && (
                                     <div className="notification-dropdown">
                                         {notifications.length > 0 ? (
                                             // 👈 변경: 새로운 notifications 배열을 렌더링
                                             notifications.map(n => (
-                                                <div key={n.notificationId} className="notification-item">
+                                                <div key={n.notificationId} className={`notification-item ${n.isRead ? 'read' : ''}`}>
                                                     <span className="notification-text">{n.content}</span>
                                                     {n.type !== 'MENTION' && (
                                                         <div className="notification-actions">

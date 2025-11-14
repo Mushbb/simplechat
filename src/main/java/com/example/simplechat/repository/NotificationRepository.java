@@ -44,11 +44,41 @@ public class NotificationRepository {
         return Optional.of(mapRowToNotification(rows.get(0)));
     }
 
-    public List<Notification> findByReceiverId(long receiverId) {
-        String sql = "SELECT * FROM notifications WHERE receiver_id = ? ORDER BY created_at DESC";
-        Object[] params = {receiverId};
-        List<Map<String, Object>> rows = jdbcsql.executeSelect(sql, params);
+    public List<Notification> findByReceiverId(long receiverId, Boolean isRead) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM notifications WHERE receiver_id = ?");
+        if (isRead != null) {
+            sql.append(" AND is_read = ?");
+        }
+        sql.append(" ORDER BY created_at DESC");
+
+        Object[] params;
+        if (isRead != null) {
+            params = new Object[]{receiverId, isRead};
+        } else {
+            params = new Object[]{receiverId};
+        }
+
+        List<Map<String, Object>> rows = jdbcsql.executeSelect(sql.toString(), params);
         return rows.stream().map(this::mapRowToNotification).collect(Collectors.toList());
+    }
+
+    public void updateIsReadStatus(List<Long> notificationIds, Long receiverId, boolean isRead) {
+        if (notificationIds == null || notificationIds.isEmpty()) {
+            return;
+        }
+        String inSql = notificationIds.stream()
+                                      .map(id -> "?")
+                                      .collect(Collectors.joining(", "));
+        String sql = String.format("UPDATE notifications SET is_read = ? WHERE notification_id IN (%s) AND receiver_id = ?", inSql);
+        
+        Object[] params = new Object[notificationIds.size() + 2];
+        params[0] = isRead;
+        for (int i = 0; i < notificationIds.size(); i++) {
+            params[i + 1] = notificationIds.get(i);
+        }
+        params[notificationIds.size() + 1] = receiverId;
+
+        jdbcsql.executeUpdate(sql, params, null, null);
     }
 
     public void deleteById(long notificationId) {

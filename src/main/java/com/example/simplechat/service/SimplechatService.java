@@ -52,7 +52,7 @@ public class SimplechatService {
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
     private final FriendshipRepository friendshipRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationService notificationService; // ✨ 신규: NotificationService 주입
     
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
@@ -495,7 +495,7 @@ public class SimplechatService {
 							room.getId(), // relatedEntityId를 roomId로 사용
 							null // metadata는 필요시 추가
 					);
-					notificationRepository.save(notification);
+					notificationService.save(notification);
 
 					// 실시간 알림 전송
 					messagingTemplate.convertAndSendToUser(
@@ -722,7 +722,7 @@ public class SimplechatService {
         // 👈 변경: Friendship 테이블 대신 Notification 테이블에 저장
         String content = sender.getNickname() + "님이 친구 요청을 보냈습니다.";
         Notification notification = new Notification(receiverId, Notification.NotificationType.FRIEND_REQUEST, content, senderId, null);
-        notificationRepository.save(notification);
+        notificationService.save(notification);
 
         // 👈 변경: 실시간 알림 전송 (새 DTO 사용)
         messagingTemplate.convertAndSendToUser(
@@ -805,7 +805,7 @@ public class SimplechatService {
         }
 
         Notification notification = new Notification(inviteeId, Notification.NotificationType.ROOM_INVITATION, content, roomId, metadata);
-        notificationRepository.save(notification);
+        notificationService.save(notification);
         
         messagingTemplate.convertAndSendToUser(
             invitee.getUsername(),
@@ -814,16 +814,9 @@ public class SimplechatService {
         );
     }
 	
-    public List<NotificationDto> getPendingNotifications(long userId) {
-        return notificationRepository.findByReceiverId(userId)
-            .stream()
-            .map(NotificationDto::from)
-            .collect(Collectors.toList());
-    }
-	
     @Transactional
     public void acceptNotification(Long notificationId, Long userId) {
-        Notification notification = notificationRepository.findById(notificationId)
+        Notification notification = notificationService.findById(notificationId)
             .orElseThrow(() -> new RegistrationException("NOT_FOUND", "알림을 찾을 수 없습니다."));
 
         if (!notification.getReceiverId().equals(userId)) {
@@ -859,7 +852,7 @@ public class SimplechatService {
                 break;
         }
         // 처리된 알림 삭제
-        notificationRepository.deleteById(notificationId);
+        notificationService.deleteNotification(notificationId);
     }
 
 	private void sendFriendUpdateNotification(User targetUser, User friendUser, String updateType) {
@@ -900,14 +893,14 @@ public class SimplechatService {
     
     @Transactional
     public void rejectNotification(Long notificationId, Long userId) {
-        Notification notification = notificationRepository.findById(notificationId)
+        Notification notification = notificationService.findById(notificationId)
             .orElseThrow(() -> new RegistrationException("NOT_FOUND", "알림을 찾을 수 없습니다."));
 
         if (!notification.getReceiverId().equals(userId)) {
             throw new RegistrationException("FORBIDDEN", "권한이 없습니다.");
         }
         // 알림 삭제
-        notificationRepository.deleteById(notificationId);
+        notificationService.deleteNotification(notificationId);
     }
     
 	@PreDestroy

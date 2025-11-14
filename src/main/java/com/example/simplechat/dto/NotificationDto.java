@@ -18,6 +18,7 @@ public class NotificationDto {
     private String type;
     private String content;
     private String metadata;
+    private boolean isRead; // ✨ 신규: 알림 읽음 상태 추가
     private LocalDateTime createdAt;
 
     // ✨ 신규: Entity를 DTO로 변환하는 정적 메소드
@@ -27,6 +28,7 @@ public class NotificationDto {
             .type(notification.getNotificationType().name())
             .content(notification.getContent())
             .metadata(notification.getMetadata())
+            .isRead(notification.isRead()) // ✨ 신규: isRead 필드 추가
             .createdAt(notification.getCreatedAt())
             .build();
     }

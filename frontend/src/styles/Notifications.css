@@ -115,3 +115,8 @@
     padding: 24px 20px; /* 더 넉넉한 여백 */
     color: #888;
 }
+
+/* 읽은 알림 스타일 */
+.notification-item.read {
+    opacity: 0.6; /* 읽은 알림을 약간 흐리게 표시 */
+}

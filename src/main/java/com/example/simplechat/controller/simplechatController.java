@@ -1,7 +1,9 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
+import com.example.simplechat.service.NotificationService; // ✨ 신규: NotificationService 임포트
 import com.example.simplechat.model.User;
+import com.example.simplechat.model.Notification; // ✨ 신규: Notification 모델 임포트
 import com.example.simplechat.exception.*;
 import com.example.simplechat.dto.*;
 
@@ -36,11 +38,12 @@ import java.util.Map;
 @RestController
 public class simplechatController {
 	// 1. 서비스 객체를 참조할 필드 선언 (불변성을 위해 final로 선언)
-	private final SimplechatService serv;
+	private final SimplechatService simplechatService; // 기존 SimplechatService
+	private final NotificationService notificationService; // ✨ 신규: NotificationService 주입
 	
 	@PostMapping("/auth/register")
 	public LoginResponseDto registerRequest(@RequestBody UserRegistrationRequestDto requestDto, HttpSession session) {
-		User registered = serv.register(requestDto);
+		User registered = simplechatService.register(requestDto);
 		
 		 // 2. Spring Security가 인식할 인증 토큰(공식 출입증) 생성
 	    Authentication authentication = new UsernamePasswordAuthenticationToken(
@@ -64,7 +67,7 @@ public class simplechatController {
 	
 	@PostMapping("/auth/login")
 	public LoginResponseDto loginRequest(@RequestBody LoginRequestDto requestDto, HttpSession session) {
-		User loggedIn = serv.login(requestDto);
+		User loggedIn = simplechatService.login(requestDto);
 		
 		// 2. 인증 토큰(공식 출입증) 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(
@@ -95,7 +98,7 @@ public class simplechatController {
 			throw new RegistrationException("UNAUTHORIZED", "Not Logged In");
 		}
 		
-		User loggedIn = serv.getUserById(userId);
+		User loggedIn = simplechatService.getUserById(userId);
 		return new LoginResponseDto(
 			loggedIn.getId(),
 			loggedIn.getUsername(),
@@ -113,7 +116,7 @@ public class simplechatController {
 	@DeleteMapping("/auth/delete")
 	public Integer deleteRequest(HttpSession session) {
 		Long userId = (Long)session.getAttribute("userId");
-		serv.delete_account(userId);
+		simplechatService.delete_account(userId);
 		System.out.println("Session Closed: "+userId);
 		session.invalidate(); // 세션 무효화
 		return 1;
@@ -127,20 +130,20 @@ public class simplechatController {
 	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 	    }
 	    // ✅ 서비스에 userId로 참여 중인 방 목록을 가져오는 로직이 필요합니다.
-	    List<ChatRoomListDto> myRooms = serv.findRoomsByUserId(userId);
+	    List<ChatRoomListDto> myRooms = simplechatService.findRoomsByUserId(userId);
 	    return ResponseEntity.ok(myRooms);
 	}
 	
 	@GetMapping("/user/{userId}/profile")
 	public UserProfileDto getUserProfile(@PathVariable("userId") Long userId) {
-		return serv.getUserProfile(userId);
+		return simplechatService.getUserProfile(userId);
 	}
 	
 	@PutMapping("/user/profile")
 	public UserProfileDto changeUserProfile(@RequestBody ProfileUpdateRequestDto profileDto, HttpSession session) {
 		Long userId = (Long)session.getAttribute("userId");
 		
-		return serv.changeUserProfile(profileDto, userId);
+		return simplechatService.changeUserProfile(profileDto, userId);
 	}
 
 	@PostMapping("/user/profile/image")
@@ -152,7 +155,7 @@ public class simplechatController {
 		if (userId == null) {
 			throw new RegistrationException("UNAUTHORIZED", "Please login first!");
 		}
-		String newImageUrl = serv.updateProfileImage(userId, file);
+		String newImageUrl = simplechatService.updateProfileImage(userId, file);
 
 		// 클라이언트가 즉시 이미지를 업데이트할 수 있도록 새 이미지 URL을 반환
 		return ResponseEntity.ok(Map.of("profileImageUrl", newImageUrl));
@@ -169,7 +172,7 @@ public class simplechatController {
 			throw new RegistrationException("UNAUTHORIZED", "Please login first!");
 		}
 
-		serv.uploadChatFile(roomId, userId, file);
+		simplechatService.uploadChatFile(roomId, userId, file);
 
 		return ResponseEntity.ok().build();
 	}
@@ -181,7 +184,7 @@ public class simplechatController {
 //		if( userId == null ) {
 //			throw new RegistrationException("UNAUTHORIZED","Please login first!");
 //		}
-        return serv.getRoomList(userId);
+        return simplechatService.getRoomList(userId);
 	}
 	
 	@PostMapping("/room/create")
@@ -190,7 +193,7 @@ public class simplechatController {
 		if( userId == null ) {
 			throw new RegistrationException("UNAUTHORIZED","Please login first!");
 		}
-		return serv.createRoom(roomcreateDto, userId);
+		return simplechatService.createRoom(roomcreateDto, userId);
 	}
 	
 	@PostMapping("/room/{roomId}/users")
@@ -200,7 +203,7 @@ public class simplechatController {
 			throw new RegistrationException("UNAUTHORIZED","Please login first!");
 		}
 		
-		return serv.enterRoom(roomId, userId, enterDto.password());
+		return simplechatService.enterRoom(roomId, userId, enterDto.password());
 	}
 	
 
@@ -212,7 +215,7 @@ public class simplechatController {
 	        // 이 경우는 거의 없겠지만, 안전을 위해 추가
 	        throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
 	    }
-	    serv.exitRoom(roomId, userId);
+	    simplechatService.exitRoom(roomId, userId);
 	}
 
 	@DeleteMapping("/api/rooms/{roomId}/users/{userId}")
@@ -221,7 +224,7 @@ public class simplechatController {
 		if (kickerId == null) {
 			throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
 		}
-		serv.kickUser(roomId, kickerId, userIdToKick);
+		simplechatService.kickUser(roomId, kickerId, userIdToKick);
 	}
 
 	@DeleteMapping("/room/{roomId}")
@@ -230,24 +233,24 @@ public class simplechatController {
 		if (userId == null) {
 			throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
 		}
-		serv.deleteRoom(roomId, userId);
+		simplechatService.deleteRoom(roomId, userId);
 	}
 	
 	@GetMapping("/room/{roomId}/init")
 	public RoomInitDataDto initRoom(@PathVariable("roomId") Long roomId, @RequestParam(name="lines", defaultValue="20") int lines,HttpSession session) {
 		Long userId = (Long)session.getAttribute("userId");
 		
-		return serv.initRoom(roomId, userId, lines);
+		return simplechatService.initRoom(roomId, userId, lines);
 	}
 	
 	@MessageMapping("/chat.sendMessage")
 	public void recvMessage(ChatMessageRequestDto msgDto) {
-		serv.addChat_publish(msgDto);
+		simplechatService.addChat_publish(msgDto);
 	}
 	
 	@MessageMapping("/chat.changeNick")
 	public void changeNick(NickChangeDto nickChangeDto) {
-		serv.changeNicknameInRoom(nickChangeDto);
+		simplechatService.changeNicknameInRoom(nickChangeDto);
 	}
 	
 	// =================================================================================================
@@ -260,7 +263,7 @@ public class simplechatController {
 		if (senderId == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		serv.sendFriendRequest(senderId, requestDto.receiverId());
+		simplechatService.sendFriendRequest(senderId, requestDto.receiverId());
 		return ResponseEntity.ok().build();
 	}
 
@@ -270,7 +273,7 @@ public class simplechatController {
 		if (userId == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		return ResponseEntity.ok(serv.getFriends(userId));
+		return ResponseEntity.ok(simplechatService.getFriends(userId));
 	}
 
 	@DeleteMapping("/api/friends/{friendId}")
@@ -279,7 +282,7 @@ public class simplechatController {
 		if (removerId == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		serv.removeFriend(removerId, friendId);
+		simplechatService.removeFriend(removerId, friendId);
 		return ResponseEntity.noContent().build();
 	}
 	
@@ -289,7 +292,7 @@ public class simplechatController {
 		if (currentUserId == null) {
 			return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 		}
-		return ResponseEntity.ok(serv.getFriendshipStatus(currentUserId, otherUserId));
+		return ResponseEntity.ok(simplechatService.getFriendshipStatus(currentUserId, otherUserId));
 	}
 	
     @PostMapping("/room/{roomId}/invite")
@@ -303,19 +306,30 @@ public class simplechatController {
             throw new RegistrationException("UNAUTHORIZED", "로그인이 필요합니다.");
         }
 
-        serv.inviteUserToRoom(roomId, inviterId, inviteDto.userId());
+        simplechatService.inviteUserToRoom(roomId, inviterId, inviteDto.userId());
 
         return ResponseEntity.ok().build();
     }
 
-    // ✨ 신규: 통합 알림 목록 조회 API
+    // ✨ 신규: 통합 알림 목록 조회 API (읽지 않은 알림만 반환)
     @GetMapping("/api/notifications")
-    public ResponseEntity<List<NotificationDto>> getNotifications(HttpSession session) {
+    public ResponseEntity<List<Notification>> getUnreadNotifications(HttpSession session) {
         Long userId = (Long) session.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        return ResponseEntity.ok(serv.getPendingNotifications(userId));
+        return ResponseEntity.ok(notificationService.getNotificationsForUser(userId, false));
+    }
+
+    // ✨ 신규: 알림을 읽음으로 표시 API
+    @PutMapping("/api/notifications/mark-as-read")
+    public ResponseEntity<Void> markNotificationsAsRead(@RequestBody List<Long> notificationIds, HttpSession session) {
+        Long userId = (Long) session.getAttribute("userId");
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        notificationService.markNotificationsAsRead(notificationIds, userId);
+        return ResponseEntity.ok().build();
     }
 
     // ✨ 신규: 통합 알림 수락 API
@@ -325,7 +339,8 @@ public class simplechatController {
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        serv.acceptNotification(notificationId, userId);
+        // simplechatService의 acceptNotification을 호출하도록 변경
+        simplechatService.acceptNotification(notificationId, userId);
         return ResponseEntity.ok().build();
     }
     
@@ -336,7 +351,8 @@ public class simplechatController {
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
-        serv.rejectNotification(notificationId, userId);
+        // simplechatService의 rejectNotification을 호출하도록 변경
+        simplechatService.rejectNotification(notificationId, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -355,7 +371,7 @@ public class simplechatController {
         }
 
         // 서비스에 명령어 실행을 위임하고 결과를 받음
-        String result = serv.executeAdminCommand(command);
+        String result = simplechatService.executeAdminCommand(command);
 
         // 실행 결과를 클라이언트에 반환
         return ResponseEntity.ok(Map.of("message", result));
@@ -367,7 +383,7 @@ public class simplechatController {
         if (userId == null) {
             throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
         }
-        serv.deleteMessage(messageId, userId);
+        simplechatService.deleteMessage(messageId, userId);
         return ResponseEntity.noContent().build();
     }
 
@@ -381,14 +397,14 @@ public class simplechatController {
             throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
         }
         String newContent = payload.get("content");
-        serv.editMessage(messageId, userId, newContent);
+        simplechatService.editMessage(messageId, userId, newContent);
         return ResponseEntity.noContent().build();
-    }
+	}
 	
 	@MessageMapping("/chat.getMessageList")
 	@SendToUser("/topic/queue/reply")
 	public ChatMessageListDto getMessageList(ChatMessageListRequestDto msgListDto) {
-		return serv.getMessageList(msgListDto);
+		return simplechatService.getMessageList(msgListDto);
 	}
 	
 /////////////////////////////////////////////////////////////////////////////////////////////////////////
