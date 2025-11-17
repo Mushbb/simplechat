@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import './App.css';
 import './styles/Modals.css';
 import { ToastContainer } from 'react-toastify';
@@ -16,8 +16,18 @@ import UserProfileModal from './components/UserProfileModal';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
-    const { isLoginModalOpen, isRegisterModalOpen, isMyProfileModalOpen, 
+    const { user, loading } = useContext(AuthContext);
+    const { isLoginModalOpen, openLoginModal, isRegisterModalOpen, isMyProfileModalOpen, 
         isUserProfileModalOpen, selectedProfile, modalPosition, closeUserProfileModal} = useContext(ModalContext);
+    const [initialModalShown, setInitialModalShown] = useState(false);
+
+    useEffect(() => {
+        // 로딩이 끝나고, 유저가 없고, 초기 모달이 아직 표시되지 않았다면 로그인 모달을 엽니다.
+        if (!loading && !user && !initialModalShown) {
+            openLoginModal();
+            setInitialModalShown(true); // 모달이 표시되었음을 기록
+        }
+    }, [loading, user, openLoginModal, initialModalShown]);
     
     return (
     <div className="app-container">

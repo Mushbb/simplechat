@@ -161,7 +161,7 @@ function Topbar() {
                                 )}
                             </div>
                             <div className="auth-controls-btn">
-                                <span>{user.nickname}님</span>
+                                <span>{user.nickname}님 </span>
                                 <button onClick={openProfileModal}>프로필 수정</button>
                                 <button onClick={handleLogout}>로그아웃</button>
                                 <button onClick={deleteAccount} className="danger-button">회원 탈퇴</button>

@@ -18,6 +18,15 @@ function AuthModal() {
         }
     };
 
+    const handleSampleLogin = async () => {
+        try {
+            await login('sample', 'sample');
+            closeLoginModal(); // 로그인 성공 후 모달 닫기
+        } catch (error) {
+            // 에러 처리는 login 함수 내부에서 이미 처리됨
+        }
+    };
+
     return (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeLoginModal()}>
             <div className="modal-content">
@@ -45,6 +54,9 @@ function AuthModal() {
                     </div>
                     <button type="submit" className="modal-submit-btn">로그인</button>
                 </form>
+                <button type="button" className="modal-submit-btn" onClick={handleSampleLogin} style={{marginTop: '10px', backgroundColor: '#6c757d'}}>
+                    샘플 계정으로 로그인
+                </button>
             </div>
         </div>
     );

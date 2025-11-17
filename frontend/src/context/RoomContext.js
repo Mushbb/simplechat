@@ -15,18 +15,20 @@ function RoomProvider({ children }) {
     const [myRole, setMyRole] = useState({}); // { [roomId]: 'ADMIN' | 'MEMBER' }
 
     const fetchRooms = useCallback(async () => {
-        if (!user) return;
         try {
             const response = await axiosInstance.get('/room/list');
             setRawRooms(response.data);
         } catch (error) {
             console.error('Failed to fetch rooms:', error);
         }
-    }, [user]);
+    }, []);
 
     useEffect(() => {
         if (user) {
             fetchRooms();
+        } else {
+            // 로그아웃 시 방 목록 초기화
+            setRawRooms([]);
         }
     }, [user, fetchRooms]);
 
