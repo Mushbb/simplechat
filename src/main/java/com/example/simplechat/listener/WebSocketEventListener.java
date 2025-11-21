@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import lombok.RequiredArgsConstructor;
 
-import com.example.simplechat.service.SimplechatService;
+import com.example.simplechat.service.UserService;
 import com.example.simplechat.model.User;
 import com.example.simplechat.event.UserEnteredRoomEvent;
 import com.example.simplechat.event.UserExitedRoomEvent;
@@ -25,7 +25,7 @@ import com.example.simplechat.dto.UserEventDto.UserType;
 public class WebSocketEventListener {
     private static final Logger logger = LoggerFactory.getLogger(WebSocketEventListener.class);
     
-    private final SimplechatService serv;		// 주입!! 이렇게 하면 알아서 인스턴스를 찾아준다
+    private final UserService userService;		// 주입!! 이렇게 하면 알아서 인스턴스를 찾아준다
     private final ApplicationEventPublisher eventPublisher; // Spring의 ApplicationEventPublisher 주입
     private final RoomSessionManager roomSessionManager;
     private final RoomUserRepository roomUserRepository;
@@ -41,7 +41,7 @@ public class WebSocketEventListener {
         if (destination != null && destination.contains("/topic/") && destination.contains("/public")) {
         	Long userId = Long.valueOf((String)headerAccessor.getSessionAttributes().get("user_id"));
             Long roomId = Long.valueOf((String)headerAccessor.getSessionAttributes().get("room_id"));
-            User user = serv.getUserById(userId); // SimplechatService에서 사용자 정보 가져오기
+            User user = userService.getUserById(userId);
 
             if (userId != null && roomId != null && user != null) {
             	roomSessionManager.registerSession(roomId, userId, headerAccessor.getSessionId());
