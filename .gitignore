@@ -30,3 +30,4 @@ frontend/package-lock.json
 # OS
 .DS_Store
 Thumbs.db
+/src/main/resources/static

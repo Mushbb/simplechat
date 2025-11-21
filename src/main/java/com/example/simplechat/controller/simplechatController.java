@@ -1,9 +1,7 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.service.SimplechatService;
-import com.example.simplechat.service.NotificationService; // ✨ 신규: NotificationService 임포트
 import com.example.simplechat.model.User;
-import com.example.simplechat.model.Notification; // ✨ 신규: Notification 모델 임포트
 import com.example.simplechat.exception.*;
 import com.example.simplechat.dto.*;
 
@@ -39,7 +37,6 @@ import java.util.Map;
 public class simplechatController {
 	// 1. 서비스 객체를 참조할 필드 선언 (불변성을 위해 final로 선언)
 	private final SimplechatService simplechatService; // 기존 SimplechatService
-	private final NotificationService notificationService; // ✨ 신규: NotificationService 주입
 	
 	@PostMapping("/auth/register")
 	public LoginResponseDto registerRequest(@RequestBody UserRegistrationRequestDto requestDto, HttpSession session) {
@@ -309,51 +306,6 @@ public class simplechatController {
         simplechatService.inviteUserToRoom(roomId, inviterId, inviteDto.userId());
 
         return ResponseEntity.ok().build();
-    }
-
-    // ✨ 신규: 통합 알림 목록 조회 API (읽지 않은 알림만 반환)
-    @GetMapping("/api/notifications")
-    public ResponseEntity<List<Notification>> getUnreadNotifications(HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        return ResponseEntity.ok(notificationService.getNotificationsForUser(userId, false));
-    }
-
-    // ✨ 신규: 알림을 읽음으로 표시 API
-    @PutMapping("/api/notifications/mark-as-read")
-    public ResponseEntity<Void> markNotificationsAsRead(@RequestBody List<Long> notificationIds, HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        notificationService.markNotificationsAsRead(notificationIds, userId);
-        return ResponseEntity.ok().build();
-    }
-
-    // ✨ 신규: 통합 알림 수락 API
-    @PutMapping("/api/notifications/{notificationId}/accept")
-    public ResponseEntity<Void> acceptNotification(@PathVariable("notificationId") Long notificationId, HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        // simplechatService의 acceptNotification을 호출하도록 변경
-        simplechatService.acceptNotification(notificationId, userId);
-        return ResponseEntity.ok().build();
-    }
-    
-    // ✨ 신규: 통합 알림 거절 API
-    @DeleteMapping("/api/notifications/{notificationId}/reject")
-    public ResponseEntity<Void> rejectNotification(@PathVariable("notificationId") Long notificationId, HttpSession session) {
-        Long userId = (Long) session.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        // simplechatService의 rejectNotification을 호출하도록 변경
-        simplechatService.rejectNotification(notificationId, userId);
-        return ResponseEntity.noContent().build();
     }
 
     // ✨ 신규: 관리자 명령어 실행 API
