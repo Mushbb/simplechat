@@ -24,8 +24,6 @@ import java.util.HashMap;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import java.util.Scanner;
-import jakarta.annotation.PreDestroy;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
@@ -35,16 +33,15 @@ import com.example.simplechat.dto.*;
 import com.example.simplechat.event.*;
 import com.example.simplechat.exception.*;
 
-
 @Service
 @RequiredArgsConstructor
 @EnableScheduling
 public class SimplechatService {
     private ChatRoom serverChat_room = null;
     private User systemUser;
-    private final Scanner sc = new Scanner(System.in);
+//  private final Scanner sc = new Scanner(System.in);	// 서버 콘솔 사용불가
 	
-    private final ApplicationEventPublisher eventPublisher; // 주입
+    private final ApplicationEventPublisher eventPublisher;
     private final PresenceService presenceService;
     
     private final UserRepository userRepository;
@@ -52,14 +49,14 @@ public class SimplechatService {
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
     private final FriendshipRepository friendshipRepository;
-    private final NotificationService notificationService; // ✨ 신규: NotificationService 주입
+    private final NotificationService notificationService;
     
     private final PasswordEncoder passwordEncoder;
     private final RoomSessionManager roomSessionManager;
     private final SimpMessagingTemplate messagingTemplate;
     
     @Autowired
-    private LinkPreviewService linkPreviewService; // LinkPreviewService 주입
+    private LinkPreviewService linkPreviewService;
 
     @Autowired
     @Qualifier("profileFileRepository")
@@ -136,41 +133,40 @@ public class SimplechatService {
         System.out.println("System user '" + this.systemUser.getNickname() + "' cached successfully.");
     }
     
-	public void serverChat() {
-		String input = sc.nextLine();
-		ChatMessage newMsg;
-		
-		if( input.startsWith("/") ) {
-			newMsg = ServerCommand(input);
-			if( newMsg == null )
-				return;
-		} else {
-			if( serverChat_room == null ) {
-				System.out.println("There is no selected room.");
-				return;
-			}
-			// normal msg to selected room
-			newMsg = ServerMessage(input);
-		}
-		
-		newMsg = msgRepository.save(newMsg);
-		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, newMsg, newMsg.getRoom_id()));
-        System.out.println("ChatRoom[" + newMsg.getRoom_id() + "]: ChatMessageAddedToRoomEvent 발행됨.");
-	}
-	
-	private ChatMessage ServerMessage(String input) {
-		ChatMessage newMsg = new ChatMessage( systemUser.getId(), serverChat_room.getId(), "시스템");
-		newMsg.setContent(input);
-		newMsg.setMsg_type(ChatMessage.MsgType.TEXT);
-		
-		return newMsg;
-	}
-	
-	private ChatMessage ServerCommand(String command) {
-		String result = executeAdminCommand(command);
-		System.out.println(result);
-		return null; // ServerCommand no longer creates messages directly
-	}
+//	public void serverChat() {
+//		String input = sc.nextLine();
+//		ChatMessage newMsg;
+//		
+//		if( input.startsWith("/") ) {
+//			newMsg = ServerCommand(input);
+//			if( newMsg == null )
+//				return;
+//		} else {
+//			if( serverChat_room == null ) {
+//				System.out.println("There is no selected room.");
+//				return;
+//			}
+//			newMsg = ServerMessage(input);
+//		}
+//		
+//		newMsg = msgRepository.save(newMsg);
+//		eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, newMsg, newMsg.getRoom_id()));
+//        System.out.println("ChatRoom[" + newMsg.getRoom_id() + "]: ChatMessageAddedToRoomEvent 발행됨.");
+//	}
+//	
+//	private ChatMessage ServerMessage(String input) {
+//		ChatMessage newMsg = new ChatMessage( systemUser.getId(), serverChat_room.getId(), "시스템");
+//		newMsg.setContent(input);
+//		newMsg.setMsg_type(ChatMessage.MsgType.TEXT);
+//		
+//		return newMsg;
+//	}
+//	
+//	private ChatMessage ServerCommand(String command) {
+//		String result = executeAdminCommand(command);
+//		System.out.println(result);
+//		return null; // ServerCommand no longer creates messages directly
+//	}
 
 	public String executeAdminCommand(String command) {
 		CommandParser.ParseResult result = CommandParser.parse(command);
@@ -246,11 +242,12 @@ public class SimplechatService {
 		}
 	}
 	
+	// 신규 사용자 등록
 	@Transactional
 	public User register(UserRegistrationRequestDto requestDto) {
-		if(requestDto.username().equals("system")) {	// invalid username
+		if(requestDto.username().equals("system")) {
 			throw new RegistrationException("INVALID_USERNAME","Invalid Username");
-		} else if( !userRepository.findByUsername(requestDto.username()).isEmpty() ) {
+		} else if( !userRepository.findByUsername(requestDto.username()).isEmpty() ) {	
 			throw new RegistrationException("DUPLICATE_USERNAME","Username is already exist");
 		}
 		
@@ -371,8 +368,6 @@ public class SimplechatService {
 	}
 	
 	public RoomInitDataDto initRoom(Long roomId, Long userId, int lines) {
-		User user = userRepository.findById(userId)
-	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
 	    ChatRoom room = roomRepository.findById(roomId)
 	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
 		
@@ -413,11 +408,6 @@ public class SimplechatService {
 	}
 	@Transactional
 	public void exitRoom(Long roomId, Long userId) {
-	    User user = userRepository.findById(userId)
-	            .orElseThrow(() -> new IllegalArgumentException("User not found!"));
-	    ChatRoom room = roomRepository.findById(roomId)
-	            .orElseThrow(() -> new IllegalArgumentException("Room not found!"));
-
 	    // 방장이 방을 나가려고 하는지 확인하는 로직
         String userRole = roomUserRepository.getRole(userId, roomId);
         if ("ADMIN".equals(userRole)) {
@@ -719,12 +709,12 @@ public class SimplechatService {
 			throw new RegistrationException("CONFLICT", "Friendship or request already exists.");
 		});
 
-        // 👈 변경: Friendship 테이블 대신 Notification 테이블에 저장
+        // Friendship 테이블 대신 Notification 테이블에 저장
         String content = sender.getNickname() + "님이 친구 요청을 보냈습니다.";
         Notification notification = new Notification(receiverId, Notification.NotificationType.FRIEND_REQUEST, content, senderId, null);
         notificationService.save(notification);
 
-        // 👈 변경: 실시간 알림 전송 (새 DTO 사용)
+        // 실시간 알림 전송 (새 DTO 사용)
         messagingTemplate.convertAndSendToUser(
             receiver.getUsername(),
             "/queue/notifications",
@@ -751,10 +741,6 @@ public class SimplechatService {
 
 	@Transactional
 	public void removeFriend(long removerId, long friendId) {
-		Friendship friendship = friendshipRepository.findByUsers(removerId, friendId)
-				.filter(f -> f.getStatus().name().equals("ACCEPTED"))
-				.orElseThrow(() -> new RegistrationException("NOT_FOUND", "Friendship not found."));
-
 		friendshipRepository.delete(removerId, friendId);
 	}
 
@@ -770,7 +756,7 @@ public class SimplechatService {
 			if (f.getStatus().name().equals("PENDING")) {
 				return f.getUserId1() == currentUserId ? "PENDING_SENT" : "PENDING_RECEIVED";
 			}
-			return "NONE"; // Should not happen if status is handled correctly
+			return "NONE";
 		}).orElse("NONE");
 
 		return Map.of("status", status);
@@ -791,7 +777,7 @@ public class SimplechatService {
         
         String content = inviter.getNickname() + "님이 '" + room.getName() + "' 방에 초대했습니다.";
         
-        // ✨ 신규: metadata에 초대한 사람과 방 정보를 JSON 형태로 저장
+        // metadata에 초대한 사람과 방 정보를 JSON 형태로 저장
         String metadata;
         try {
             metadata = new ObjectMapper().writeValueAsString(Map.of(
@@ -850,6 +836,9 @@ public class SimplechatService {
                 // 방에 이벤트 발행
                 eventPublisher.publishEvent(new UserEnteredRoomEvent(this, user, roomId, UserEventDto.UserType.MEMBER));
                 break;
+                
+			default:
+				break;
         }
         // 처리된 알림 삭제
         notificationService.deleteNotification(notificationId);
@@ -867,8 +856,8 @@ public class SimplechatService {
 
 		FriendResponseDto friendDto = new FriendResponseDto(
 			friendUser.getId(),
-			friendUser.getUsername(), // 올바른 필드: username
-			friendUser.getNickname(),   // 올바른 필드: nickname
+			friendUser.getUsername(),
+			friendUser.getNickname(),
 			friendProfileUrl,
 			"ACCEPTED",
 			conn
@@ -899,12 +888,13 @@ public class SimplechatService {
         if (!notification.getReceiverId().equals(userId)) {
             throw new RegistrationException("FORBIDDEN", "권한이 없습니다.");
         }
+        
         // 알림 삭제
         notificationService.deleteNotification(notificationId);
     }
-    
-	@PreDestroy
-	public void closeScanner() { sc.close(); }
+   
+//	@PreDestroy
+//	public void closeScanner() { sc.close(); }
 	
 	///////////////////////////////////////////////
 	// CommandLine Parser
