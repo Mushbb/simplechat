@@ -31,3 +31,6 @@ frontend/package-lock.json
 .DS_Store
 Thumbs.db
 /src/main/resources/static
+Spring-simplechat 기획서.pdf
+simplechatController.txt
+simplechatservice.txt

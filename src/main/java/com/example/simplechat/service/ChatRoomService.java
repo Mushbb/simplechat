@@ -6,19 +6,23 @@ import com.example.simplechat.dto.RoomCreateDto;
 import com.example.simplechat.dto.RoomInitDataDto;
 import com.example.simplechat.dto.UserEventDto;
 import com.example.simplechat.dto.ChatMessageDto;
+import com.example.simplechat.dto.NotificationDto;
 import com.example.simplechat.event.UserExitedRoomEvent;
 import com.example.simplechat.exception.RegistrationException;
 import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.model.ChatRoom;
+import com.example.simplechat.model.Notification;
 import com.example.simplechat.model.User;
 import com.example.simplechat.repository.MessageRepository;
 import com.example.simplechat.repository.RoomRepository;
 import com.example.simplechat.repository.RoomUserRepository;
 import com.example.simplechat.repository.UserRepository;
 import com.example.simplechat.service.LinkPreviewService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +44,10 @@ public class ChatRoomService {
     private final ApplicationEventPublisher eventPublisher;
     private final RoomSessionManager roomSessionManager;
     private final LinkPreviewService linkPreviewService;
+    private final NotificationService notificationService;
+    private final SimpMessagingTemplate messagingTemplate;
+    private final ObjectMapper objectMapper;
+
 
     @Value("${file.profile-static-url-prefix}")
     private String profileStaticUrlPrefix;
@@ -255,5 +263,43 @@ public class ChatRoomService {
         // 3. 이벤트 발행
         eventPublisher.publishEvent(new UserExitedRoomEvent(this, userIdToKick, roomId, UserEventDto.EventType.ROOM_OUT));
         System.out.println("User " + userIdToKick + " has been kicked from room " + roomId + " by user " + kickerId);
+    }
+
+    @Transactional
+    public void inviteUserToRoom(Long roomId, Long inviterId, Long inviteeId) {
+        User inviter = userRepository.findById(inviterId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Inviter not found."));
+        User invitee = userRepository.findById(inviteeId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Invitee not found."));
+        ChatRoom room = roomRepository.findById(roomId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Room not found."));
+
+        if (!roomUserRepository.exists(inviterId, roomId)) {
+            throw new RegistrationException("FORBIDDEN", "초대 권한이 없습니다.");
+        }
+        if (roomUserRepository.exists(inviteeId, roomId)) {
+            throw new RegistrationException("CONFLICT", "이미 참여하고 있는 사용자입니다.");
+        }
+
+        String content = inviter.getNickname() + "님이 '" + room.getName() + "' 방에 초대했습니다.";
+
+        // metadata에 초대한 사람과 방 정보를 JSON 형태로 저장
+        String metadata;
+        try {
+            metadata = objectMapper.writeValueAsString(Map.of(
+                    "inviterId", inviter.getId(),
+                    "inviterNickname", inviter.getNickname(),
+                    "roomId", room.getId(),
+                    "roomName", room.getName()
+            ));
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to serialize metadata", e);
+        }
+
+        Notification notification = new Notification(inviteeId, Notification.NotificationType.ROOM_INVITATION, content, roomId, metadata);
+        notificationService.save(notification);
+
+        messagingTemplate.convertAndSendToUser(
+                invitee.getUsername(),
+                "/queue/notifications",
+                NotificationDto.from(notification)
+        );
     }
 }

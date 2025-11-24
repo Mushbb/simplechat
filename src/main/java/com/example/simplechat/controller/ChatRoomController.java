@@ -1,6 +1,7 @@
 package com.example.simplechat.controller;
 
 import com.example.simplechat.dto.ChatRoomListDto;
+import com.example.simplechat.dto.InviteRequestDto;
 import com.example.simplechat.dto.RoomCreateDto;
 import com.example.simplechat.dto.RoomEnterDto;
 import com.example.simplechat.dto.RoomInitDataDto;
@@ -88,5 +89,21 @@ public class ChatRoomController {
             throw new RegistrationException("UNAUTHORIZED", "세션 정보를 찾을 수 없습니다.");
         }
         chatRoomService.kickUser(roomId, kickerId, userIdToKick);
+    }
+
+    @PostMapping("/{roomId}/invite")
+    public ResponseEntity<Void> inviteUserToRoom(
+            @PathVariable("roomId") Long roomId,
+            @RequestBody InviteRequestDto inviteDto,
+            HttpSession session) {
+
+        Long inviterId = (Long) session.getAttribute("userId");
+        if (inviterId == null) {
+            throw new RegistrationException("UNAUTHORIZED", "로그인이 필요합니다.");
+        }
+
+        chatRoomService.inviteUserToRoom(roomId, inviterId, inviteDto.userId());
+
+        return ResponseEntity.ok().build();
     }
 }
