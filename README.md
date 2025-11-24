@@ -25,13 +25,10 @@
     *   **핵심 기술:** React.js, JavaScript (ES6+), HTML, CSS
     *   **상태 관리:** React Context API
     *   **통신 라이브러리:** Axios, Stomp.js, SockJS-client
-    *   **UI 라이브러리:** Bootstrap, React-Bootstrap
-    *   **기타:** `react-icons`
 *   **데이터베이스 (Database):**
     *   MS SQL Server (MSSQL)
 *   **기타 도구:**
     *   **버전 관리:** Git & GitHub
-    *   **API 테스트:** Postman 또는 Insomnia
 
 ## ✨ 주요 기능 (Features)
 
