@@ -9,11 +9,12 @@ import { ModalContext } from '../context/ModalContext';
 /**
  * 로그인 폼을 포함하는 모달 컴포넌트.
  * 사용자는 이 모달을 통해 아이디와 비밀번호를 입력하여 로그인할 수 있습니다.
+ * 회원가입 모달로 전환하는 기능도 포함합니다.
  * @returns {JSX.Element} AuthModal 컴포넌트의 JSX.
  */
 function AuthModal() {
     const { login } = useContext(AuthContext);
-    const { closeLoginModal } = useContext(ModalContext);
+    const { closeLoginModal, openRegisterModal } = useContext(ModalContext);
 
     /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 사용자 아이디 입력 상태 */
     const [username, setUsername] = useState('');
@@ -45,6 +46,14 @@ function AuthModal() {
             // 에러 처리는 login 함수 내부에서 이미 처리됨 (alert)
         }
     };
+    
+    /**
+     * 회원가입 모달로 전환하는 핸들러.
+     */
+    const handleSwitchToRegister = () => {
+        closeLoginModal();
+        openRegisterModal();
+    };
 
     return (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && closeLoginModal()}>
@@ -73,9 +82,14 @@ function AuthModal() {
                     </div>
                     <button type="submit" className="modal-submit-btn">로그인</button>
                 </form>
-                <button type="button" className="modal-submit-btn" onClick={handleSampleLogin} style={{marginTop: '10px', backgroundColor: '#6c757d'}}>
-                    샘플 계정으로 로그인
-                </button>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+                    <button type="button" className="modal-submit-btn" onClick={handleSampleLogin} style={{ flex: 2, backgroundColor: '#6c757d' }}>
+                        샘플 계정으로 로그인
+                    </button>
+                    <button type="button" className="modal-submit-btn" onClick={handleSwitchToRegister} style={{ flex: 1, backgroundColor: '#28a745' }}>
+                        회원가입
+                    </button>
+                </div>
             </div>
         </div>
     );
