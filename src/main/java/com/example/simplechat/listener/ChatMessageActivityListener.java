@@ -1,135 +1,157 @@
 package com.example.simplechat.listener;
 
-import com.example.simplechat.model.User;
 import com.example.simplechat.dto.ChatMessageDto;
 import com.example.simplechat.dto.UserEventDto;
 import com.example.simplechat.dto.UserEventDto.EventType;
-import com.example.simplechat.dto.LinkPreviewDto;
-import com.example.simplechat.event.ChatMessageAddedToRoomEvent; // 처리할 이벤트 import
+import com.example.simplechat.event.ChangeNicknameEvent;
+import com.example.simplechat.event.ChatMessageAddedToRoomEvent;
 import com.example.simplechat.event.UserEnteredRoomEvent;
 import com.example.simplechat.event.UserExitedRoomEvent;
-import com.example.simplechat.event.ChangeNicknameEvent;
+import com.example.simplechat.model.User;
 import com.example.simplechat.repository.UserRepository;
-
 import com.example.simplechat.service.LinkPreviewService;
-
-import org.springframework.context.event.EventListener; // Spring의 이벤트 리스너 어노테이션 import
-import org.springframework.messaging.simp.SimpMessagingTemplate; // 웹소켓 전송 템플릿 import
-import org.springframework.scheduling.annotation.Async; // 비동기 처리를 위한 어노테이션 import
-import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Value;
-
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
+import org.springframework.messaging.MessagingException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Component;
 
-@RequiredArgsConstructor 
-@Component // Spring Bean 으로 등록하여 이벤트 리스너로 동작하게 함
+/**
+ * 채팅 활동(예: 새 메시지, 사용자 입장/퇴장)과 관련된 애플리케이션 이벤트를 수신하고 해당하는 메시지를 WebSocket 클라이언트에
+ * 브로드캐스트합니다. 모든 리스너는 비동기적으로 작동합니다.
+ */
+@RequiredArgsConstructor
+@Component
 public class ChatMessageActivityListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(ChatMessageActivityListener.class);
 
     @Value("${file.profile-static-url-prefix}")
     private String profileStaticUrlPrefix;
-	
-    private final SimpMessagingTemplate messagingTemplate; // Spring 이 자동으로 주입해 줍니다.
+
+    private final SimpMessagingTemplate messagingTemplate;
     private final UserRepository userRepository;
     private final LinkPreviewService linkPreviewService;
 
-    // Spring 의 @EventListener를 사용하여 ChatMessageAddedToRoomEvent가 발생하면 이 메소드가 호출되도록 합니다.
-    // @Async 어노테이션을 사용하여 이 리스너의 동작이 비동기적으로 실행되도록 할 수 있습니다.
+    /**
+     * 방에 새 메시지가 추가될 때의 이벤트를 처리합니다. 메시지를 방의 공용 토픽에 브로드캐스트하고, URL이 있는 경우 링크 미리보기 생성을
+     * 트리거합니다.
+     *
+     * @param event 메시지와 방 세부 정보가 포함된 {@link ChatMessageAddedToRoomEvent}
+     */
     @Async
     @EventListener
     public void handleChatMessageAddedToRoom(ChatMessageAddedToRoomEvent event) {
         Long roomId = event.getroomId();
         Long authorId = event.getChatMessage().getAuthor_id();
 
-        // 사용자 프로필 이미지 URL 조회
         String profileImageUrl = userRepository.findProfileById(authorId)
-                .map(profileData -> (String) profileData.get("profile_image_url"))
-                .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
-                .orElse(profileStaticUrlPrefix + "/default.png");
+            .map(profileData -> (String) profileData.get("profile_image_url"))
+            .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url
+                : profileStaticUrlPrefix + "/default.png")
+            .orElse(profileStaticUrlPrefix + "/default.png");
 
         ChatMessageDto msgDto = new ChatMessageDto(event.getChatMessage(), profileImageUrl);
 
-        // 웹소켓으로 원본 메시지 즉시 전송
-        messagingTemplate.convertAndSend("/topic/" + roomId + "/public", msgDto);
-        System.out.println("  [웹소켓 전송]: 메시지 웹소켓 전송 완료: " + msgDto.content());
+        try {
+            messagingTemplate.convertAndSend("/topic/" + roomId + "/public", msgDto);
+            logger.info("WebSocket 메시지가 /topic/{}/public (messageId: {})으로 전송되었습니다.", roomId,
+                msgDto.messageId());
 
-        // 비동기적으로 링크 미리보기 생성 및 전송
-        String url = linkPreviewService.findFirstUrl(msgDto.content());
-        if (url != null) {
-            linkPreviewService.generateAndSendPreview(msgDto.messageId(), roomId, url);
+            // URL이 발견되면 비동기적으로 링크 미리보기를 생성하고 전송합니다.
+            String url = linkPreviewService.findFirstUrl(msgDto.content());
+            if (url != null) {
+                linkPreviewService.generateAndSendPreview(msgDto.messageId(), roomId, url);
+            }
+        } catch (MessagingException e) {
+            logger.error("새 채팅 메시지에 대한 WebSocket 메시지 전송 중 오류 발생.", e);
         }
     }
 
+    /**
+     * 사용자가 방에 입장할 때의 이벤트를 처리합니다. 사용자 이벤트 DTO를 방의 사용자 토픽에 브로드캐스트하여 클라이언트에게 새 사용자를
+     * 알립니다.
+     *
+     * @param event 사용자와 방 세부 정보가 포함된 {@link UserEnteredRoomEvent}
+     */
     @Async
     @EventListener
     public void handleUserEnteredRoom(UserEnteredRoomEvent event) {
-    	User user = event.getUser();
-    	Long roomId = event.getRoomId();
-    	
-        // 1. 사용자의 프로필 이미지 URL을 가져와서 전체 URL 경로를 만듭니다.
+        User user = event.getUser();
+        Long roomId = event.getRoomId();
+
         String imageUrl = user.getProfile_image_url();
-        String fullProfileImageUrl;
-        if (imageUrl == null || imageUrl.isBlank()) {
-            fullProfileImageUrl = profileStaticUrlPrefix + "/default.png";
-        } else {
-            fullProfileImageUrl = profileStaticUrlPrefix + "/" + imageUrl;
-        }
-    	
-    	// 2. 수정된 DTO 생성자에 fullProfileImageUrl을 추가하여 전달합니다.
-    	UserEventDto userDto = new UserEventDto(
-            EventType.ENTER, 
-            user.getId(), 
-            user.getNickname(), 
-            event.getUserType(), 
+        String fullProfileImageUrl = (imageUrl == null || imageUrl.isBlank())
+            ? profileStaticUrlPrefix + "/default.png"
+            : profileStaticUrlPrefix + "/" + imageUrl;
+
+        UserEventDto userDto = new UserEventDto(
+            EventType.ENTER,
+            user.getId(),
+            user.getNickname(),
+            event.getUserType(),
             fullProfileImageUrl
         );
-    	
-        // 1. 웹소켓으로 메시지 브로드캐스트
+
         try {
-            // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
             messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userDto);
-            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + user.getUsername());
-        } catch (Exception e) {
-            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
+            logger.info("WebSocket 사용자 ENTER 이벤트가 /topic/{}/users (사용자: {})로 전송되었습니다.", roomId,
+                user.getUsername());
+        } catch (MessagingException e) {
+            logger.error("사용자 입장에 대한 WebSocket 메시지 전송 중 오류 발생.", e);
         }
     }
-    
+
+    /**
+     * 사용자가 방에서 나가거나 제거될 때의 이벤트를 처리합니다. 사용자 이벤트 DTO를 방의 사용자 토픽에 브로드캐스트하여 클라이언트에게
+     * 알립니다.
+     *
+     * @param event 사용자와 방 세부 정보가 포함된 {@link UserExitedRoomEvent}
+     */
     @Async
     @EventListener
     public void handleUserExitedRoom(UserExitedRoomEvent event) {
-    	Long userId = event.getUserId();
-    	Long roomId = event.getRoomId();
-    	EventType eventType = event.getEventType();
-    	UserEventDto userDto = new UserEventDto(eventType, userId, null, null, null);
-    	
-        // 1. 웹소켓으로 메시지 브로드캐스트
+        Long userId = event.getUserId();
+        Long roomId = event.getRoomId();
+        EventType eventType = event.getEventType();
+        UserEventDto userDto = new UserEventDto(eventType, userId, null, null, null);
+
         try {
-            // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
             messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userDto);
-            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId);
-        } catch (Exception e) {
-            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
+            logger.info("WebSocket 사용자 이벤트 {}가 /topic/{}/users (사용자: {})로 전송되었습니다.",
+                eventType, roomId, userId);
+        } catch (MessagingException e) {
+            logger.error("사용자 퇴장/제거에 대한 WebSocket 메시지 전송 중 오류 발생.", e);
         }
     }
-    
+
+    /**
+     * 사용자가 방에서 닉네임을 변경할 때의 이벤트를 처리합니다. 사용자 이벤트 DTO를 방의 사용자 토픽에 브로드캐스트하여 클라이언트에게 변경
+     * 사항을 알립니다.
+     *
+     * @param event 닉네임 변경 세부 정보가 포함된 {@link ChangeNicknameEvent}
+     */
     @Async
     @EventListener
     public void handleChangeNicknameEvent(ChangeNicknameEvent event) {
-    	Long userId = event.getUserId();
-    	Long roomId = event.getRoomId();
-    	String newNickname = event.getNewNickname();
-    	
-    	UserEventDto userDto = new UserEventDto(EventType.NICK_CHANGE, userId, newNickname, null, null);
-    	
-        // 1. 웹소켓으로 메시지 브로드캐스트
+        Long userId = event.getUserId();
+        Long roomId = event.getRoomId();
+        String newNickname = event.getNewNickname();
+
+        UserEventDto userDto = new UserEventDto(EventType.NICK_CHANGE, userId, newNickname, null,
+            null);
+
         try {
-            // messagingTemplate을 사용하여 해당 토픽으로 메시지 전송
             messagingTemplate.convertAndSend("/topic/" + roomId + "/users", userDto);
-            System.out.println("  [웹소켓 전송]: 유저정보 웹소켓 전송 완료: " + userId+"/"+newNickname);
-        } catch (Exception e) {
-            System.err.println("  [웹소켓 전송 오류]: 메시지 웹소켓 전송 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
+            logger.info(
+                "WebSocket 사용자 NICK_CHANGE 이벤트가 /topic/{}/users (사용자: {}, 새 닉네임: {})로 전송되었습니다.",
+                roomId, userId, newNickname);
+        } catch (MessagingException e) {
+            logger.error("닉네임 변경에 대한 WebSocket 메시지 전송 중 오류 발생.", e);
         }
     }
 }

@@ -1,6 +1,11 @@
 package com.example.simplechat.service;
 
-import com.example.simplechat.dto.*;
+import com.example.simplechat.dto.ChatMessageDto;
+import com.example.simplechat.dto.ChatMessageListDto;
+import com.example.simplechat.dto.ChatMessageListRequestDto;
+import com.example.simplechat.dto.ChatMessageRequestDto;
+import com.example.simplechat.dto.NickChangeDto;
+import com.example.simplechat.dto.NotificationDto;
 import com.example.simplechat.event.ChangeNicknameEvent;
 import com.example.simplechat.event.ChatMessageAddedToRoomEvent;
 import com.example.simplechat.exception.RegistrationException;
@@ -8,8 +13,15 @@ import com.example.simplechat.model.ChatMessage;
 import com.example.simplechat.model.ChatRoom;
 import com.example.simplechat.model.Notification;
 import com.example.simplechat.model.User;
-import com.example.simplechat.repository.*;
+import com.example.simplechat.repository.FileRepository;
+import com.example.simplechat.repository.MessageRepository;
+import com.example.simplechat.repository.RoomUserRepository;
+import com.example.simplechat.repository.UserRepository;
+import java.util.List;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
@@ -18,13 +30,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.stream.Collectors;
-
+/**
+ * 채팅 메시지와 관련된 비즈니스 로직을 처리하는 서비스 클래스입니다. 메시지 생성, 수정, 삭제, 멘션 처리 및 파일 업로드를 포함합니다.
+ */
 @Service
 @RequiredArgsConstructor
 public class ChatMessageService {
 
+    private static final Logger logger = LoggerFactory.getLogger(ChatMessageService.class);
     private final MessageRepository msgRepository;
     private final RoomUserRepository roomUserRepository;
     private final UserRepository userRepository;
@@ -40,113 +53,139 @@ public class ChatMessageService {
     @Value("${file.profile-static-url-prefix}")
     private String profileStaticUrlPrefix;
 
+    /**
+     * 새 채팅 메시지를 저장하고, 실시간 배포를 위한 이벤트를 발행하며, 멘션된 모든 사용자에게 알림을 보냅니다.
+     *
+     * @param msgDto 보낼 메시지의 세부 정보가 포함된 DTO
+     */
     public void addChat_publish(ChatMessageRequestDto msgDto) {
-        String AuthorName = roomUserRepository.getNickname(msgDto.authorId(), msgDto.roomId());
-        ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto, AuthorName));
-        eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
+        String authorName = roomUserRepository.getNickname(msgDto.authorId(), msgDto.roomId());
+        ChatMessage savedMessage = msgRepository.save(new ChatMessage(msgDto, authorName));
+        eventPublisher.publishEvent(
+            new ChatMessageAddedToRoomEvent(this, savedMessage, msgDto.roomId()));
 
-        // 멘션된 사용자들에게 알림 전송
+        // 멘션된 사용자에게 알림 보내기
         if (msgDto.mentionedUserIds() != null && !msgDto.mentionedUserIds().isEmpty()) {
-            User author = userRepository.findById(msgDto.authorId())
-                    .orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지 작성자를 찾을 수 없습니다."));
-            ChatRoom room = chatRoomService.getRoomById(msgDto.roomId());
+            sendMentionNotifications(msgDto, savedMessage);
+        }
+    }
 
-            for (Long mentionedUserId : msgDto.mentionedUserIds()) {
-                User mentionedUser = userRepository.findById(mentionedUserId)
-                        .orElse(null); // 멘션된 사용자가 없으면 스킵
+    private void sendMentionNotifications(ChatMessageRequestDto msgDto, ChatMessage savedMessage) {
+        User author = userRepository.findById(msgDto.authorId())
+            .orElseThrow(() -> new RegistrationException("NOT_FOUND", "작성자를 찾을 수 없습니다."));
+        ChatRoom room = chatRoomService.getRoomById(msgDto.roomId());
 
-                if (mentionedUser != null && !mentionedUser.getId().equals(author.getId())) { // 자기 자신 멘션 제외
-                    String content = author.getNickname() + "님이 '" + room.getName() + "' 방에서 회원님을 멘션했습니다.";
+        for (Long mentionedUserId : msgDto.mentionedUserIds()) {
+            userRepository.findById(mentionedUserId).ifPresent(mentionedUser -> {
+                if (!mentionedUser.getId().equals(author.getId())) { // 자신을 멘션한 경우 제외
+                    String content =
+                        author.getNickname() + "님이 '" + room.getName() + "' 방에서 당신을 멘션했습니다.";
                     Notification notification = new Notification(
-                            mentionedUserId,
-                            Notification.NotificationType.MENTION,
-                            content,
-                            room.getId(), // relatedEntityId를 roomId로 사용
-                            null // metadata는 필요시 추가
+                        mentionedUserId,
+                        Notification.NotificationType.MENTION,
+                        content,
+                        room.getId(),
+                        null // 현재는 메타데이터 필요 없음
                     );
                     notificationService.save(notification);
 
                     // 실시간 알림 전송
                     messagingTemplate.convertAndSendToUser(
-                            mentionedUser.getUsername(),
-                            "/queue/notifications",
-                            NotificationDto.from(notification)
+                        mentionedUser.getUsername(),
+                        "/queue/notifications",
+                        NotificationDto.from(notification)
                     );
                 }
-            }
+            });
         }
     }
 
+    /**
+     * 메시지를 삭제합니다. 메시지 작성자 또는 방 관리자만 이 작업을 수행할 수 있습니다. 클라이언트를 업데이트하기 위해 삭제 이벤트를
+     * 발행합니다.
+     *
+     * @param messageId 삭제할 메시지의 ID
+     * @param userId 삭제를 요청하는 사용자의 ID
+     * @throws RegistrationException 메시지를 찾을 수 없거나 사용자에게 권한이 없는 경우
+     */
     @Transactional
     public void deleteMessage(Long messageId, Long userId) {
-        // 1. 메시지 정보 조회
         ChatMessage message = msgRepository.findById(messageId)
-                .orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지를 찾을 수 없습니다."));
+            .orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지를 찾을 수 없습니다."));
 
         Long roomId = message.getRoom_id();
-
-        // 2. 권한 검증
         String userRole = roomUserRepository.getRole(userId, roomId);
-        boolean isAdmin = "ADMIN".equals(userRole);
-        boolean isAuthor = message.getAuthor_id().equals(userId);
 
-        if (!isAdmin && !isAuthor) {
-            throw new RegistrationException("FORBIDDEN", "메시지를 삭제할 권한이 없습니다.");
+        boolean canDelete = "ADMIN".equals(userRole) || message.getAuthor_id().equals(userId);
+
+        if (!canDelete) {
+            throw new RegistrationException("FORBIDDEN", "이 메시지를 삭제할 권한이 없습니다.");
         }
 
-        // 3. DB에서 메시지 삭제
         msgRepository.deleteById(messageId);
 
-        // 4. 삭제 이벤트 발행
-        ChatMessage deleteEventMessage = new ChatMessage(messageId, roomId, ChatMessage.MsgType.DELETE);
-        eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, deleteEventMessage, roomId));
+        // 삭제 이벤트 발행
+        ChatMessage deleteEventMessage = new ChatMessage(messageId, roomId,
+            ChatMessage.MsgType.DELETE);
+        eventPublisher.publishEvent(
+            new ChatMessageAddedToRoomEvent(this, deleteEventMessage, roomId));
 
-        System.out.println("Message " + messageId + " has been deleted by user " + userId);
+        logger.info("메시지 {}가 사용자 {}에 의해 삭제되었습니다.", messageId, userId);
     }
 
+    /**
+     * 기존 메시지의 내용을 수정합니다. 메시지 작성자 또는 방 관리자만 이 작업을 수행할 수 있습니다. 클라이언트에 업데이트 이벤트를
+     * 발행합니다.
+     *
+     * @param messageId 수정할 메시지의 ID
+     * @param userId 수정을 요청하는 사용자의 ID
+     * @param newContent 메시지의 새 내용
+     * @throws RegistrationException 메시지를 찾을 수 없거나 사용자에게 권한이 없는 경우
+     */
     @Transactional
     public void editMessage(Long messageId, Long userId, String newContent) {
-        // 1. 메시지 정보 조회
         ChatMessage message = msgRepository.findById(messageId)
-                .orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지를 찾을 수 없습니다."));
+            .orElseThrow(() -> new RegistrationException("NOT_FOUND", "메시지를 찾을 수 없습니다."));
 
-        Long roomId = message.getRoom_id();
+        String userRole = roomUserRepository.getRole(userId, message.getRoom_id());
+        boolean canEdit = "ADMIN".equals(userRole) || message.getAuthor_id().equals(userId);
 
-        // 2. 권한 검증
-        String userRole = roomUserRepository.getRole(userId, roomId);
-        boolean isAdmin = "ADMIN".equals(userRole);
-        boolean isAuthor = message.getAuthor_id().equals(userId);
-
-        if (!isAdmin && !isAuthor) {
-            throw new RegistrationException("FORBIDDEN", "메시지를 수정할 권한이 없습니다.");
+        if (!canEdit) {
+            throw new RegistrationException("FORBIDDEN", "이 메시지를 수정할 권한이 없습니다.");
         }
 
-        // 3. 내용이 비어있거나, 기존 내용과 같으면 수정하지 않음
+        // 내용이 null이거나 비어 있거나 변경되지 않은 경우 업데이트하지 않음
         if (newContent == null || newContent.isBlank() || newContent.equals(message.getContent())) {
             return;
         }
 
-        // 4. DB 업데이트
         message.setContent(newContent);
-        message.setMsg_type(ChatMessage.MsgType.UPDATE); // 이벤트 발행을 위해 타입 변경
+        message.setMsg_type(ChatMessage.MsgType.UPDATE);
         msgRepository.save(message);
 
-        // 5. 수정 이벤트 발행
-        eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, message, roomId));
+        // 업데이트 이벤트 발행
+        eventPublisher.publishEvent(
+            new ChatMessageAddedToRoomEvent(this, message, message.getRoom_id()));
 
-        System.out.println("Message " + messageId + " has been edited by user " + userId);
+        logger.info("메시지 {}가 사용자 {}에 의해 수정되었습니다.", messageId, userId);
     }
 
+    /**
+     * 페이지네이션을 사용하여 지정된 방의 채팅 메시지 목록을 검색합니다.
+     *
+     * @param msgListDto 페이지네이션 매개변수(roomId, beginId, rowCount)를 포함하는 DTO
+     * @return 메시지 목록을 포함하는 {@link ChatMessageListDto}
+     */
     public ChatMessageListDto getMessageList(ChatMessageListRequestDto msgListDto) {
         List<ChatMessage> messages = msgRepository.findTopNByRoomIdOrderById(
-                msgListDto.roomId(),
-                msgListDto.beginId(),
-                msgListDto.rowCount(),
-                "DESC");
+            msgListDto.roomId(),
+            msgListDto.beginId(),
+            msgListDto.rowCount(),
+            "DESC");
 
         List<ChatMessageDto> messageDtos = mapMessagesToDto(messages);
 
-        // 각 메시지에 대해 비동기적으로 미리보기 생성 요청
+        // 발견된 URL에 대한 링크 미리보기를 비동기적으로 요청
         messageDtos.forEach(dto -> {
             String url = linkPreviewService.findFirstUrl(dto.content());
             if (url != null) {
@@ -159,48 +198,54 @@ public class ChatMessageService {
 
     private List<ChatMessageDto> mapMessagesToDto(List<ChatMessage> messages) {
         return messages.stream()
-                .map(msg -> {
-                    String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
-                            .map(profileData -> (String) profileData.get("profile_image_url"))
-                            .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png")
-                            .orElse(profileStaticUrlPrefix + "/default.png");
+            .map(msg -> {
+                String profileImageUrl = userRepository.findProfileById(msg.getAuthor_id())
+                    .map(profileData -> (String) profileData.get("profile_image_url"))
+                    .map(url -> url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url
+                        : profileStaticUrlPrefix + "/default.png")
+                    .orElse(profileStaticUrlPrefix + "/default.png");
 
-                    return new ChatMessageDto(msg, profileImageUrl);
-                })
-                .collect(Collectors.toList());
+                return new ChatMessageDto(msg, profileImageUrl);
+            })
+            .collect(Collectors.toList());
     }
-	
+
+    /**
+     * 채팅방에 파일 업로드를 처리합니다. 파일을 저장하고, 해당하는 채팅 메시지를 생성하며, 이벤트를 발행합니다.
+     *
+     * @param roomId 파일이 업로드된 방의 ID
+     * @param userId 파일을 업로드하는 사용자의 ID
+     * @param file 업로드된 파일
+     */
     public void uploadChatFile(Long roomId, Long userId, MultipartFile file) {
-        // 1. 파일 저장
         String storedFilename = chatFileRepository.save(file);
         String originalFilename = file.getOriginalFilename();
-
-        // 2. 파일 정보를 담은 메시지 생성 (원본명:저장명)
-        //    나중에 클라이언트에서 a 태그로 만들 때 파싱해서 사용
         String fileInfoContent = originalFilename + ":" + storedFilename;
 
-        // 3. 채팅 메시지 객체 생성
         String authorName = roomUserRepository.getNickname(userId, roomId);
-        ChatMessage fileMessage = new ChatMessage(roomId, userId, authorName, fileInfoContent, ChatMessage.MsgType.FILE);
+        ChatMessage fileMessage = new ChatMessage(roomId, userId, authorName, fileInfoContent,
+            ChatMessage.MsgType.FILE);
 
-        // 4. 메시지 DB 저장 및 이벤트 발행
         ChatMessage savedMessage = msgRepository.save(fileMessage);
-        eventPublisher.publishEvent(new ChatMessageAddedToRoomEvent(this, savedMessage, roomId));
+        eventPublisher.publishEvent(
+            new ChatMessageAddedToRoomEvent(this, savedMessage, roomId));
     }
 
+    /**
+     * 특정 채팅방 내에서 사용자의 닉네임을 변경하고, 방의 다른 사용자에게 알리기 위해 이벤트를 발행합니다.
+     *
+     * @param nickChangeDto userId, roomId 및 새 닉네임을 포함하는 DTO
+     */
     @Transactional
     public void changeNicknameInRoom(NickChangeDto nickChangeDto) {
-        // (필요하다면) 닉네임 유효성 검사 (길이, 중복 등) 로직 추가
-
         Long userId = nickChangeDto.userId();
         Long roomId = nickChangeDto.roomId();
         String newNickname = nickChangeDto.newNickname();
 
-        // 1. DB의 chat_room_users 테이블에 있는 닉네임을 업데이트
         roomUserRepository.updateNickname(userId, roomId, newNickname);
 
-        // 2. 닉네임 변경 이벤트를 발행하여 다른 사용자들에게 알림
         eventPublisher.publishEvent(new ChangeNicknameEvent(this, userId, roomId, newNickname));
-        System.out.println("User " + userId + "'s nickname in room " + roomId + " changed to " + newNickname);
+        logger.info("사용자 {}의 방 {} 내 닉네임이 {} (으)로 변경되었습니다.", userId, roomId, newNickname);
     }
 }
+

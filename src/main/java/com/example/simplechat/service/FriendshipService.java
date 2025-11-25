@@ -8,17 +8,20 @@ import com.example.simplechat.model.Notification;
 import com.example.simplechat.model.User;
 import com.example.simplechat.repository.FriendshipRepository;
 import com.example.simplechat.repository.UserRepository;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
+/**
+ * 사용자 간의 친구 관계를 관리하는 서비스 클래스입니다.
+ * 친구 요청 전송, 친구 목록 조회, 친구 삭제, 친구 관계 상태 확인 등의 기능을 제공합니다.
+ */
 @Service
 @RequiredArgsConstructor
 public class FriendshipService {
@@ -32,26 +35,32 @@ public class FriendshipService {
     @Value("${file.profile-static-url-prefix}")
     private String profileStaticUrlPrefix;
 
+    /**
+     * 친구 요청을 보냅니다.
+     * 자기 자신에게 친구 요청을 보내거나, 이미 친구 관계 또는 요청이 존재하는지 확인합니다.
+     * 요청 성공 시 수신자에게 알림을 생성하고 실시간으로 전송합니다.
+     *
+     * @param senderId 친구 요청을 보내는 사용자의 ID
+     * @param receiverId 친구 요청을 받을 사용자의 ID
+     * @throws RegistrationException 자기 자신에게 요청을 보내거나, 이미 친구 관계 또는 요청이 존재하는 경우
+     * @throws RegistrationException 발신자 또는 수신자 사용자를 찾을 수 없는 경우
+     */
     @Transactional
     public void sendFriendRequest(long senderId, long receiverId) {
         if (senderId == receiverId) {
-            throw new RegistrationException("BAD_REQUEST", "You cannot send a friend request to yourself.");
+            throw new RegistrationException("BAD_REQUEST", "자기 자신에게 친구 요청을 보낼 수 없습니다.");
         }
-        // Check if users exist
-        User sender = userRepository.findById(senderId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Sender not found."));
-        User receiver = userRepository.findById(receiverId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "Receiver not found."));
+        User sender = userRepository.findById(senderId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "발신자를 찾을 수 없습니다."));
+        User receiver = userRepository.findById(receiverId).orElseThrow(() -> new RegistrationException("NOT_FOUND", "수신자를 찾을 수 없습니다."));
 
-        // Check if a friendship already exists
         friendshipRepository.findByUsers(senderId, receiverId).ifPresent(f -> {
-            throw new RegistrationException("CONFLICT", "Friendship or request already exists.");
+            throw new RegistrationException("CONFLICT", "친구 관계 또는 요청이 이미 존재합니다.");
         });
 
-        // Friendship 테이블 대신 Notification 테이블에 저장
         String content = sender.getNickname() + "님이 친구 요청을 보냈습니다.";
         Notification notification = new Notification(receiverId, Notification.NotificationType.FRIEND_REQUEST, content, senderId, null);
         notificationService.save(notification);
 
-        // 실시간 알림 전송 (새 DTO 사용)
         messagingTemplate.convertAndSendToUser(
                 receiver.getUsername(),
                 "/queue/notifications",
@@ -59,6 +68,13 @@ public class FriendshipService {
         );
     }
 
+    /**
+     * 특정 사용자의 수락된 친구 목록을 조회합니다.
+     * 각 친구의 온라인 상태 및 프로필 이미지 정보를 포함합니다.
+     *
+     * @param userId 친구 목록을 조회할 사용자의 ID
+     * @return {@link FriendResponseDto} 객체 목록
+     */
     public List<FriendResponseDto> getFriends(long userId) {
         List<Friendship> friendships = friendshipRepository.findByUserIdAndStatus(userId, Friendship.Status.ACCEPTED);
 
@@ -66,7 +82,7 @@ public class FriendshipService {
                 .map(friendship -> {
                     long friendId = friendship.getUserId1() == userId ? friendship.getUserId2() : friendship.getUserId1();
                     User friend = userRepository.findById(friendId)
-                            .orElseThrow(() -> new IllegalStateException("Friend user not found"));
+                            .orElseThrow(() -> new IllegalStateException("친구 사용자를 찾을 수 없습니다."));
                     String url = friend.getProfile_image_url();
                     friend.setProfile_image_url(url != null && !url.isBlank() ? profileStaticUrlPrefix + "/" + url : profileStaticUrlPrefix + "/default.png");
                     FriendResponseDto.ConnectType conn = presenceService.isUserOnline(friendId) ? FriendResponseDto.ConnectType.CONNECT : FriendResponseDto.ConnectType.DISCONNECT;
@@ -76,11 +92,24 @@ public class FriendshipService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 특정 사용자들 간의 친구 관계를 삭제합니다.
+     *
+     * @param removerId 친구 관계를 삭제하는 사용자의 ID
+     * @param friendId 삭제될 친구의 ID
+     */
     @Transactional
     public void removeFriend(long removerId, long friendId) {
         friendshipRepository.delete(removerId, friendId);
     }
 
+    /**
+     * 두 사용자 간의 친구 관계 상태를 확인합니다.
+     *
+     * @param currentUserId 현재 사용자의 ID
+     * @param otherUserId 상대방 사용자의 ID
+     * @return 친구 관계 상태를 담은 Map (예: "SELF", "FRIENDS", "PENDING_SENT", "PENDING_RECEIVED", "NONE")
+     */
     public Map<String, String> getFriendshipStatus(long currentUserId, long otherUserId) {
         if (currentUserId == otherUserId) {
             return Map.of("status", "SELF");

@@ -3,17 +3,65 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from './AuthContext';
 import axiosInstance from '../api/axiosInstance';
 
+/**
+ * @file 채팅방 목록, 활성 채팅방, 읽지 않은 메시지 상태 등 채팅방과 관련된 전역 상태를 관리하고 제공하는 컨텍스트입니다.
+ */
+
+/**
+ * @typedef {object} RawRoom
+ * @property {number} id
+ * @property {string} name
+ * @property {string} roomType
+ * @property {string} ownerName
+ * @property {number} userCount
+ * @property {number|null} connCount
+ * @property {boolean} isMember
+ */
+
+/**
+ * @typedef {object} RoomContextType
+ * @property {RawRoom[]} rawRooms - API로부터 받은 필터링되지 않은 원본 방 목록.
+ * @property {RawRoom[]} joinedRooms - 사용자가 참여하고 있는 방 목록.
+ * @property {number|null} activeRoomId - 현재 사용자가 보고 있는 활성 채팅방의 ID.
+ * @property {React.Dispatch<React.SetStateAction<number|null>>} setActiveRoomId - 활성 채팅방 ID를 설정하는 함수.
+ * @property {Set<number>} unreadRooms - 읽지 않은 메시지가 있는 방들의 ID를 담은 Set.
+ * @property {React.Dispatch<React.SetStateAction<Set<number>>>} setUnreadRooms - 읽지 않은 방 Set을 설정하는 함수.
+ * @property {Function} joinRoomAndConnect - 사용자가 방에 참여했을 때 로컬 상태를 업데이트하는 함수.
+ * @property {(roomId: number) => Promise<void>} exitRoom - 방에서 나가는 함수.
+ * @property {(roomId: number) => Promise<void>} deleteRoom - 방을 삭제하는 함수.
+ * @property {() => Promise<void>} fetchRooms - 전체 방 목록을 다시 불러오는 함수.
+ * @property {Object<number, 'ADMIN'|'MEMBER'>} myRole - 각 방에서의 현재 사용자 역할을 담은 객체.
+ * @property {React.Dispatch<React.SetStateAction<object>>} setMyRole - 사용자 역할 상태를 업데이트하는 함수.
+ */
+
+/**
+ * 채팅방 컨텍스트 객체입니다.
+ * @type {React.Context<RoomContextType>}
+ */
 const RoomContext = createContext();
 
+/**
+ * 채팅방 관련 상태와 기능을 제공하는 React 컴포넌트입니다.
+ * @param {object} props
+ * @param {React.ReactNode} props.children - 이 Provider가 감쌀 자식 컴포넌트들.
+ * @returns {JSX.Element} RoomContext.Provider
+ */
 function RoomProvider({ children }) {
     const { user, loading } = useContext(AuthContext);
     const navigate = useNavigate();
 
-    const [rawRooms, setRawRooms] = useState([]); // API로부터 받은 원본 방 목록
+    /** @type {[RawRoom[], React.Dispatch<React.SetStateAction<RawRoom[]>>]} */
+    const [rawRooms, setRawRooms] = useState([]);
+    /** @type {[number|null, React.Dispatch<React.SetStateAction<number|null>>]} */
     const [activeRoomId, setActiveRoomId] = useState(null);
+    /** @type {[Set<number>, React.Dispatch<React.SetStateAction<Set<number>>>]} */
     const [unreadRooms, setUnreadRooms] = useState(new Set());
-    const [myRole, setMyRole] = useState({}); // { [roomId]: 'ADMIN' | 'MEMBER' }
+    /** @type {[Object<number, 'ADMIN'|'MEMBER'>, React.Dispatch<React.SetStateAction<object>>]} */
+    const [myRole, setMyRole] = useState({});
 
+    /**
+     * 서버로부터 전체 채팅방 목록을 가져와 상태를 업데이트합니다.
+     */
     const fetchRooms = useCallback(async () => {
         try {
             const response = await axiosInstance.get('/room/list');
@@ -23,25 +71,35 @@ function RoomProvider({ children }) {
         }
     }, []);
 
+    /**
+     * 사용자 로그인 상태가 변경되면 방 목록을 가져오거나 초기화합니다.
+     */
     useEffect(() => {
         if (user) {
             fetchRooms();
         } else {
-            // 로그아웃 시 방 목록 초기화
             setRawRooms([]);
         }
     }, [user, fetchRooms]);
 
+    /**
+     * 사용자가 참여하고 있는 방 목록만 필터링하여 메모이즈합니다.
+     * @type {RawRoom[]}
+     */
     const joinedRooms = useMemo(() => rawRooms.filter(room => room.isMember), [rawRooms]);
 
+    /**
+     * 사용자가 특정 방에 참여했음을 로컬 상태에 반영합니다.
+     * 이미 참여한 방이거나 목록에 없는 새로운 방인 경우를 모두 처리합니다.
+     * @param {RawRoom} room - 참여할 방 정보 객체.
+     */
     const joinRoomAndConnect = useCallback(async (room) => {
         setRawRooms(prevRawRooms => {
             const isAlreadyMember = prevRawRooms.some(r => r.id === room.id && r.isMember);
             if (isAlreadyMember) {
                 console.log(`[RoomContext] Already a member of room #${room.id}.`);
-                return prevRawRooms; // 상태 변경 없음
+                return prevRawRooms;
             }
-            // 기존 방 목록에 새 방을 추가하거나, 기존 방의 isMember를 true로 업데이트
             const roomExists = prevRawRooms.some(r => r.id === room.id);
             if (roomExists) {
                 return prevRawRooms.map(r => r.id === room.id ? { ...r, isMember: true } : r);
@@ -51,6 +109,10 @@ function RoomProvider({ children }) {
         });
     }, []);
 
+    /**
+     * 특정 채팅방에서 나갑니다.
+     * @param {number} roomId - 나갈 방의 ID.
+     */
     const exitRoom = async (roomId) => {
         try {
             await axiosInstance.delete(`/room/${roomId}/users`);
@@ -62,6 +124,10 @@ function RoomProvider({ children }) {
         }
     };
 
+    /**
+     * 특정 채팅방을 삭제합니다. (방장 권한 필요)
+     * @param {number} roomId - 삭제할 방의 ID.
+     */
     const deleteRoom = async (roomId) => {
         try {
             await axiosInstance.delete(`/room/${roomId}`);
@@ -73,6 +139,9 @@ function RoomProvider({ children }) {
         }
     };
 
+    /**
+     * 활성 채팅방이 변경되면 해당 방의 '읽지 않음' 상태를 제거합니다.
+     */
     useEffect(() => {
         if (activeRoomId && unreadRooms.has(activeRoomId)) {
             setUnreadRooms(prev => {
@@ -84,8 +153,8 @@ function RoomProvider({ children }) {
     }, [activeRoomId, unreadRooms]);
 
     const value = {
-        rawRooms, // 원본 방 목록
-        joinedRooms, // 참여한 방 목록
+        rawRooms,
+        joinedRooms,
         activeRoomId,
         setActiveRoomId,
         unreadRooms,
@@ -93,7 +162,7 @@ function RoomProvider({ children }) {
         joinRoomAndConnect,
         exitRoom,
         deleteRoom,
-        fetchRooms, // 로비에서 수동으로 새로고침할 수 있도록 전달
+        fetchRooms,
         myRole,
         setMyRole,
     };

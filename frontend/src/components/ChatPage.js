@@ -1,8 +1,8 @@
 import React, { useEffect, useContext, useState, useRef, useLayoutEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // 1. useNavigate 임포트
+import { useParams, useNavigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
 import { ChatContext } from '../context/ChatContext';
-import { RoomContext } from '../context/RoomContext'; // Import RoomContext
+import { RoomContext } from '../context/RoomContext';
 import { ModalContext } from '../context/ModalContext';
 import ChatMessage from './ChatMessage';
 import UserProfileModal from './UserProfileModal';
@@ -10,83 +10,113 @@ import { toast } from 'react-toastify';
 import { IoSend } from "react-icons/io5";
 import { FaUsers } from 'react-icons/fa';
 import axiosInstance from '../api/axiosInstance';
-import '../styles/ChatPage.css'; // ChatPage specific styles
+import '../styles/ChatPage.css';
+
+/**
+ * @file 특정 채팅방의 전체 UI와 상호작용을 담당하는 메인 페이지 컴포넌트입니다.
+ * 메시지 목록, 사용자 목록, 메시지 입력, 파일 전송 등 채팅에 필요한 모든 기능을 포함합니다.
+ */
+
 const SERVER_URL = axiosInstance.getUri();
 
+/**
+ * 채팅방 페이지 컴포넌트.
+ * @returns {JSX.Element} ChatPage 컴포넌트의 JSX.
+ */
 function ChatPage() {
     const { roomId } = useParams();
     const navigate = useNavigate();
+
+    // --- Contexts ---
     const { user } = useContext(AuthContext);
     const { openUserProfileModal, toggleFriendListModal, closeFriendListModal } = useContext(ModalContext);
     const { activeRoomId, setActiveRoomId, joinedRooms, exitRoom, deleteRoom } = useContext(RoomContext);
     const { messagesByRoom, usersByRoom, stompClientsRef, isRoomLoading, loadMoreMessages, hasMoreMessagesByRoom } = useContext(ChatContext);
 
-    // --- UI 상호작용을 위한 Local State ---
+    // --- Local UI State ---
+    /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 메시지 입력창의 현재 텍스트 */
     const [newMessage, setNewMessage] = useState('');
+    /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 현재 방에서 사용자의 닉네임 */
     const [myNickname, setMyNickname] = useState('');
+    /** @type {[Array<{file: File, previewUrl: string|null}>, React.Dispatch<React.SetStateAction<Array<{file: File, previewUrl: string|null}>>>]} 업로드할 파일 목록과 미리보기 URL */
     const [filesToUpload, setFilesToUpload] = useState([]);
+    /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 파일 업로드 진행 상태 */
     const [isUploading, setIsUploading] = useState(false);
+    /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 파일 드래그 앤 드롭 활성화 상태 */
     const [isDragging, setIsDragging] = useState(false);
+    /** @type {[string|null, React.Dispatch<React.SetStateAction<string|null>>]} 현재 방에서의 사용자 역할 ('ADMIN' | 'MEMBER') */
     const [myRole, setMyRole] = useState(null);
+    /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 이전 메시지를 불러오는 중인지 여부 */
     const [isFetchingMore, setIsFetchingMore] = useState(false);
+    /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 사용자가 스크롤 중인지 여부 */
     const [isUserScrolling, setIsUserScrolling] = useState(false);
-    const scrollTimeoutRef = useRef(null);
+    /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 사용자 목록 패널의 표시 여부 */
     const [isUserListVisible, setIsUserListVisible] = useState(window.innerWidth > 768);
-
-
-    // --- DOM 참조 및 스크롤 관리를 위한 Ref ---
+    /** @type {[{x: number, y: number, user: object, items: Array}|null, React.Dispatch<React.SetStateAction<{x: number, y: number, user: object, items: Array}>>]} 컨텍스트 메뉴 상태 (위치, 대상 유저, 메뉴 아이템) */
+    const [contextMenu, setContextMenu] = useState(null);
+    
+    // --- DOM Refs ---
     const textareaRef = useRef(null);
     const fileInputRef = useRef(null);
     const scrollContainerRef = useRef(null);
     const prevScrollHeightRef = useRef(null);
     const inviteButtonRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const contextMenuRef = useRef(null);
+    const scrollTimeoutRef = useRef(null);
 
+    // --- Derived State ---
     const currentRoomId = Number(roomId);
     const roomName = joinedRooms.find(r => r.id === currentRoomId)?.name || '';
     const messages = messagesByRoom[currentRoomId] || [];
     const users = usersByRoom[currentRoomId] || [];
-    // 사용자 목록을 정렬하는 로직
+    /**
+     * 사용자 목록을 정렬 (온라인 > 오프라인, 관리자 > 일반, 닉네임 오름차순).
+     * @type {import('../context/ChatContext').ChatUser[]}
+     */
     const sortedUsers = [...users].sort((a, b) => {
-        // 1. 접속 상태로 정렬 (온라인이 위로)
         if (a.conn === 'CONNECT' && b.conn !== 'CONNECT') return -1;
         if (a.conn !== 'CONNECT' && b.conn === 'CONNECT') return 1;
-        
-        // 2. 역할로 정렬 (방장(ADMIN)이 위로)
         if (a.role === 'ADMIN' && b.role !== 'ADMIN') return -1;
         if (a.role !== 'ADMIN' && b.role === 'ADMIN') return 1;
-        
-        // 3. 닉네임 오름차순으로 정렬
         return a.nickname.localeCompare(b.nickname);
     });
-    const scrollActionRef = useRef('initial');
     const isLoading = isRoomLoading[currentRoomId] !== false;
     const hasMoreMessages = hasMoreMessagesByRoom[currentRoomId] !== false;
     
+    /**
+     * 화면 크기 변경 시 사용자 목록 패널의 표시 여부를 결정하는 Effect.
+     */
     useEffect(() => {
-        const handleResize = () => {
-            setIsUserListVisible(window.innerWidth > 768);
-        };
+        const handleResize = () => setIsUserListVisible(window.innerWidth > 768);
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // 4. 방 나가기/삭제 핸들러 함수 추가
+    /**
+     * 현재 방에서 나가는 함수.
+     */
     const handleExitRoom = () => {
         if (window.confirm("정말로 이 방에서 나가시겠습니까?")) {
             exitRoom(currentRoomId);
-            navigate('/'); // 로비로 이동
+            navigate('/');
         }
     };
 
+    /**
+     * 현재 방을 삭제하는 함수 (방장 권한 필요).
+     */
     const handleDeleteRoom = () => {
         if (window.confirm("정말로 이 방을 삭제하시겠습니까? 모든 대화 내용이 사라집니다.")) {
             deleteRoom(currentRoomId);
-            navigate('/'); // 로비로 이동
+            navigate('/');
         }
     };
 
-    // ✅ addFiles 함수를 useCallback으로 감싸줍니다.
+    /**
+     * 파일 선택, 드래그앤드롭, 붙여넣기로 추가된 파일들을 상태에 추가하고 미리보기를 생성하는 함수.
+     * @param {FileList|File[]} newFiles - 새로 추가된 파일 목록.
+     */
     const addFiles = useCallback((newFiles) => {
         if (newFiles.length === 0) return;
         const filesArray = Array.from(newFiles);
@@ -105,6 +135,10 @@ function ChatPage() {
         });
     }, [textareaRef]);
     
+    /**
+     * 친구 목록 모달에서 친구를 클릭했을 때 초대를 보내는 함수.
+     * @param {import('../context/FriendContext').Friend} friend - 초대할 친구 객체.
+     */
     const handleInviteFriend = async (friend) => {
         try {
             await axiosInstance.post(`/room/${roomId}/invite`, { userId: friend.userId });
@@ -117,6 +151,9 @@ function ChatPage() {
         }
     };
     
+    /**
+     * '친구 초대' 버튼 클릭 시 친구 목록 모달을 토글하는 함수.
+     */
     const handleOpenInviteModal = () => {
         const rect = inviteButtonRef.current.getBoundingClientRect();
         toggleFriendListModal({
@@ -130,57 +167,26 @@ function ChatPage() {
         });
     };
     
+    /**
+     * 이전 메시지를 모두 불러온 경우, 로딩 상태를 false로 설정하는 Effect.
+     */
     useEffect(() => {
         if (isFetchingMore && !hasMoreMessages) {
             setIsFetchingMore(false);
         }
     }, [isFetchingMore, hasMoreMessages]);
 
-    // --- Effects ---
+    /**
+     * 현재 방 ID를 `RoomContext`의 `activeRoomId`로 설정하는 Effect.
+     */
     useEffect(() => {
         const currentRoomId = Number(roomId);
         setActiveRoomId(currentRoomId);
-        scrollActionRef.current = 'initial';
-    }, [currentRoomId, setActiveRoomId]);
+    }, [roomId, setActiveRoomId]);
 
-    useEffect(() => {
-        if (user && users.length > 0) {
-            const me = users.find(u => u.userId === user.userId);
-            if (me) setMyNickname(me.nickname);
-        }
-    }, [users, user]);
-
-    useEffect(() => {
-        const textarea = textareaRef.current;
-        if (textarea) {
-            textarea.style.height = '0px';
-            const scrollHeight = textarea.scrollHeight;
-            textarea.style.height = `${scrollHeight}px`;
-        }
-    }, [newMessage]);
-    
-    useLayoutEffect(() => {
-        const container = scrollContainerRef.current;
-        if (!container) return;
-
-        if (isFetchingMore) {
-            // 이전 메시지 로딩이 완료된 시점.
-            // 스크롤 위치를 보존한 후, 로딩 상태를 해제합니다.
-            container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
-            setIsFetchingMore(false);
-        } else {
-            // 새 메시지 수신 또는 초기 로딩 시점.
-            // 스크롤이 맨 아래 근처에 있었을 때만 맨 아래로 이동시킵니다.
-            // prevScrollHeightRef.current가 null이면 초기 로딩이므로 무조건 맨 아래로 갑니다.
-            const wasAtBottom = prevScrollHeightRef.current ? (container.scrollTop + container.clientHeight >= prevScrollHeightRef.current - 20) : true;
-            if (wasAtBottom) {
-                container.scrollTop = container.scrollHeight;
-            }
-        }
-        // 다음 렌더링을 위해 현재 스크롤 높이를 기록합니다.
-        prevScrollHeightRef.current = container.scrollHeight;
-    }, [messages]);
-
+    /**
+     * 현재 방의 사용자 목록이 변경될 때 '내 닉네임'과 '내 역할' 상태를 업데이트하는 Effect.
+     */
     useEffect(() => {
         if (user && users.length > 0) {
             const me = users.find(u => u.userId === user.userId);
@@ -191,14 +197,51 @@ function ChatPage() {
         }
     }, [users, user]);
 
-    // --- 이벤트 핸들러 ---
+    /**
+     * 메시지 입력창의 내용이 변경될 때마다 높이를 자동으로 조절하는 Effect.
+     */
+    useEffect(() => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = '0px';
+            const scrollHeight = textarea.scrollHeight;
+            textarea.style.height = `${scrollHeight}px`;
+        }
+    }, [newMessage]);
+    
+    /**
+     * 메시지 목록의 스크롤 위치를 관리하는 `useLayoutEffect`.
+     * - 이전 메시지를 불러왔을 때: 스크롤 위치를 유지.
+     * - 새 메시지를 받았을 때: 사용자가 스크롤을 올리지 않았다면 맨 아래로 스크롤.
+     * - 초기 로딩 시: 맨 아래로 스크롤.
+     */
+    useLayoutEffect(() => {
+        const container = scrollContainerRef.current;
+        if (!container) return;
+
+        if (isFetchingMore) {
+            container.scrollTop = container.scrollHeight - prevScrollHeightRef.current;
+            setIsFetchingMore(false);
+        } else {
+            const wasAtBottom = prevScrollHeightRef.current ? (container.scrollTop + container.clientHeight >= prevScrollHeightRef.current - 20) : true;
+            if (wasAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+        prevScrollHeightRef.current = container.scrollHeight;
+    }, [messages, isFetchingMore]);
+
+    /**
+     * 메시지 전송 폼 제출 시 호출되는 핸들러.
+     * @param {React.FormEvent} e - 폼 제출 이벤트.
+     */
     const handleSendMessage = (e) => {
         e.preventDefault();
         const messageContent = newMessage.trim();
         const client = stompClientsRef.current.get(currentRoomId);
         if (messageContent && client?.connected) {
             const mentionedUserIds = [];
-            const mentionRegex = /@([^\s]+)/g; // @닉네임 패턴 찾기
+            const mentionRegex = /@([^\s]+)/g;
             let match;
             const currentRoomUsers = usersByRoom[currentRoomId] || [];
 
@@ -215,13 +258,18 @@ function ChatPage() {
                 authorId: user.userId, 
                 content: messageContent, 
                 messageType: 'TEXT',
-                mentionedUserIds: mentionedUserIds // 멘션된 사용자 ID 목록 추가
+                mentionedUserIds: mentionedUserIds
             };
             client.publish({ destination: '/app/chat.sendMessage', body: JSON.stringify(chatMessage) });
             setNewMessage('');
         }
     };
 
+    /**
+     * 메시지 입력창에서 키보드 입력 이벤트를 처리하는 핸들러.
+     * Shift+Enter는 줄바꿈, Enter는 메시지 전송으로 처리합니다.
+     * @param {React.KeyboardEvent} e - 키보드 이벤트.
+     */
     const handleKeyDown = (e) => {
         if (e.key === 'Enter' && e.shiftKey) return;
         if (e.key === 'Enter') {
@@ -234,25 +282,28 @@ function ChatPage() {
         }
     };
 
+    /**
+     * 메시지 목록 스크롤 시 호출되는 핸들러.
+     * 스크롤이 최상단에 도달하면 이전 메시지를 불러옵니다.
+     */
     const handleScroll = () => {
         setIsUserScrolling(true);
         clearTimeout(scrollTimeoutRef.current);
-        scrollTimeoutRef.current = setTimeout(() => {
-            setIsUserScrolling(false);
-        }, 150);
+        scrollTimeoutRef.current = setTimeout(() => setIsUserScrolling(false), 150);
 
         const container = scrollContainerRef.current;
         const hasMore = hasMoreMessagesByRoom[currentRoomId] !== false;
 
         if (container && container.scrollTop < 1 && !isFetchingMore && hasMore) {
-            // 현재 스크롤 높이를 저장하고, 로딩 상태를 true로 설정합니다.
-            // 로딩 상태 해제는 useLayoutEffect에서 처리합니다.
             prevScrollHeightRef.current = container.scrollHeight;
             setIsFetchingMore(true);
             loadMoreMessages(currentRoomId);
         }
     };
 
+    /**
+     * 닉네임 입력창에서 포커스가 벗어날 때 닉네임 변경을 시도하는 핸들러.
+     */
     const handleNicknameUpdate = () => {
         const me = users.find(u => u.userId === user.userId);
         if (!me || me.nickname === myNickname || myNickname.trim() === '') {
@@ -266,11 +317,18 @@ function ChatPage() {
         }
     };
     
+    /**
+     * 파일 선택(input)이 변경되었을 때 호출되는 핸들러.
+     * @param {React.ChangeEvent<HTMLInputElement>} event - 변경 이벤트.
+     */
     const handleFileChange = (event) => {
         addFiles(event.target.files);
         event.target.value = null;
     };
 
+    /**
+     * '전송' 버튼 클릭 시 선택된 파일들을 서버에 업로드하는 함수.
+     */
     const handleFileUpload = async () => {
         if (filesToUpload.length === 0 || isUploading) return;
         setIsUploading(true);
@@ -288,6 +346,10 @@ function ChatPage() {
         setFilesToUpload([]);
     };
     
+    /**
+     * 채팅 입력창에 이미지 파일을 붙여넣기 했을 때 실행되는 핸들러.
+     * @param {ClipboardEvent} event - 붙여넣기 이벤트.
+     */
     const handlePaste = useCallback((event) => {
         const items = event.clipboardData.items;
         const imageFiles = [];
@@ -304,22 +366,39 @@ function ChatPage() {
         }
     }, [addFiles]);
     
+    /**
+     * 파일 드래그가 영역에 들어왔을 때 실행되는 핸들러.
+     * @param {React.DragEvent} event - 드래그 이벤트.
+     */
     const handleDragOver = (event) => {
         event.preventDefault();
         setIsDragging(true);
     };
     
+    /**
+     * 파일 드래그가 영역에서 나갔을 때 실행되는 핸들러.
+     * @param {React.DragEvent} event - 드래그 이벤트.
+     */
     const handleDragLeave = (event) => {
         event.preventDefault();
         setIsDragging(false);
     };
     
+    /**
+     * 파일 드롭 시 실행되는 핸들러.
+     * @param {React.DragEvent} event - 드롭 이벤트.
+     */
     const handleDrop = (event) => {
         event.preventDefault();
         setIsDragging(false);
         addFiles(event.dataTransfer.files);
     };
     
+    /**
+     * 사용자 목록에서 특정 사용자를 클릭했을 때 프로필 모달을 여는 핸들러.
+     * @param {import('../context/ChatContext').ChatUser} clickedUser - 클릭된 사용자 정보.
+     * @param {React.MouseEvent} event - 마우스 클릭 이벤트.
+     */
     const handleUserClick = async (clickedUser, event) => {
         const liRect = event.currentTarget.getBoundingClientRect();
         const position = {
@@ -335,22 +414,20 @@ function ChatPage() {
         }
     };
 
-    const [contextMenu, setContextMenu] = useState(null); // { x, y, user }
-    const contextMenuRef = useRef(null);
-
+    /**
+     * 사용자 목록에서 우클릭 시 컨텍스트 메뉴를 표시하는 핸들러.
+     * @param {React.MouseEvent} e - 마우스 우클릭 이벤트.
+     * @param {import('../context/ChatContext').ChatUser} clickedUser - 우클릭된 사용자 정보.
+     */
     const handleUserContextMenu = (e, clickedUser) => {
-        e.preventDefault(); // 기본 컨텍스트 메뉴 방지
+        e.preventDefault(); 
 
-        // 자신은 강퇴할 수 없음
         if (clickedUser.userId === user.userId) {
             setContextMenu(null);
             return;
         }
 
-        // 현재 로그인한 유저가 ADMIN이고, 클릭된 유저가 MEMBER일 경우에만 메뉴 표시
         const menuItems = [];
-
-        // 멘션하기 옵션은 항상 추가
         menuItems.push({
             label: `${clickedUser.nickname} 멘션하기`,
             action: () => handleMentionUser(clickedUser.nickname),
@@ -366,18 +443,15 @@ function ChatPage() {
         }
         
         if (menuItems.length > 0) {
-            setContextMenu({
-                x: e.clientX,
-                y: e.clientY,
-                user: clickedUser,
-                items: menuItems,
-            });
+            setContextMenu({ x: e.clientX, y: e.clientY, user: clickedUser, items: menuItems });
         } else {
             setContextMenu(null);
         }
     };
 
-    // 컨텍스트 메뉴 외부 클릭 시 닫기
+    /**
+     * 컨텍스트 메뉴 바깥쪽을 클릭하면 메뉴를 닫는 Effect.
+     */
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
@@ -388,8 +462,12 @@ function ChatPage() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [contextMenu]);
 
+    /**
+     * 컨텍스트 메뉴에서 '추방'을 선택했을 때 실행되는 핸들러.
+     * @param {number} userIdToKick - 추방할 사용자의 ID.
+     */
     const handleKickUser = async (userIdToKick) => {
-        setContextMenu(null); // 메뉴 닫기
+        setContextMenu(null);
         try {
             await axiosInstance.delete(`/api/rooms/${currentRoomId}/users/${userIdToKick}`);
             toast.success("사용자를 방에서 추방했습니다.");
@@ -399,21 +477,27 @@ function ChatPage() {
         }
     };
 
+    /**
+     * 컨텍스트 메뉴에서 '멘션하기'를 선택했을 때 실행되는 핸들러.
+     * @param {string} nickname - 멘션할 사용자의 닉네임.
+     */
     const handleMentionUser = (nickname) => {
         setNewMessage(prev => {
             const currentText = prev.endsWith(' ') || prev.length === 0 ? prev : prev + ' ';
             return currentText + `@${nickname} `;
         });
-        textareaRef.current?.focus(); // 텍스트 에어리어에 포커스
-        setContextMenu(null); // 메뉴 닫기
+        textareaRef.current?.focus();
+        setContextMenu(null);
     };
 
+    /**
+     * 메시지 삭제 핸들러.
+     * @param {number} messageId - 삭제할 메시지의 ID.
+     */
     const handleDeleteMessage = async (messageId) => {
         if (window.confirm("이 메시지를 삭제하시겠습니까?")) {
             try {
                 await axiosInstance.delete(`/api/messages/${messageId}`);
-                // 성공 시 별도의 UI 업데이트가 필요 없습니다.
-                // WebSocket을 통해 삭제 이벤트가 수신되어 ChatContext에서 자동으로 처리됩니다.
             } catch (error) {
                 console.error('Failed to delete message:', error);
                 toast.error(error.response?.data?.message || '메시지 삭제에 실패했습니다.');
@@ -421,21 +505,31 @@ function ChatPage() {
         }
     };
 
+    /**
+     * 메시지 수정 핸들러.
+     * @param {number} messageId - 수정할 메시지의 ID.
+     * @param {string} newContent - 새로운 메시지 내용.
+     */
     const handleEditMessage = async (messageId, newContent) => {
         try {
             await axiosInstance.put(`/api/messages/${messageId}`, { content: newContent });
-            // 성공 시 별도의 UI 업데이트가 필요 없습니다.
-            // WebSocket을 통해 수정 이벤트가 수신되어 ChatContext에서 자동으로 처리됩니다.
         } catch (error) {
             console.error('Failed to edit message:', error);
             toast.error(error.response?.data?.message || '메시지 수정에 실패했습니다.');
         }
     };
     
+    /**
+     * 파일 미리보기 목록에서 특정 파일을 제거하는 핸들러.
+     * @param {File} fileToRemove - 제거할 파일 객체.
+     */
     const handleRemoveFile = (fileToRemove) => {
         setFilesToUpload(prevFiles => prevFiles.filter(item => item.file !== fileToRemove));
     };
     
+    /**
+     * 클립보드 붙여넣기 이벤트를 감지하여 이미지 파일을 첨부하는 Effect.
+     */
     useEffect(() => {
         window.addEventListener('paste', handlePaste);
         return () => {
@@ -501,7 +595,6 @@ function ChatPage() {
                         >
                             <FaUsers />
                         </button>
-                        {/* 5. 방 나가기/삭제 버튼 JSX 추가 */}
                         <div className="room-actions">
                             {myRole !== 'ADMIN' && (
                                 <button onClick={handleExitRoom}>방 나가기</button>
@@ -534,7 +627,7 @@ function ChatPage() {
                                     const prevMsg = messages[index - 1];
                                     const isFirstInGroup = !prevMsg || 
                                                            prevMsg.authorId !== msg.authorId || 
-                                                           (new Date(msg.createdAt) - new Date(prevMsg.createdAt)) > 120000; // 2분 이상 차이
+                                                           (new Date(msg.createdAt) - new Date(prevMsg.createdAt)) > 120000;
                                     
                                     return <ChatMessage 
                                                 key={msg.messageId || `msg-${index}`} 

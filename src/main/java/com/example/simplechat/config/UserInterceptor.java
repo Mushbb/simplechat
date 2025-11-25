@@ -8,24 +8,39 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 
+/**
+ * WebSocket 메시지 채널을 가로채서 사용자 정보를 처리하는 인터셉터입니다.
+ * <p>
+ * 클라이언트가 WebSocket에 연결(CONNECT)할 때, STOMP 헤더에서 사용자 ID와 방 ID를 추출하여
+ * WebSocket 세션 속성에 저장하는 역할을 합니다.
+ * 이렇게 저장된 정보는 이후의 WebSocket 이벤트(예: 연결 해제) 처리 시 사용됩니다.
+ * </p>
+ */
 @Component
 public class UserInterceptor implements ChannelInterceptor {
 
+    /**
+     * 메시지가 채널로 전송되기 전에 호출됩니다.
+     * <p>
+     * STOMP의 CONNECT 명령어일 경우, 네이티브 헤더에서 'user_id'와 'room_id'를 추출하여
+     * WebSocket 세션 속성에 저장합니다.
+     * </p>
+     *
+     * @param message 처리할 메시지
+     * @param channel 메시지가 전송될 채널
+     * @return 수정되거나 원래의 메시지
+     */
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            // 사용자 인증 정보를 추출하여 세션 속성에 저장
-            // 예시: WebSocket 연결 시 전송되는 사용자 이름 헤더 (또는 Spring Security 통합)
-        	String userid = accessor.getFirstNativeHeader("user_id");
-            String roomid = accessor.getFirstNativeHeader("room_id");
+        if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+            String userId = accessor.getFirstNativeHeader("user_id");
+            String roomId = accessor.getFirstNativeHeader("room_id");
 
-            if (userid != null) {
-                accessor.getSessionAttributes().put("user_id", userid);
-                accessor.getSessionAttributes().put("room_id", roomid);
-                // Spring Security를 사용한다면 Principal 객체를 저장
-                // accessor.setUser(new UsernamePasswordAuthenticationToken(username, null, new ArrayList<>()));
+            if (userId != null && roomId != null) {
+                accessor.getSessionAttributes().put("user_id", userId);
+                accessor.getSessionAttributes().put("room_id", roomId);
             }
         }
         return message;

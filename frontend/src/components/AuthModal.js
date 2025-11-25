@@ -2,28 +2,47 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
 import { ModalContext } from '../context/ModalContext';
 
+/**
+ * @file 사용자 로그인을 위한 모달 컴포넌트입니다.
+ */
+
+/**
+ * 로그인 폼을 포함하는 모달 컴포넌트.
+ * 사용자는 이 모달을 통해 아이디와 비밀번호를 입력하여 로그인할 수 있습니다.
+ * @returns {JSX.Element} AuthModal 컴포넌트의 JSX.
+ */
 function AuthModal() {
     const { login } = useContext(AuthContext);
     const { closeLoginModal } = useContext(ModalContext);
+
+    /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 사용자 아이디 입력 상태 */
     const [username, setUsername] = useState('');
+    /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 사용자 비밀번호 입력 상태 */
     const [password, setPassword] = useState('');
 
+    /**
+     * 폼 제출 시 로그인 로직을 실행하는 핸들러.
+     * @param {React.FormEvent} e - 폼 제출 이벤트.
+     */
     const handleLogin = async (e) => {
         e.preventDefault();
         try {
             await login(username, password);
             closeLoginModal(); // 로그인 성공 후 모달 닫기
         } catch (error) {
-            // 에러 처리는 login 함수 내부에서 이미 처리됨
+            // 에러 처리는 login 함수 내부에서 이미 처리됨 (alert)
         }
     };
 
+    /**
+     * '샘플 계정으로 로그인' 버튼 클릭 시 실행되는 핸들러.
+     */
     const handleSampleLogin = async () => {
         try {
             await login('sample', 'sample');
             closeLoginModal(); // 로그인 성공 후 모달 닫기
         } catch (error) {
-            // 에러 처리는 login 함수 내부에서 이미 처리됨
+            // 에러 처리는 login 함수 내부에서 이미 처리됨 (alert)
         }
     };
 

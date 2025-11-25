@@ -13,6 +13,15 @@ import FriendListModal from './FriendListModal';
 import '../styles/Notifications.css';
 import '../styles/Topbar.css';
 
+/**
+ * @file 애플리케이션의 최상단에 위치하는 Topbar 컴포넌트입니다.
+ * 인증, 알림, 친구 목록, 채팅방 탭 등 전역적인 탐색 및 상호작용 기능을 제공합니다.
+ */
+
+/**
+ * Topbar 컴포넌트.
+ * @returns {JSX.Element} Topbar 컴포넌트의 JSX.
+ */
 function Topbar() {
     const { user, logout, deleteAccount, isAdmin } = useContext(AuthContext);
     const { notifications, unreadCount, acceptNotification, rejectNotification, markNotificationsAsRead } = useContext(NotificationContext);
@@ -20,12 +29,21 @@ function Topbar() {
     const { joinedRooms, activeRoomId, setActiveRoomId, unreadRooms } = useContext(RoomContext);
     const navigate = useNavigate();
     const location = useLocation();
+
+    /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 알림 드롭다운 메뉴의 열림/닫힘 상태 */
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 관리자 명령 입력창의 상태 */
     const [adminCommand, setAdminCommand] = useState('');
     
+    /** @type {React.RefObject<HTMLDivElement>} 알림 드롭다운 DOM 엘리먼트에 대한 Ref */
     const dropdownRef = useRef(null);
+    /** @type {React.RefObject<HTMLButtonElement>} 친구 목록 아이콘 버튼 DOM 엘리먼트에 대한 Ref */
     const friendIconRef = useRef(null);
 
+    /**
+     * 관리자 명령 폼 제출 시 실행되는 핸들러.
+     * @param {React.FormEvent} e - 폼 제출 이벤트.
+     */
     const handleAdminCommand = async (e) => {
         e.preventDefault();
         if (!adminCommand.trim()) return;
@@ -40,6 +58,9 @@ function Topbar() {
         }
     };
     
+    /**
+     * 알림 드롭다운 외부 클릭 시 드롭다운을 닫는 Effect.
+     */
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -50,14 +71,17 @@ function Topbar() {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [dropdownRef]);
     
+    /**
+     * 친구 목록에서 친구 클릭 시 프로필 모달을 여는 핸들러.
+     * @param {import('../context/FriendContext').Friend} friend - 클릭된 친구 객체.
+     * @param {React.MouseEvent} event - 마우스 클릭 이벤트.
+     */
     const handleProfileClick = async (friend, event) => {
         const liRect = event.currentTarget.getBoundingClientRect();
         const position = { top: liRect.top, left: liRect.right + 5 };
         
         try {
-            // 전체 프로필 정보를 API로 가져옵니다 (상세 정보 포함).
             const response = await axiosInstance.get(`/user/${friend.userId}/profile`);
-            // AuthContext의 전역 함수를 호출하여 프로필 모달을 엽니다.
             openUserProfileModal(response.data, position);
         } catch (error) {
             console.error('프로필 정보를 가져오는 데 실패했습니다:', error);
@@ -65,50 +89,61 @@ function Topbar() {
         }
     };
     
+    /**
+     * 친구 아이콘 클릭 시 친구 목록 모달을 토글하는 핸들러.
+     * 모달이 열릴 위치를 동적으로 계산하여 전달합니다.
+     */
     const handleOpenFriendList = () => {
-        // 아이콘 버튼의 위치 계산
         const rect = friendIconRef.current.getBoundingClientRect();
-        
-        // 👈 변경: openFriendListModal 호출 시 위치 정보 전달
         toggleFriendListModal({
             title: '친구 목록',
-            onFriendClick: handleProfileClick, // 기존 프로필 클릭 로직
+            onFriendClick: handleProfileClick,
             position: {
                 mode: 'absolute',
-                top: rect.bottom - 10, // 아이콘 바로 아래 5px 지점
-                left: rect.left - 90     // 아이콘 왼쪽 끝에 맞춤
+                top: rect.bottom - 10,
+                left: rect.left - 90
             }
         });
     };
     
+    /**
+     * 채팅방 탭 클릭 시 해당 채팅방으로 이동하는 핸들러.
+     * @param {number} roomId - 이동할 채팅방의 ID.
+     */
     const handleTabClick = (roomId) => {
-        setActiveRoomId(roomId); // Context에 현재 활성화된 방이 무엇인지 알립니다.
-        navigate(`/chat/${roomId}`); // 해당 방의 URL로 페이지를 이동시킵니다.
+        setActiveRoomId(roomId);
+        navigate(`/chat/${roomId}`);
     };
     
-    // ✅ 새로운 로그아웃 핸들러 함수를 만듭니다.
+    /**
+     * 로그아웃 버튼 클릭 시 로그아웃을 처리하고 홈페이지로 이동하는 핸들러.
+     */
     const handleLogout = async () => {
-        await logout(); // 기존의 logout 함수를 호출해서 상태를 변경하고
-        navigate('/');  // 작업이 끝나면 로비로 이동시킵니다.
+        await logout();
+        navigate('/');
     };
     
-    // ✨ 신규: 수락 버튼 클릭 시 실행될 새로운 핸들러
+    /**
+     * 알림 수락 시 후속 조치를 처리하는 핸들러.
+     * 방 초대 알림인 경우, 수락 후 해당 채팅방으로 이동합니다.
+     * @param {import('../context/NotificationContext').Notification} notification - 수락된 알림 객체.
+     */
     const handleAcceptNotification = async (notification) => {
         const roomId = await acceptNotification(notification);
-        // 만약 acceptNotification 함수가 roomId를 반환했다면
         if (roomId) {
-            // 해당 채팅방 URL로 페이지를 이동시킵니다.
             navigate(`/chat/${roomId}`);
         }
     };
 
+    /**
+     * 알림 벨 아이콘 클릭 시 드롭다운을 토글하고, 열릴 때 읽지 않은 알림을 읽음 처리하는 핸들러.
+     */
     const handleBellClick = () => {
         setIsDropdownOpen(prev => {
             const newState = !prev;
             if (newState && notifications.length > 0) {
-                // 드롭다운이 열릴 때, 현재 표시된 모든 알림을 읽음으로 표시
                 const notificationIdsToMarkAsRead = notifications
-                    .filter(n => !n.isRead) // 아직 읽지 않은 알림만
+                    .filter(n => !n.isRead)
                     .map(n => n.notificationId);
                 if (notificationIdsToMarkAsRead.length > 0) {
                     markNotificationsAsRead(notificationIdsToMarkAsRead);
@@ -142,7 +177,6 @@ function Topbar() {
                                 {isDropdownOpen && (
                                     <div className="notification-dropdown">
                                         {notifications.length > 0 ? (
-                                            // 👈 변경: 새로운 notifications 배열을 렌더링
                                             notifications.map(n => (
                                                 <div key={n.notificationId} className={`notification-item ${n.isRead ? 'read' : ''}`}>
                                                     <span className="notification-text">{n.content}</span>
@@ -198,13 +232,11 @@ function Topbar() {
                         로비
                     </button>
                     {joinedRooms.map(room => {
-                        // 이 방이 안 읽은 메시지를 가지고 있다면
                         const hasUnread = unreadRooms.has(room.id);
                         
                         return (
                             <button
                                 key={room.id}
-                                // hasUnread가 true일 때 'unread' 클래스를 추가
                                 className={`room-tab ${room.id === activeRoomId ? 'active' : ''} ${hasUnread ? 'unread' : ''}`}
                                 onClick={() => handleTabClick(room.id)}
                             >

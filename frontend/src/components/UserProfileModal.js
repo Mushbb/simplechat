@@ -1,18 +1,24 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axiosInstance from '../api/axiosInstance';
 import { AuthContext } from '../context/AuthContext';
+
+/**
+ * @file 다른 사용자의 프로필 정보를 표시하는 모달 컴포넌트입니다.
+ * 현재 사용자와의 친구 관계 상태에 따라 '친구 추가' 등의 상호작용 버튼을 제공합니다.
+ */
+
 const SERVER_URL = axiosInstance.getUri();
 
+// 인라인 스타일 객체들
 const modalStyle = {
-    position: 'absolute', // 부모 요소를 기준으로 절대 위치를 가짐
+    position: 'absolute',
     width: '250px',
     backgroundColor: 'white',
     border: '1px solid #ccc',
     borderRadius: '8px',
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    zIndex: 1100, // 다른 채팅방 UI 위에 보이도록 z-index 설정
+    zIndex: 1100,
 };
-
 const headerStyle = {
     padding: '10px 15px',
     backgroundColor: '#f7f7f7',
@@ -21,7 +27,6 @@ const headerStyle = {
     justifyContent: 'space-between',
     alignItems: 'center',
 };
-
 const nicknameStyle = { fontWeight: 'bold', fontSize: '16px' };
 const closeBtnStyle = { fontSize: '24px', color: '#aaa', cursor: 'pointer', border: 'none', background: 'none' };
 const bodyStyle = { padding: '15px' };
@@ -32,10 +37,22 @@ const actionBtnStyle = { padding: '5px 10px', border: '1px solid #ccc', borderRa
 const disabledBtnStyle = { ...actionBtnStyle, cursor: 'not-allowed', backgroundColor: '#eee', color: '#888' };
 
 
+/**
+ * 다른 사용자의 프로필을 표시하는 모달.
+ * @param {object} props
+ * @param {object} props.profile - 표시할 사용자의 프로필 정보.
+ * @param {Function} props.onClose - 모달을 닫는 함수.
+ * @param {{top: number, left: number}} props.position - 모달이 표시될 위치.
+ * @returns {JSX.Element|null} 프로필 정보가 있을 경우 모달 JSX를, 없으면 null을 반환.
+ */
 function UserProfileModal({ profile, onClose, position }) {
     const { user: currentUser } = useContext(AuthContext);
+    /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 현재 사용자와 프로필 사용자 간의 친구 관계 상태 */
     const [friendshipStatus, setFriendshipStatus] = useState('LOADING');
     
+    /**
+     * 프로필이 변경될 때마다 현재 사용자와의 친구 관계 상태를 서버에서 조회하는 Effect.
+     */
     useEffect(() => {
         if (profile && currentUser && profile.userId !== currentUser.userId) {
             const fetchStatus = async () => {
@@ -51,6 +68,9 @@ function UserProfileModal({ profile, onClose, position }) {
         }
     }, [profile, currentUser]);
     
+    /**
+     * '친구 추가' 버튼 클릭 시 친구 요청을 보내는 핸들러.
+     */
     const handleSendRequest = async () => {
         try {
             await axiosInstance.post('/api/friends/requests', { receiverId: profile.userId });
@@ -60,9 +80,13 @@ function UserProfileModal({ profile, onClose, position }) {
         }
     };
     
+    /**
+     * 친구 관계 상태에 따라 다른 상호작용 버튼을 렌더링하는 함수.
+     * @returns {JSX.Element|null} 상태에 맞는 버튼 JSX 또는 null.
+     */
     const renderActionButtons = () => {
         if (!currentUser || !profile || currentUser.userId === profile.userId) {
-            return null; // Don't show buttons on my own profile
+            return null; // 내 프로필에는 버튼을 표시하지 않음
         }
         
         switch (friendshipStatus) {

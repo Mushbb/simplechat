@@ -3,22 +3,32 @@ import axiosInstance from "../api/axiosInstance";
 import { AuthContext } from '../context/AuthContext';
 import { FaTrash, FaPencilAlt } from 'react-icons/fa';
 
+/**
+ * @file 단일 채팅 메시지와 그 안에 포함된 다양한 콘텐츠(텍스트, 이미지, 비디오, 파일, 링크 미리보기, YouTube)를 렌더링하는 컴포넌트들을 정의합니다.
+ */
+
 const SERVER_URL = axiosInstance.getUri();
 
-// ... (YouTubePlayer 컴포넌트는 변경 없음)
+/**
+ * YouTube 비디오를 렌더링하는 컴포넌트입니다.
+ * 처음에는 썸네일을 보여주고, 클릭 시 YouTube 임베드 플레이어로 전환됩니다.
+ * @param {object} props
+ * @param {string} props.videoId - 재생할 YouTube 비디오의 ID.
+ * @param {string} props.initialUrl - 원본 YouTube URL.
+ * @returns {JSX.Element} YouTubePlayer 컴포넌트의 JSX.
+ */
 const YouTubePlayer = ({ videoId, initialUrl }) => {
+  /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 비디오 플레이어 표시 여부 상태 */
   const [showVideo, setShowVideo] = useState(false);
   
-  // 썸네일을 클릭하면 비디오를 보여주는 함수
+  /** 썸네일 클릭 시 비디오를 표시하도록 상태를 변경하는 핸들러. */
   const handleThumbnailClick = () => {
     setShowVideo(true);
   };
   
-  // 유튜브 썸네일 이미지 URL
   const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
   
   if (!showVideo) {
-    // 썸네일 상태일 때의 JSX
     return (
         <>
           <a href={initialUrl} target="_blank" rel="noopener noreferrer">{initialUrl}</a>
@@ -29,7 +39,6 @@ const YouTubePlayer = ({ videoId, initialUrl }) => {
     );
   }
   
-  // 비디오 플레이어 상태일 때의 JSX
   return (
       <>
         <a href={initialUrl} target="_blank" rel="noopener noreferrer">{initialUrl}</a>
@@ -53,30 +62,51 @@ const YouTubePlayer = ({ videoId, initialUrl }) => {
 };
 
 
+/**
+ * 채팅방 내의 단일 메시지를 렌더링하는 컴포넌트.
+ * 메시지 내용, 작성자 정보, 시간, 수정/삭제 기능 등을 포함합니다.
+ * @param {object} props
+ * @param {import('../context/ChatContext').Message} props.message - 렌더링할 메시지 객체.
+ * @param {boolean} props.isFirstInGroup - 같은 작성자의 연속된 메시지 그룹 중 첫 번째 메시지인지 여부.
+ * @param {'ADMIN'|'MEMBER'|null} props.myRole - 현재 사용자의 방 내 역할.
+ * @param {(messageId: number) => void} props.handleDeleteMessage - 메시지 삭제 처리 함수.
+ * @param {(messageId: number, newContent: string) => void} props.handleEditMessage - 메시지 수정 처리 함수.
+ * @returns {JSX.Element} ChatMessage 컴포넌트의 JSX.
+ */
 const ChatMessage = ({ message, isFirstInGroup, myRole, handleDeleteMessage, handleEditMessage }) => {
   const { user } = useContext(AuthContext);
   const messageBodyRef = useRef(null);
+  /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 마우스가 메시지 위에 올라와 있는지 여부 */
   const [isHovered, setIsHovered] = useState(false);
+  /** @type {[boolean, React.Dispatch<React.SetStateAction<boolean>>]} 메시지 수정 모드 활성화 여부 */
   const [isEditing, setIsEditing] = useState(false);
+  /** @type {[string, React.Dispatch<React.SetStateAction<string>>]} 수정 중인 메시지 내용 */
   const [editedContent, setEditedContent] = useState(message.content);
 
+  /**
+   * 외부로부터 메시지 내용이 변경되었을 때, 수정 중이 아니라면 내부 상태를 동기화하는 Effect.
+   */
   useEffect(() => {
-    // message.content가 외부(WebSocket)로부터 변경되었을 때,
-    // 수정 중이 아니라면 editedContent를 업데이트합니다.
     if (!isEditing) {
       setEditedContent(message.content);
     }
   }, [message.content, isEditing]);
 
+  /** 메시지 수정을 시작하는 함수. */
   const handleStartEdit = () => {
     setIsEditing(true);
   };
 
+  /** 메시지 수정을 취소하고 원래 내용으로 복구하는 함수. */
   const handleCancelEdit = () => {
     setIsEditing(false);
-    setEditedContent(message.content); // 원래 내용으로 복구
+    setEditedContent(message.content);
   };
 
+  /**
+   * 수정된 내용을 저장하는 함수.
+   * 변경 사항이 있을 경우에만 부모 컴포넌트의 `handleEditMessage`를 호출합니다.
+   */
   const handleSaveEdit = () => {
     if (editedContent.trim() === message.content) {
         setIsEditing(false);
@@ -86,63 +116,69 @@ const ChatMessage = ({ message, isFirstInGroup, myRole, handleDeleteMessage, han
     setIsEditing(false);
   };
 
-  // ... (renderAdvancedContent, renderMessageContent, renderLinkPreview 함수는 변경 없음)
-  // 텍스트를 파싱하여 링크, 이미지, 비디오, 유튜브 등을 렌더링하는 함수
-      const renderAdvancedContent = (text) => {
-      if (!text) return '';
-      
-      const urlRegex = /(https?:\/\/[^\s]+)/g;
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
-      const videoExtensions = ['mp4', 'webm', 'ogg'];
-      const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w\-]+)/;
-      const mentionRegex = /@([^\s]+)/g; // @닉네임 패턴
-  
-      const parts = text.split(urlRegex);
-      return parts.map((part, i) => {
-        if (part.match(urlRegex)) {
-          const youtubeMatch = part.match(youtubeRegex);
-          if (youtubeMatch) {
-            const videoId = youtubeMatch[1];
-            return <YouTubePlayer key={i} videoId={videoId} initialUrl={part} />;
-          }
-          
-          try {
-            const url = new URL(part);
-            const extension = url.pathname.split('.').pop().toLowerCase();
-            if (imageExtensions.includes(extension)) {
-              return (
-                  <React.Fragment key={i}>
-                    <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
-                    <img src={part} alt="이미지 링크" />
-                  </React.Fragment>
-              );
-            }
-            if (videoExtensions.includes(extension)) {
-              return (
-                  <React.Fragment key={i}>
-                    <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
-                    <video src={part} controls />
-                  </React.Fragment>
-              );
-            }
-          } catch (e) { /* 유효하지 않은 URL은 일반 링크로 처리 */ }
-          
-          return <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>;
+  /**
+   * 메시지 텍스트를 파싱하여 URL, 이미지, 비디오, YouTube, 멘션 등을 각각에 맞는 컴포넌트로 렌더링합니다.
+   * @param {string} text - 원본 메시지 텍스트.
+   * @returns {React.ReactNodeArray} 렌더링할 React 노드 배열.
+   */
+  const renderAdvancedContent = (text) => {
+    if (!text) return '';
+    
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+    const videoExtensions = ['mp4', 'webm', 'ogg'];
+    const youtubeRegex = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w\-]+)/;
+    const mentionRegex = /@([^\s]+)/g;
+
+    const parts = text.split(urlRegex);
+    return parts.map((part, i) => {
+      if (part.match(urlRegex)) {
+        const youtubeMatch = part.match(youtubeRegex);
+        if (youtubeMatch) {
+          const videoId = youtubeMatch[1];
+          return <YouTubePlayer key={i} videoId={videoId} initialUrl={part} />;
         }
         
-        // 멘션 처리
-        const mentionParts = part.split(mentionRegex);
-        return mentionParts.map((mPart, j) => {
-          if (j % 2 === 1) { // 멘션된 닉네임 부분
-            const mentionedNickname = mPart;
-            const isMe = user && user.nickname === mentionedNickname;
-            return <span key={`${i}-${j}`} className={`mention-highlight ${isMe ? 'mention-me' : ''}`}>@{mentionedNickname}</span>;
+        try {
+          const url = new URL(part);
+          const extension = url.pathname.split('.').pop().toLowerCase();
+          if (imageExtensions.includes(extension)) {
+            return (
+                <React.Fragment key={i}>
+                  <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
+                  <img src={part} alt="이미지 링크" />
+                </React.Fragment>
+            );
           }
-          // 일반 텍스트 또는 멘션이 아닌 부분
-          return mPart.split('\n').map((line, k) => <React.Fragment key={`${i}-${j}-${k}`}>{line}{k < mPart.split('\n').length - 1 && <br />}</React.Fragment>);
-        });
+          if (videoExtensions.includes(extension)) {
+            return (
+                <React.Fragment key={i}>
+                  <a href={part} target="_blank" rel="noopener noreferrer">{part}</a><br />
+                  <video src={part} controls />
+                </React.Fragment>
+            );
+          }
+        } catch (e) { /* 유효하지 않은 URL은 일반 링크로 처리 */ }
+        
+        return <a key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</a>;
+      }
+      
+      const mentionParts = part.split(mentionRegex);
+      return mentionParts.map((mPart, j) => {
+        if (j % 2 === 1) {
+          const mentionedNickname = mPart;
+          const isMe = user && user.nickname === mentionedNickname;
+          return <span key={`${i}-${j}`} className={`mention-highlight ${isMe ? 'mention-me' : ''}`}>@{mentionedNickname}</span>;
+        }
+        return mPart.split('\n').map((line, k) => <React.Fragment key={`${i}-${j}-${k}`}>{line}{k < mPart.split('\n').length - 1 && <br />}</React.Fragment>);
       });
-    };  
+    });
+  };  
+
+  /**
+   * 메시지 타입에 따라 적절한 콘텐츠를 렌더링합니다. (예: 파일, 텍스트)
+   * @returns {JSX.Element} 렌더링된 메시지 내용.
+   */
   const renderMessageContent = () => {
     const content = message.content || '';
     switch (message.messageType) {
@@ -168,6 +204,10 @@ const ChatMessage = ({ message, isFirstInGroup, myRole, handleDeleteMessage, han
     }
   };
   
+  /**
+   * 메시지에 링크 미리보기 정보가 있을 경우, 이를 렌더링합니다.
+   * @returns {JSX.Element|null} 링크 미리보기 카드 JSX 또는 null.
+   */
   const renderLinkPreview = () => {
     if (!message.linkPreview) return null;
     const { url, title, description, imageUrl } = message.linkPreview;
