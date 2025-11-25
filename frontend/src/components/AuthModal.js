@@ -82,8 +82,8 @@ function AuthModal() {
                     </div>
                     <button type="submit" className="modal-submit-btn">로그인</button>
                 </form>
-                <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
-                    <button type="button" className="modal-submit-btn" onClick={handleSampleLogin} style={{ flex: 2, backgroundColor: '#6c757d' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px' }}>
+                    <button type="button" className="modal-submit-btn" onClick={handleSampleLogin} style={{ flex: 1, backgroundColor: '#6c757d' }}>
                         샘플 계정으로 로그인
                     </button>
                     <button type="button" className="modal-submit-btn" onClick={handleSwitchToRegister} style={{ flex: 1, backgroundColor: '#28a745' }}>
